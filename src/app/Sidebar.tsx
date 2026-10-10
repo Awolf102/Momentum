@@ -58,6 +58,7 @@ export function Sidebar({ hidden }: { hidden: boolean }) {
             >
               <span className="text-lg">{item.icon}</span>
               {item.label}
+              {item.badge && <item.badge />}
             </Link>
           )
         })}

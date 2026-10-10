@@ -8,6 +8,7 @@ import { ClimbOverlay, climbViewStore } from '@/features/climb'
 import { useFocusEngine } from '@/features/focus'
 import { ShareSheet } from '@/features/share'
 import { HabitSheet } from '@/features/habits'
+import { CaptureDialog } from '@/features/inbox'
 import { RoutineSheet } from '@/features/routines'
 import { QuickAddDialog, TaskSheet } from '@/features/tasks'
 import { useReminders } from '@/features/reminder'
@@ -111,6 +112,7 @@ function Chrome({ children }: { children: ReactNode }) {
       <TaskSheet />
       <HabitSheet />
       <RoutineSheet />
+      <CaptureDialog />
       <QuickAddDialog />
       <ShortcutsSheet commands={commands} />
       <CommandPalette

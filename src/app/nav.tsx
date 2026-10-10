@@ -1,10 +1,12 @@
-import type { ReactNode } from 'react'
+import type { ComponentType, ReactNode } from 'react'
 import {
   BookIcon,
   ChecklistIcon,
   HomeIcon,
+  InboxIcon,
   SlidersIcon,
 } from '@/components/icons'
+import { InboxBadge } from '@/features/inbox'
 import { paths } from '@/lib/routes'
 
 export interface NavItem {
@@ -12,6 +14,10 @@ export interface NavItem {
   label: string
   icon: ReactNode
   isActive: (location: string) => boolean
+  /** Left out of the phone tab bar (which has room for five). */
+  tabBar?: false
+  /** A count beside the name in the sidebar. */
+  badge?: ComponentType
 }
 
 /** The app's top-level screens, shown in the sidebar and the tab bar. */
@@ -27,6 +33,14 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Tasks',
     icon: <ChecklistIcon />,
     isActive: (location) => location.startsWith(paths.tasks),
+  },
+  {
+    href: paths.inbox,
+    label: 'Inbox',
+    icon: <InboxIcon />,
+    isActive: (location) => location.startsWith(paths.inbox),
+    tabBar: false,
+    badge: InboxBadge,
   },
   {
     href: paths.log,

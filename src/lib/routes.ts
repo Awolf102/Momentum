@@ -18,6 +18,7 @@ export const paths = {
   home: '/',
   log: '/log',
   tasks: '/tasks',
+  inbox: '/inbox',
   settings: (section?: SettingsSection) =>
     section ? `/settings/${section}` : '/settings',
 }

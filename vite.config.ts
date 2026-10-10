@@ -42,7 +42,20 @@ export default defineConfig({
             url: '/?checkin=1',
             icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }],
           },
+          {
+            name: 'Capture to inbox',
+            short_name: 'Capture',
+            url: '/inbox?capture=1',
+            icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }],
+          },
         ],
+        // Installed, Momentum appears in other apps' share menus (Android);
+        // what's shared lands in the inbox.
+        share_target: {
+          action: '/inbox',
+          method: 'GET',
+          params: { title: 'title', text: 'text', url: 'url' },
+        },
       },
       injectManifest: {
         // woff2 only: every browser with service workers supports it.

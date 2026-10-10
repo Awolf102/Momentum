@@ -10,7 +10,7 @@ optional bring-your-own-key AI layer. Phase 2 starts with a focus timer:
 Pomodoro sessions with subjects, which check you in when the day's first one
 finishes, a daily log (one line a day about what you did), and tasks with
 quick add, repeats and a kanban board, more habits beside the daily check-in,
-routines, and password-protected backups.
+routines, a quick-capture inbox, and password-protected backups.
 
 ## Guiding principles
 
@@ -58,6 +58,7 @@ src/
 ├── pages/
 │   ├── DashboardPage.tsx     Home: composes features into the dashboard
 │   ├── TasksPage.tsx         Tasks as a list or a board (lazy)
+│   ├── InboxPage.tsx         Captured things to sort; receives shares (lazy)
 │   ├── LogPage.tsx           The log: each day's line, check-in and focus (lazy)
 │   └── SettingsPage.tsx      Settings sections (lazy-loaded)
 ├── features/
@@ -76,6 +77,8 @@ src/
 │   │   ├── components/       FocusCard, TimerDial, FocusTodayTile, FocusPill
 │   │   └── settings.ts       Settings → Focus (its own entry point, lazy-loaded)
 │   ├── subjects/             Labels for sessions: Calculus, Reading… (editable)
+│   ├── inbox/                Capture now, sort later; the PWA share target
+│   │   └── lib/share.ts      What other apps share, safe links (tested)
 │   ├── routines/             Checklists for a part of the day, fresh each day
 │   │   ├── lib/day.ts        Part of the day, today's order, progress (tested)
 │   │   └── runs.ts           The routineRuns collection; ticking steps (tested)
@@ -258,6 +261,7 @@ Everything persisted, and where:
 | `habitCheckIns`               | The days each habit was done                                           |
 | `kv` › `momentum.routines`    | Routines: name, part of the day, steps, weekdays                       |
 | `routineRuns`                 | Each day's ticked steps per routine                                    |
+| `inboxItems`                  | Captured things not yet sorted (text, an optional link)                |
 | `kv` › `momentum.tasks`       | List or board                                                          |
 | `photos`                      | Uploaded photos as Blobs (2560 px + 360 px thumbnail)                  |
 | `secrets`                     | API keys: `anthropic`, `openai`, `compatible`                          |
@@ -265,14 +269,14 @@ Everything persisted, and where:
 | IndexedDB `momentum-reminder` | What the service worker needs for reminders (a mirror)                 |
 | localStorage `momentum.theme` | A copy of the theme, read before the first paint to avoid a flash      |
 
-These are object stores in the `momentum` database (version 7). Its schema
+These are object stores in the `momentum` database (version 8). Its schema
 lives in `lib/db/schema.ts` as one `upgrade` function with a step per version,
 so a browser on any older version upgrades in order: version 1 (photos only,
 from v2 of the app) gains `kv`, `secrets` and `meta`; version 2 (Phase 1) gains
 `focusSessions` and its indexes; version 3 (the timer) gains `logEntries`;
 version 4 (the log) gains `tasks` and its indexes; version 5 (tasks) gains
 `habitCheckIns`; version 6 (habits) gains `routineRuns` — both indexed by
-their habit or routine and by day.
+their habit or routine and by day; version 7 (routines) gains `inboxItems`.
 Existing streaks, sessions, settings, keys and photos are untouched — each path
 is tested against `fake-indexeddb`.
 
@@ -367,8 +371,8 @@ database version.
 ## Routing and the shell
 
 `wouter` (about 2 KB) maps paths to pages: `/` is the dashboard, and
-`/tasks` the tasks, `/log` the daily log, and `/settings/:section` the
-settings (appearance,
+`/tasks` the tasks, `/inbox` the inbox, `/log` the daily log, and
+`/settings/:section` the settings (appearance,
 focus, app, AI, data). Pages other than
 the dashboard load on first visit, behind an error boundary that explains a
 failed load instead of showing a blank screen. Real paths, not `#` routes: the
@@ -378,9 +382,12 @@ offline; a static host needs the usual single-page-app fallback to `index.html`.
 The shell keeps the existing look:
 
 - **Wide screens (≥ 1024 px):** a glass sidebar with the logo, search (⌘K), the
-  pages (Home, Tasks, Log, Settings), today's date and the sound control.
+  pages (Home, Tasks, Inbox with a count, Log, Settings), today's date and
+  the sound control.
 - **Phones and tablets:** the header stays, and a floating glass tab bar (Home,
-  Tasks, Log, Search, Settings) sits within thumb reach. Toasts move above it.
+  Tasks, Log, Search, Settings) sits within thumb reach; the inbox is reached
+  from the dashboard notice, ⌘K or a home-screen shortcut. Toasts move above
+  it.
 - The climb view still clears everything away. The fade is applied to each
   layer separately, because a `filter` on a shared wrapper would re-anchor the
   fixed sidebar and tab bar mid-transition.
@@ -779,6 +786,27 @@ streak. Moving it would touch all of them for no visible gain; the habit
 streak logic is separate because it understands weekdays, which the main
 streak doesn't need.
 
+## Inbox
+
+`features/inbox` is for catching things in the moment and deciding later.
+
+- **Capture** with I from anywhere (a dialog), on the Inbox page, or from the
+  home-screen shortcut (`/inbox?capture=1`). Enter saves; Shift+Enter starts a
+  new line. A web link in the text is picked out and shown as a link.
+- **Sharing to Momentum.** The manifest declares a share target
+  (`GET /inbox?title=…&text=…&url=…`), so once installed on Android, Momentum
+  is in other apps' share menus. `fromShare` (pure, tested) combines the three
+  fields, which apps fill in differently, without repeats; the page saves the
+  item and tidies the address, and a reload can't save it twice. The service
+  worker answers every navigation with the app, so this works offline.
+- **Only web links are links:** anything that isn't `http:` or `https:` (such
+  as `javascript:`) stays text.
+- **Sorting.** Each item can become a task — read like quick add, so "Email
+  tutor fri #calculus" gets its date and subject, and a link is kept in the
+  title — be added to today's log line, or be let go.
+- A notice on the dashboard says how many things are waiting, and the sidebar
+  shows the count.
+
 ## Routines
 
 `features/routines` keeps short checklists for a part of the day — a morning
@@ -835,9 +863,9 @@ created on the first play, which always follows a click or key press.
 
 `app/commands.tsx` lists every action once (title, section, keywords, optional
 hotkey). The ⌘K / Ctrl K palette searches it; the same list drives the keyboard
-shortcuts and the shortcuts sheet. Single-key shortcuts (C, F, N, L, M, S, A,
-T, `,`, `?`) are ignored while typing or while a dialog (`aria-modal`) is open.
-N adds a task from anywhere. F starts,
+shortcuts and the shortcuts sheet. Single-key shortcuts (C, F, N, I, L, M, S,
+A, T, `,`, `?`) are ignored while typing or while a dialog (`aria-modal`) is
+open. N adds a task and I captures to the inbox, from anywhere. F starts,
 pauses or resumes the focus timer; the palette also offers "Start focus on
 <subject>" for each subject, skip break and cancel, as they apply.
 
@@ -890,7 +918,8 @@ after a reload, sessions that ended while the app was closed, midnight crossing,
 check-in once per day, two wake-ups at once, daily totals and levels),
 habits (streaks over chosen weekdays, days off, the last week, the four-week
 rate, ticking on and off, merging), routines (part of the day, today's order,
-editing steps, completing and reopening a day), the daily log (one line per day, edits, deletion, tidying, the timeline), tasks
+editing steps, completing and reopening a day), the inbox (what apps share,
+safe links, capturing), the daily log (one line per day, edits, deletion, tidying, the timeline), tasks
 (quick add across dates, times, subjects, priorities, repeats and the words it
 must leave alone; repeating schedules through short months and missed dates;
 finishing, reopening, board moves, grouping), the AI
