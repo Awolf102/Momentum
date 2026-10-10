@@ -416,8 +416,9 @@ feature ─► ai.chat / ai.complete / ai.embed
 ### Privacy
 
 - Keys live in the `secrets` object store: never in a persistent store, so never
-  broadcast between tabs, logged, or exported unless the user opts in. Once
-  saved, the UI shows only a masked hint (`sk-ant…a1b2`).
+  broadcast between tabs, logged, or exported unless the user opts in — and a
+  backup with keys is always password-protected. Once saved, the UI shows only
+  a masked hint (`sk-ant…a1b2`).
 - Nothing is sent to a provider except on a user's action. Test connection says
   exactly what it sends (one line of text).
 - Usage is counted locally from what providers report.
@@ -435,7 +436,19 @@ this version doesn't know is saved for when it does; data from a newer version
 of a store is left alone. v1 (streak only) and v2 (no collections) backups
 still import.
 
-Settings → Data can reset the streak history and the focus history separately;
+**Password protection** (`lib/crypto.ts`) encrypts the whole backup on the
+device with the WebCrypto API: AES-GCM (256-bit, random 12-byte IV) under a
+key derived from the password with PBKDF2-SHA-256 (600 000 iterations, random
+16-byte salt). The file is a small JSON wrapper — format, version, the KDF and
+cipher parameters, when it was made, and the encrypted data — with nothing
+else readable. Passwords are Unicode-normalised, so the same password typed on
+another device opens it. A wrong password and an altered file are
+indistinguishable to AES-GCM, and both are refused. Files asking for fewer
+than 100 000 or more than 10 000 000 iterations are rejected as damaged. A
+backup that includes API keys can't be made without a password; the password
+is never stored, so a forgotten one can't be recovered.
+
+Settings → Data can reset the streak history, tasks, the log and the focus history separately;
 resetting focus clears the sessions and the timer but keeps settings and
 subjects.
 
@@ -796,10 +809,12 @@ Vitest covers the parts where bugs hide: date arithmetic (month, year, leap-day
 and DST boundaries — tests run in `Australia/Sydney`), streak rules, calendar
 layout, message selection, the store registry (hydration, localStorage
 migration, corruption, write-through, lazy stores, restore and merge),
-collections (atomic add, soft delete, merge), the database upgrade paths (v1
-and v2 to v3, data kept), backups (round trip, opt-in keys, sessions, v1 and v2
-files), the focus timer (remaining time across pause and resume, resuming after
-a reload, sessions that ended while the app was closed, midnight crossing, auto
+collections (atomic add, soft delete, merge), the database upgrade paths
+(every older version to the current one, data kept), backups (round trip,
+opt-in keys, sessions, v1 and v2 files; encryption: round trip, wrong
+passwords, altered files, the same password typed differently, iteration
+bounds), the focus timer (remaining time across pause and resume, resuming
+after a reload, sessions that ended while the app was closed, midnight crossing, auto
 check-in once per day, two wake-ups at once, daily totals and levels), the
 daily log (one line per day, edits, deletion, tidying, the timeline), tasks
 (quick add across dates, times, subjects, priorities, repeats and the words it
