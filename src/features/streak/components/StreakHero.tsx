@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { AutoHeight } from '@/components/AutoHeight'
 import { GlassCard } from '@/components/GlassCard'
 import { CheckIcon } from '@/components/icons'
@@ -8,13 +8,21 @@ import { cn } from '@/lib/cn'
 import { weekStartsOn } from '@/lib/locale'
 import type { StreakState } from '../hooks/useStreak'
 import { describeStreak } from '../lib/copy'
+import { onCheckIn } from '../store'
 import { createEmbers, type Ember } from '../lib/embers'
 import { EmberBurst } from './EmberBurst'
 import { Flame } from './Flame'
 import { WeekStrip } from './WeekStrip'
 
 /** The centrepiece: flame, streak number, this week, and the daily check-in. */
-export function StreakHero({ streak }: { streak: StreakState }) {
+export function StreakHero({
+  streak,
+  corner,
+}: {
+  streak: StreakState
+  /** Optional control in the card's top-right corner (e.g. share). */
+  corner?: ReactNode
+}) {
   const reduceMotion = useReducedMotion()
   const [burst, setBurst] = useState<{ id: number; embers: Ember[] } | null>(
     null,
@@ -23,12 +31,16 @@ export function StreakHero({ streak }: { streak: StreakState }) {
   const checkedIn = useMemo(() => new Set(streak.dates), [streak.dates])
   const lit = streak.checkedInToday
 
-  function handleCheckIn() {
-    if (!streak.checkIn()) return
-    setJustCheckedIn(true)
-    if (!reduceMotion) setBurst({ id: Date.now(), embers: createEmbers() })
-    navigator.vibrate?.(12)
-  }
+  // Celebrate every check-in, however it happened (button, shortcut, palette).
+  useEffect(
+    () =>
+      onCheckIn(() => {
+        setJustCheckedIn(true)
+        if (!reduceMotion) setBurst({ id: Date.now(), embers: createEmbers() })
+        navigator.vibrate?.(12)
+      }),
+    [reduceMotion],
+  )
 
   return (
     <GlassCard className="relative w-full max-w-xl px-6 pt-10 pb-8 text-center sm:px-10 sm:pt-12 sm:pb-10">
@@ -41,6 +53,12 @@ export function StreakHero({ streak }: { streak: StreakState }) {
           )}
         />
       </div>
+
+      {corner && (
+        <div className="absolute top-4 right-4 sm:top-5 sm:right-5">
+          {corner}
+        </div>
+      )}
 
       <div className="relative mx-auto size-16 sm:size-[72px]">
         <Flame lit={lit} className="size-full" />
@@ -98,7 +116,7 @@ export function StreakHero({ streak }: { streak: StreakState }) {
             <motion.button
               key="check-in"
               type="button"
-              onClick={handleCheckIn}
+              onClick={() => streak.checkIn()}
               exit={{ opacity: 0, scale: 0.94, transition: { duration: 0.18 } }}
               whileHover={{ y: -2 }}
               whileTap={{ scale: 0.97 }}

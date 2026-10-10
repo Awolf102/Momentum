@@ -11,3 +11,9 @@ and they become built-in backgrounds the next time the app builds.
 Photos added here are committed to the repository and bundled with the app.
 To keep a photo private to one browser instead, add it from
 **Settings → Background → Your photo**.
+
+## Rewards
+
+Photos in `unlocks/<days>/` (for example `unlocks/30/great-ocean-road.jpg`)
+stay locked until your longest streak reaches that many days, then appear in
+the picker with a celebration.

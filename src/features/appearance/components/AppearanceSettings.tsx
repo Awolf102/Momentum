@@ -1,8 +1,17 @@
 import type { ReactNode } from 'react'
 import { MoonIcon, SunIcon } from '@/components/icons'
 import { SegmentedControl } from '@/components/SegmentedControl'
-import { useStore } from '@/lib/persistentStore'
-import { appearanceStore, MAX_OVERLAY, setOverlay, setTheme } from '../store'
+import { useProgress } from '@/lib/progress'
+import { useStore } from '@/lib/store'
+import { useLight } from '../hooks/useBackground'
+import { FULL_WARMTH_DAYS, PHASE_LABELS, type LightMode } from '../lib/light'
+import {
+  appearanceStore,
+  MAX_OVERLAY,
+  setLight,
+  setOverlay,
+  setTheme,
+} from '../store'
 import type { ThemeMode } from '../types'
 import { BackgroundPicker } from './BackgroundPicker'
 
@@ -24,6 +33,35 @@ export function ThemeSetting() {
       options={THEME_OPTIONS}
       onChange={setTheme}
     />
+  )
+}
+
+const LIGHT_OPTIONS = [
+  { value: 'time', label: 'Time of day' },
+  { value: 'streak', label: 'Streak' },
+  { value: 'off', label: 'Off' },
+] as const satisfies readonly { value: LightMode; label: string }[]
+
+export function LightSetting() {
+  const { light: mode } = useStore(appearanceStore)
+  const light = useLight()
+  const { current } = useProgress()
+  const phase = PHASE_LABELS[light.phase].toLowerCase()
+  const description = {
+    time: `Shifts from dawn to dusk with the clock. Right now: ${phase}.`,
+    streak: `Warms from night to golden hour as your streak grows (full warmth at ${FULL_WARMTH_DAYS} days). At ${current} ${current === 1 ? 'day' : 'days'}: ${phase}.`,
+    off: 'The mountain stays at dusk and photos are shown as taken.',
+  }[mode]
+  return (
+    <div className="space-y-3">
+      <SegmentedControl
+        label="Light"
+        value={mode}
+        options={LIGHT_OPTIONS}
+        onChange={setLight}
+      />
+      <p className="text-xs text-fg-subtle">{description}</p>
+    </div>
   )
 }
 
