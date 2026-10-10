@@ -600,3 +600,41 @@ export function MicIcon(props: IconProps) {
     </Icon>
   )
 }
+
+export function ChevronLeftIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M14.5 6l-6 6 6 6" />
+    </Icon>
+  )
+}
+
+export function ChevronRightIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M9.5 6l6 6-6 6" />
+    </Icon>
+  )
+}
+
+export function GripIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="9" cy="6.5" r="0.9" fill="currentColor" />
+      <circle cx="15" cy="6.5" r="0.9" fill="currentColor" />
+      <circle cx="9" cy="12" r="0.9" fill="currentColor" />
+      <circle cx="15" cy="12" r="0.9" fill="currentColor" />
+      <circle cx="9" cy="17.5" r="0.9" fill="currentColor" />
+      <circle cx="15" cy="17.5" r="0.9" fill="currentColor" />
+    </Icon>
+  )
+}
+
+export function PlanIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3.5" y="4.5" width="17" height="16" rx="3" />
+      <path d="M8 2.5v4M16 2.5v4M7.5 11h5M7.5 15.5h9" />
+    </Icon>
+  )
+}

@@ -12,6 +12,7 @@ import { HabitsCard, useHabitsCalendarView } from '@/features/habits'
 import { InboxNotice } from '@/features/inbox'
 import { ContinueReading } from '@/features/library'
 import { TodayLine } from '@/features/log'
+import { PlanTodayCard } from '@/features/planner'
 import { RoutinesCard } from '@/features/routines'
 import { openShare } from '@/features/share'
 import { TasksTodayCard, useTasksCalendarView } from '@/features/tasks'
@@ -52,6 +53,7 @@ export function DashboardPage() {
           <StreakStatTiles streak={streak} />
           <FocusTodayTile className="col-span-2 sm:col-span-1" />
         </div>
+        <PlanTodayCard />
         <TasksTodayCard />
         <ContinueReading />
         <CardsDueCard />

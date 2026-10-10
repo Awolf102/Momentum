@@ -20,6 +20,11 @@ export const paths = {
   /** The log, scrolled to a day. */
   logDay: (day: string) => `/log?day=${day}`,
   tasks: '/tasks',
+  /** The plan: today's, or a day's. */
+  plan: '/plan',
+  planDay: (day: string) => `/plan?day=${day}`,
+  /** The plan with its calendars open, to import one. */
+  planCalendars: '/plan?calendars=1',
   inbox: '/inbox',
   notes: '/notes',
   library: '/library',

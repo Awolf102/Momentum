@@ -58,6 +58,7 @@ src/
 ├── pages/
 │   ├── DashboardPage.tsx     Home: composes features into the dashboard
 │   ├── TasksPage.tsx         Tasks as a list or a board (lazy)
+│   ├── PlanPage.tsx          The plan: a day's timeline (lazy)
 │   ├── InboxPage.tsx         Captured things to sort; receives shares (lazy)
 │   ├── NotesPage.tsx         Notes: the list and the open note (lazy)
 │   ├── LibraryPage.tsx       The library's shelf, or a document open (lazy)
@@ -150,6 +151,14 @@ src/
 │   │   ├── lib/groups.ts, lib/board.ts   List groups, board order (tested)
 │   │   ├── tasks.ts          The tasks collection; add, edit, finish, move (tested)
 │   │   └── page.ts           The board and list (only the lazy page loads them)
+│   ├── planner/              The plan: blocks of time on a day, imported calendars
+│   │   ├── lib/ics.ts        Reading .ics files: events, zones, repeats, changes (tested)
+│   │   ├── lib/recurrence.ts The days a repeating event falls on (tested)
+│   │   ├── lib/day.ts        A day's events in this device's time (tested)
+│   │   ├── lib/layout.ts     Overlapping things side by side (tested)
+│   │   ├── blocks.ts, calendars.ts   The collections (tested)
+│   │   ├── components/       The timeline, the block sheet, tasks waiting, calendars
+│   │   └── page.ts           The Plan page (only the lazy page loads it)
 │   ├── log/                  The daily log: one line per day, editable in place
 │   │   ├── entries.ts        The logEntries collection; setLine (tested)
 │   │   ├── lib/timeline.ts   Days with a line, check-in or focus (pure, tested)
@@ -457,6 +466,8 @@ Everything persisted, and where:
 | `cardReviews`                          | Every rating given to a card (above); read by day                      |
 | `kv` › `momentum.cards`                | New cards a day, recall to aim for, the habit cards count towards      |
 | `quizzes`                              | Practice quizzes, their questions and every go at them (above)         |
+| `blocks`                               | The plan: time set aside on a day (below); read by day                 |
+| `calendars`                            | Calendars imported from .ics files, with their events (below)          |
 | `kv` › `momentum.tasks`                | List or board                                                          |
 | `photos`                               | Uploaded photos as Blobs (2560 px + 360 px thumbnail)                  |
 | `secrets`                              | API keys: `anthropic`, `openai`, `compatible`                          |
@@ -464,7 +475,7 @@ Everything persisted, and where:
 | IndexedDB `momentum-reminder`          | What the service worker needs for reminders (a mirror)                 |
 | localStorage `momentum.theme`          | A copy of the theme, read before the first paint to avoid a flash      |
 
-These are object stores in the `momentum` database (version 14). Its schema
+These are object stores in the `momentum` database (version 15). Its schema
 lives in `lib/db/schema.ts` as one `upgrade` function with a step per version,
 so a browser on any older version upgrades in order: version 1 (photos only,
 from v2 of the app) gains `kv`, `secrets` and `meta`; version 2 (Phase 1) gains
@@ -477,7 +488,8 @@ gains the library's `documents`, `highlights`, `documentFiles` and
 `documentTexts`; version 10 (the library) gains the search-by-meaning index,
 `embeddingSources` and `embeddingVectors`; version 11 (search by meaning)
 gains `conversations`; version 12 (the assistant) gains `cards` and
-`cardReviews`; version 13 (flashcards) gains `quizzes`.
+`cardReviews`; version 13 (flashcards) gains `quizzes`; version 14 (quizzes)
+gains `blocks`, indexed by day, and `calendars`.
 Existing streaks, sessions, settings, keys and photos are untouched — each path
 is tested against `fake-indexeddb`.
 
@@ -1012,6 +1024,64 @@ the Web Share API where files are supported, otherwise downloaded or copied.
 - The board and list are only used by the Tasks page, so they have their own
   entry point (`features/tasks/page.ts`); everything the dashboard uses comes
   from `index.ts`.
+
+## The plan
+
+`features/planner` sets aside time on a day (`/plan`, P, ⌘K **Plan the
+day**), around calendars imported from .ics files.
+
+- **The day** (`components/Timeline.tsx`): hour by hour (66 px an hour on a
+  wide screen, 60 on a phone) in its own scrolling frame, which opens on the
+  time now, or on the day's first thing. Calendar events are outlined and
+  read-only; your blocks are solid, coloured by subject (or by kind). Things
+  that overlap share the width (`lib/layout.ts`: each group of overlapping
+  items splits it, and an item takes the first free column). Focus sessions
+  done run down the left edge, tasks due at a time are marked across the day,
+  and a line shows the time now.
+- **Blocks** (the `blocks` collection, by day): a time, a kind (task, focus
+  or other), a title and a subject, and a task for a task's block. Pick a
+  time to add one; drag a block to move it, or its bottom edge to stretch
+  it, a quarter hour at a time; the arrow keys do the same (with Shift for
+  the length), Enter opens it, Delete takes it off (Undo). On a touch screen
+  a block is held a moment (280 ms) before it moves, so the day still
+  scrolls under a finger; its edge moves at once. Dragging near the top or
+  bottom scrolls the day.
+- **Tasks waiting** (`components/ToPlan.tsx`): open tasks overdue, due that
+  day or undated that aren't on that day's plan yet. With a mouse they drag
+  onto the day; **+** puts one in the next free hour (`freeSlot`: from now,
+  or 9:00 on another day, around events and blocks). A task's block shows the
+  task's own title and ticks it off.
+- **Focus**: a focus block that's on now (from half an hour before) has a
+  start button for the focus timer, on its subject.
+- **Calendars** (the `calendars` collection: one record per file, with its
+  events): imported with the button, by dropping a file on the page, or from
+  ⌘K **Import a calendar**; renamed, recoloured, hidden, replaced with a
+  newer file (keeping its name, colour and whether it's shown) or removed
+  (Undo). Nothing is fetched: a calendar's web address would need a server to
+  get round CORS for most providers, so files it is.
+- **Reading .ics** (`lib/ics.ts`): lines unfolded and unescaped, events with
+  DTSTART and DTEND or DURATION, all-day events, and times kept as written in
+  their own zone (`lib/tzid.ts` reads IANA names, Outlook's Windows names and
+  vendor prefixes; a zone it can't tell is read as local time), so a class at
+  9:00 stays at 9:00 through daylight saving. Repeats (`lib/recurrence.ts`):
+  daily, weekly, monthly and yearly, with intervals, weekdays and the week's
+  first day, the nth or last weekday, days of the month, months, counts and
+  ends. EXDATE leaves a time out; a moved or cancelled time of a series
+  (RECURRENCE-ID) is left out of the series and the moved one kept on its
+  own; cancelled events are left out. Repeats it can't follow (hourly,
+  BYSETPOS and the like) are shown once, and the import says how many. At
+  most 5,000 events and 5 MB a file.
+- **On a day** (`lib/day.ts`): each shown calendar's events for the day in
+  this device's time (a wall-clock time becomes a moment with `Intl`, in
+  `lib/zones.ts`), cut to the day when they start the night before or run
+  past midnight; all-day ones go above it.
+- **Elsewhere**: Today's plan on the dashboard (what's on now and next, from
+  blocks and calendars, with Start for a focus block that's on now); Settings
+  → Data clears the plan or removes the calendars; backups include both.
+- **Size**: the Plan page is 38 kB (13 kB compressed), loaded when it's
+  opened, with the parser and the zone names. The dashboard card and what it
+  reads (both collections, repeats, a day's events, times) add 12 kB (4 kB
+  compressed) to the first load.
 
 ## Habits
 
@@ -1623,16 +1693,19 @@ created on the first play, which always follows a click or key press.
 `app/commands.tsx` lists every action once (title, section, keywords, optional
 hotkey). The ⌘K / Ctrl K palette searches it (and everything else; see
 Search); the same list drives the keyboard
-shortcuts and the shortcuts sheet. Single-key shortcuts (C, F, N, I, L, R, M,
-S, A, T, `,`, `?`) are ignored while typing or while a dialog (`aria-modal`)
+shortcuts and the shortcuts sheet. Single-key shortcuts (C, F, N, I, L, R, P,
+M, S, A, T, `,`, `?`) are ignored while typing or while a dialog (`aria-modal`)
 is open. Bindings are refreshed before paint, so a key pressed as soon as
 something new shows reaches the handlers that go with it. N adds a task and I captures to the inbox, from anywhere; New note and
 Go to Notes are in the palette, and on a note E starts writing. F starts,
 pauses or resumes the focus timer; the palette also offers "Start focus on
 <subject>" for each subject, skip break and cancel, as they apply. Pages
 add keys of their own where nothing app-wide uses them, since app-wide
-shortcuts are handled first: studying cards (Space, 1–4, Z, E) and taking a
-quiz (1–4 to choose, 1–3 to mark, G for AI's mark, Enter to move on).
+shortcuts are handled first: studying cards (Space, 1–4, Z, E), taking a
+quiz (1–4 to choose, 1–3 to mark, G for AI's mark, Enter to move on) and the
+plan (← → for the day before and after; on a block, ↑ ↓ to move it, with
+Shift to change its length, Enter to open it, Delete to take it off). P opens
+the plan from anywhere.
 
 ## Offline, install and reminders
 
@@ -1718,6 +1791,15 @@ format each browser can make, file names providers read, lengths as a
 clock and in words, a second of silence as a WAV, transcription models in
 model lists, the request with its name and type, usage counted only in
 tokens, Anthropic saying it doesn't transcribe, tidying as material), the
+plan (zones from IANA, Windows and prefixed names; wall-clock times through
+daylight saving, including times skipped and repeated; .ics lines folded,
+quoted and escaped; days, times and lengths; repeat rules, and ones it can't
+follow; a whole timetable: a series with a break, a moved and a cancelled
+time, an all-day exam period, an Outlook lab, an overnight event, a hidden
+calendar; nth and last weekdays, short months, 29 February, intervals with
+the week's first day, counts and ends; the day's layout; quarter hours,
+clock times and the next free time; blocks kept within the day; calendars
+read back), the
 assistant (keyword ranking and fusion, joining neighbouring passages, the request and
 its history, citations, the plans snapshot and its parts, keeping to one
 document, answers saved with what was sent, failures, Ask again, Stop
@@ -1752,5 +1834,13 @@ fake microphone: the meter, Pause and Resume, the microphone let go at Done
 and on leaving; the connection test; nothing sent before Send; the
 recording sent once, with its type; tidying it and back; editing and
 saving; a recording chosen; files turned away; no words heard; Stop; a
-microphone that isn't allowed) — are checked in a headless browser at
-desktop and phone sizes.
+microphone that isn't allowed), and the plan (importing a timetable and
+what it says it couldn't follow, a day's events and all-day ones, tasks
+waiting, adding a block at a time, moving and stretching it with the mouse
+and the keys, dragging a task on and adding one to the next free hour,
+ticking it off, editing, removing and Undo, hiding, renaming and
+recolouring a calendar, a file that isn't one, dropping one, a focus block
+starting the timer, the dashboard card, ⌘K, clearing the plan; and touch on
+an emulated phone: a swipe over a block scrolls the day, a hold then a drag
+moves it, its edge stretches it, a tap opens it) — are checked in a headless
+browser at desktop and phone sizes.

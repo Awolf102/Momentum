@@ -20,6 +20,10 @@ day, keep the flame lit, and watch your streak grow.
   becomes a task with a date, time, subject, priority and repeat. A list by
   due date, or a To do / Doing / Done board with drag and drop. Today's tasks
   on the dashboard, and N adds one from anywhere.
+- **Plan:** the day hour by hour. Set aside time for focus and tasks around
+  your classes: drag tasks onto it, move and stretch blocks a quarter hour at a
+  time, and import your timetable (.ics) so classes show up. A focus block
+  that's on now starts the timer.
 - **More habits:** reading, exercise, practice — each with its own streak, on
   every day or just the days you choose (days off never break it), with the
   last week at a glance and its own calendar.
@@ -219,6 +223,33 @@ Type a task the way you'd say it; what Momentum understood shows underneath:
 Put words in "quotes" to keep them as they are. Tap a task to edit it; switch
 to **Board** to drag tasks between To do, Doing and Done.
 
+## Plan
+
+Open **Plan** in the sidebar (or press P, or the dashboard's **Today's plan**).
+The day runs hour by hour, with your classes and other imported events, the
+time now, and the focus sessions you've done down the left.
+
+- **Add a block:** pick a time on the day, or **+ Block**. A block is focus
+  time (with a subject) or anything else: gym, lunch, travel.
+- **Move it:** drag it, or select it and use ↑ ↓; drag its bottom edge, or hold
+  Shift with ↑ ↓, to change its length. Times snap to quarter hours. On a phone,
+  hold a block a moment before dragging it. Tap it to change or remove it.
+- **Plan tasks:** tasks that are overdue, due that day or without a date wait
+  beside the day (under **To plan** on a phone). Drag one on with a mouse, or
+  **+** puts it in the next free hour. Tick it off from its block.
+- **Focus:** a focus block that's on now has ▶ to start the timer on its subject.
+- **← →** go to the day before and after.
+
+### Calendars
+
+Import your timetable or any calendar as an **.ics** file with **Import a
+calendar**, or drop the file on the page. Google Calendar and Outlook can export
+one, and most uni timetables offer one to download. It's read on this device;
+nothing is uploaded, and its events can't be changed here. Import a newer file
+to update it. Repeating classes, cancelled and moved times, all-day events and
+time zones (Outlook's names included) come through; a repeat Momentum can't
+follow yet is shown once, and the import says so.
+
 ## Notes
 
 Open **Notes** (or ⌘K → New note). A note opens to read; **Write** (or E)
@@ -348,6 +379,9 @@ minutes.
 | I           | Capture to inbox                  |
 | L           | Write today's log line            |
 | R           | Study cards                       |
+| P           | Plan the day                      |
+| ← →         | Day before / after (plan)         |
+| ↑ ↓         | Move a block; with Shift, resize  |
 | Space, 1–4  | Show the answer, rate it          |
 | Z           | Undo the last rating (cards)      |
 | 1–4, 1–3    | Choose an answer, mark one (quiz) |
@@ -388,11 +422,11 @@ cards, and the Anthropic and OpenAI SDKs (all loaded on demand) · Web Audio · 
 ```
 src/
 ├── app/          App shell: routes, sidebar, tab bar, header, commands
-├── pages/        Pages composed from features (dashboard, tasks, notes,
-│                 photo notes, library, cards, quizzes, ask, inbox, log,
-│                 settings)
-├── features/     streak · habits · routines · focus · subjects · tasks · notes
-│                 capture · library · search · embeddings · flashcards · quizzes
+├── pages/        Pages composed from features (dashboard, tasks, plan,
+│                 notes, photo and voice notes, library, cards, quizzes, ask,
+│                 inbox, log, settings)
+├── features/     streak · habits · routines · focus · subjects · tasks · planner
+│                 notes · capture · library · search · embeddings · flashcards · quizzes
 │                 assistant · inbox · log · calendar
 │                 motivation · appearance · climb · share · ambience
 │                 reminder · pwa · backup · ai

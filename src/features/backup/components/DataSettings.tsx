@@ -29,6 +29,7 @@ import {
 } from '@/features/library'
 import { logEntries } from '@/features/log'
 import { notes } from '@/features/notes'
+import { blocks, calendars } from '@/features/planner'
 import { quizzes } from '@/features/quizzes'
 import { routineRuns, routinesStore } from '@/features/routines'
 import { tasks } from '@/features/tasks'
@@ -486,6 +487,22 @@ function ResetCard() {
           onReset={() => {
             void tasks.clear()
             setDone('Your tasks were cleared.')
+          }}
+        />
+        <ResetRow
+          label="Clear the plan"
+          confirm="Tap again to take every block off the plan"
+          onReset={() => {
+            void blocks.clear()
+            setDone('Your plan was cleared. Tasks are kept.')
+          }}
+        />
+        <ResetRow
+          label="Remove imported calendars"
+          confirm="Tap again to remove every imported calendar"
+          onReset={() => {
+            void calendars.clear()
+            setDone('Your imported calendars were removed.')
           }}
         />
         <ResetRow

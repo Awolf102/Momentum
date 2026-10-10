@@ -179,8 +179,9 @@ versions and the flame stages could go in earlier.
 | 2     | In review | Focus timer, subjects and collections (`feature/focus-timer`); daily log (`feature/daily-log`); tasks with quick add, repeats and the board (`feature/tasks`); password-protected backups (`feature/encrypted-backup`); more habits (`feature/habits`); routines (`feature/routines`); the inbox (`feature/inbox`). Each its own PR, stacked in that order |
 | 3     | In review | Notes with maths, code and links (`feature/notes`, PR #10); search in ⌘K (`feature/search`), stacked on notes                                                                                                                                                                                                                                              |
 | 4     | In review | Document library and PDF viewer with highlights (`feature/library`), stacked on search; search by meaning (`feature/embeddings`), stacked on the library; chat with documents and the assistant (`feature/assistant`), stacked on search by meaning                                                                                                        |
-| 5     | In review | Flashcards with FSRS (`feature/flashcards`, PR #15), stacked on the assistant; practice quizzes (`feature/quizzes`, PR #16), stacked on flashcards; image to notes (`feature/image-notes`, PR #17), stacked on quizzes; voice notes (`feature/voice-notes`), stacked on image to notes                                                                     |
-| 6–7   | Planned   |                                                                                                                                                                                                                                                                                                                                                            |
+| 5     | In review | Flashcards with FSRS (`feature/flashcards`, PR #15), stacked on the assistant; practice quizzes (`feature/quizzes`, PR #16), stacked on flashcards; image to notes (`feature/image-notes`, PR #17), stacked on quizzes; voice notes (`feature/voice-notes`, PR #18), stacked on image to notes                                                             |
+| 6     | Building  | Time blocking with .ics import (`feature/time-blocking`), stacked on voice notes                                                                                                                                                                                                                                                                           |
+| 7     | Planned   |                                                                                                                                                                                                                                                                                                                                                            |
 
 ### What Phase 1 changed in the plan
 
@@ -416,3 +417,25 @@ versions and the flame stages could go in earlier.
   with photos.
 - **Phase 5 is complete.** Next is Phase 6: time blocking with .ics
   import, goals, the AI planner and weekly review, and analytics.
+
+### What time blocking changed in the plan
+
+- **Files, not subscriptions.** Calendars come in as .ics files, read-only,
+  as planned. A calendar's web address would need a server to fetch it past
+  CORS, so importing a newer file replaces an imported one; Phase 7's
+  optional server could subscribe instead.
+- **Times keep their zone.** Events are kept as written (a wall-clock time
+  and its zone) and put on the day with `Intl`, so a weekly class stays at
+  its time through daylight saving, and Outlook's Windows zone names work.
+- **Blocks are records of their own, not task times.** A task's block links
+  to the task and leaves its due date and time alone: a deadline isn't when
+  you'll do it. Tasks due at a time are marked on the day instead.
+- **Repeats it can't follow are shown once, and counted,** rather than
+  guessed at; the import says how many.
+- **On a phone, hold a block to drag it,** so the day still scrolls under a
+  finger; the arrow keys do the same for keyboards.
+- **A page, a dashboard card and P,** rather than a tab on phones, whose bar
+  has room for five.
+- **Next:** goals (long-term, with milestones, linked to tasks and habits),
+  then the AI planner and weekly review, which can draft blocks onto this
+  timeline, then analytics.
