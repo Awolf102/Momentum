@@ -29,6 +29,13 @@ export function createBrowserProvider(): AiProvider {
       }
     },
 
+    async transcribe() {
+      throw new AiError(
+        'unsupported',
+        'The model on this device makes embeddings only. Choose OpenAI or a compatible server for transcription.',
+      )
+    },
+
     async embed({ model, input, signal }) {
       if (signal?.aborted) throw abortError()
       const { embedLocally } = await import('../local/client')

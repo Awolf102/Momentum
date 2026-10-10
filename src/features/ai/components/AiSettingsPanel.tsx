@@ -18,7 +18,12 @@ import {
   setCompatibleBaseUrl,
   setTaskProvider,
 } from '../store'
-import type { AiTask, ChatProviderId, EmbeddingProviderId } from '../types'
+import type {
+  AiTask,
+  ChatProviderId,
+  EmbeddingProviderId,
+  TranscriptionProviderId,
+} from '../types'
 import { KeyField } from './KeyField'
 import { LocalModelField } from './LocalModelField'
 import { ModelField } from './ModelField'
@@ -41,6 +46,7 @@ export function AiSettingsPanel({
       <TaskCard task="chat" />
       <TaskCard task="embeddings" />
       {afterEmbeddings}
+      <TaskCard task="transcription" />
       <UsageCard />
     </>
   )
@@ -54,7 +60,8 @@ function describeReadiness(readiness: AiReadiness): string {
 function StatusCard() {
   const chat = useAiReadiness('chat')
   const embeddings = useAiReadiness('embeddings')
-  const on = chat.ready || embeddings.ready
+  const transcription = useAiReadiness('transcription')
+  const on = chat.ready || embeddings.ready || transcription.ready
   return (
     <GlassCard className="p-5 sm:p-6">
       <div className="flex items-start gap-4">
@@ -74,6 +81,10 @@ function StatusCard() {
               <dt className="text-fg-subtle">Embeddings</dt>
               <dd className="min-w-0 truncate text-fg-muted">
                 {describeReadiness(embeddings)}
+              </dd>
+              <dt className="text-fg-subtle">Transcription</dt>
+              <dd className="min-w-0 truncate text-fg-muted">
+                {describeReadiness(transcription)}
               </dd>
             </dl>
           ) : (
@@ -219,6 +230,12 @@ const EMBEDDING_PROVIDERS: readonly SegmentedOption<EmbeddingProviderId>[] = [
   { value: 'browser', label: 'This device' },
 ]
 
+const TRANSCRIPTION_PROVIDERS: readonly SegmentedOption<TranscriptionProviderId>[] =
+  [
+    { value: 'openai', label: 'OpenAI' },
+    { value: 'compatible', label: 'Compatible' },
+  ]
+
 const TASK_COPY: Record<AiTask, { title: string; description: string }> = {
   chat: {
     title: 'Chat',
@@ -228,6 +245,11 @@ const TASK_COPY: Record<AiTask, { title: string; description: string }> = {
     title: 'Embeddings',
     description:
       "Search by meaning across notes and documents. Anthropic doesn't offer embeddings, so they come from OpenAI, a compatible server, or a small model that runs on this device.",
+  },
+  transcription: {
+    title: 'Transcription',
+    description:
+      "Voice notes: speech into text. Anthropic doesn't offer it, so it comes from OpenAI (Whisper or a GPT transcribe model) or a compatible server.",
   },
 }
 
@@ -246,12 +268,19 @@ function TaskCard({ task }: { task: AiTask }) {
             options={CHAT_PROVIDERS}
             onChange={(next) => setTaskProvider('chat', next)}
           />
-        ) : (
+        ) : task === 'embeddings' ? (
           <SegmentedControl
             label="Embeddings provider"
             value={provider as EmbeddingProviderId}
             options={EMBEDDING_PROVIDERS}
             onChange={(next) => setTaskProvider('embeddings', next)}
+          />
+        ) : (
+          <SegmentedControl
+            label="Transcription provider"
+            value={provider as TranscriptionProviderId}
+            options={TRANSCRIPTION_PROVIDERS}
+            onChange={(next) => setTaskProvider('transcription', next)}
           />
         )}
         {provider === 'browser' ? (

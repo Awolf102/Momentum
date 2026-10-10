@@ -13,7 +13,10 @@ export type ChatProviderId = Exclude<ProviderId, 'browser'>
  */
 export type EmbeddingProviderId = Exclude<ProviderId, 'anthropic'>
 
-export type AiTask = 'chat' | 'embeddings'
+/** Speech to text comes from OpenAI or a compatible server; Anthropic offers none. */
+export type TranscriptionProviderId = 'openai' | 'compatible'
+
+export type AiTask = 'chat' | 'embeddings' | 'transcription'
 
 /** Part of a message: some text, or a picture (sent as base64). */
 export type ContentPart =
@@ -66,6 +69,22 @@ export interface EmbedResult {
   usage: TokenUsage
 }
 
+export interface TranscribeRequest {
+  model: string
+  audio: Blob
+  /** A name with the right extension: providers tell the format by it. */
+  fileName: string
+  /** The language spoken (ISO 639-1), when known; it helps accuracy. */
+  language?: string
+  signal?: AbortSignal
+}
+
+export interface TranscribeResult {
+  text: string
+  /** Tokens, when the model is billed by them (Whisper is billed by the minute). */
+  usage?: TokenUsage
+}
+
 export interface ModelInfo {
   id: string
   /** A friendlier name, when the provider gives one. */
@@ -80,6 +99,7 @@ export interface AiProvider {
   readonly id: ProviderId | 'mock'
   chat(request: ChatRequest): AsyncIterable<ChatEvent>
   embed(request: EmbedRequest): Promise<EmbedResult>
+  transcribe(request: TranscribeRequest): Promise<TranscribeResult>
   listModels(signal?: AbortSignal): Promise<ModelInfo[]>
 }
 

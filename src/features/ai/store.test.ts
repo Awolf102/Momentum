@@ -45,6 +45,10 @@ describe('AI settings', () => {
         models: { anthropic: 'claude-x', openai: 42 },
       },
       embeddings: { provider: 'anthropic', models: {} },
+      transcription: {
+        provider: 'anthropic',
+        models: { compatible: 'whisper-local-test' },
+      },
       prices: {
         'openai:gpt-x': { input: 1, output: 2 },
         broken: { input: -1, output: 1 },
@@ -52,12 +56,20 @@ describe('AI settings', () => {
     })
     expect(parsed).toEqual({
       chat: { provider: 'anthropic', models: { anthropic: 'claude-x' } },
-      // Anthropic has no embeddings, so it can't be chosen for them.
+      // Anthropic has no embeddings or transcription, so it can't be chosen for them.
       embeddings: { provider: 'openai', models: {} },
+      transcription: {
+        provider: 'openai',
+        models: { compatible: 'whisper-local-test' },
+      },
       compatibleBaseUrl: DEFAULT_AI_SETTINGS.compatibleBaseUrl,
       prices: { 'openai:gpt-x': { input: 1, output: 2 } },
     })
     expect(parseAiSettings('nope')).toBeNull()
+    // Settings saved before voice notes have no transcription yet.
+    expect(parseAiSettings({})?.transcription).toEqual(
+      DEFAULT_AI_SETTINGS.transcription,
+    )
   })
 
   it('drops malformed usage entries', () => {

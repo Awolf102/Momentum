@@ -64,7 +64,7 @@ src/
 │   ├── AssistantPage.tsx     Ask: conversations about your notes or plans (lazy)
 │   ├── CardsPage.tsx         Cards: what's due, studying, making cards (lazy)
 │   ├── QuizzesPage.tsx       Quizzes: making one, taking it, how it went (lazy)
-│   ├── CapturePage.tsx       A note from photos (lazy)
+│   ├── CapturePage.tsx       A note from photos, or from speech (lazy)
 │   ├── LogPage.tsx           The log: each day's line, check-in and focus (lazy)
 │   └── SettingsPage.tsx      Settings sections (lazy-loaded)
 ├── features/
@@ -117,11 +117,14 @@ src/
 │   │   ├── generate.ts       Writing a quiz; marking a short answer (tested)
 │   │   ├── actions.ts        Goes at a quiz, going again, cards from missed ones (tested)
 │   │   └── page.ts           Making, taking, results (only the lazy page loads them)
-│   ├── capture/              Notes from photos of handwritten notes or a whiteboard
+│   ├── capture/              Notes from photos, and voice notes
 │   │   ├── lib/image.ts      Photo sizes, turning, tokens per provider (tested)
+│   │   ├── lib/audio.ts      Recording formats, file types, lengths in words (tested)
 │   │   ├── photo.ts          A photo read upright, turned, scaled down, as a JPEG
 │   │   ├── transcribe.ts     The instructions, the request, the note's title (tested)
-│   │   └── page.ts           The photo page (only the lazy page loads it)
+│   │   ├── recorder.ts       Recording: the microphone, a meter, pause, an hour at most
+│   │   ├── voice.ts          Speech into text; tidying a transcript into notes (tested)
+│   │   └── page.ts           The photo and voice pages (only the lazy page loads them)
 │   ├── assistant/            Ask: answers from your notes and documents, or your plans
 │   │   ├── lib/              Keyword ranking, prompts, citations, plans snapshot (tested)
 │   │   ├── retrieval.ts      A question's passages: by words, and by meaning (tested)
@@ -601,7 +604,7 @@ AI is optional and bring-your-own-key. Features never talk to a provider
 directly; they call the `ai` client from `features/ai`:
 
 ```
-feature ─► ai.chat / ai.complete / ai.embed
+feature ─► ai.chat / ai.complete / ai.embed / ai.transcribe
              │  reads provider, model and key from settings at call time
              ├─ RequestGate     3 requests at a time per provider, and a shared
              │                  pause after a rate limit
@@ -613,8 +616,9 @@ feature ─► ai.chat / ai.complete / ai.embed
 
 - **Providers.** Anthropic (`@anthropic-ai/sdk`), OpenAI (`openai`), and any
   OpenAI-compatible server (Ollama, LM Studio, vLLM, OpenRouter…) through the
-  `openai` SDK with a base URL. Chat and embeddings each have their own
-  provider and model; Anthropic offers no embeddings, so it isn't offered there.
+  `openai` SDK with a base URL. Chat, embeddings and transcription each have
+  their own provider and model; Anthropic offers neither embeddings nor
+  speech to text, so it isn't offered for them.
   Embeddings can also come from **this device** (`browser`): a small model run
   in a worker (see Search by meaning), behind the same `ai.embed`, so retries,
   the gate and errors work the same. Nothing it does is counted as usage: it
@@ -643,6 +647,12 @@ feature ─► ai.chat / ai.complete / ai.embed
   and compatible servers as data URLs, read in detail. Replies are text.
   Whether a model reads pictures isn't known ahead of time; one that can't
   answers with an error, which the photo page puts in words.
+- **Speech.** `ai.transcribe(audio, { fileName })` sends a recording to
+  OpenAI's transcription endpoint, or a compatible server's
+  (`/audio/transcriptions`), and returns the text. The file's name carries
+  its format (providers tell it by the extension). Usage is counted only
+  when the provider reports tokens (the GPT transcribe models); Whisper
+  reports seconds, which aren't tokens, so it isn't counted.
 - **Cost.** Usage is counted in tokens; prices aren't built in (they change),
   so an estimate appears once the user enters a price per million tokens.
 - **Size.** The SDKs load only when an AI request is made. Their chunks live in
@@ -661,7 +671,8 @@ feature ─► ai.chat / ai.complete / ai.embed
   backup with keys is always password-protected. Once saved, the UI shows only
   a masked hint (`sk-ant…a1b2`).
 - Nothing is sent to a provider except on a user's action. Test connection says
-  exactly what it sends (one line of text).
+  exactly what it sends (one line of text; for transcription, a second of
+  silence).
 - **`SendPreview`** is shown before an AI feature sends your text: the provider
   and model, exactly which notes or documents (each can be unticked), about
   how many tokens, and what that costs once a price is set. Nothing goes until
@@ -674,6 +685,10 @@ feature ─► ai.chat / ai.complete / ai.embed
 - **Photos for a note** go through the send preview too: each photo, its
   size and about how many tokens. They're scaled down on the device first,
   and kept only in memory while the page is open.
+- **Voice notes** too: the recording goes through the send preview, which
+  gives its length and size. It's kept only in memory while the page is
+  open, and the microphone is on only while recording. Tidying the
+  transcript into notes is a second send, with its own preview.
 - **The assistant** says the same for every question, in its composer: the
   provider and model, each passage as a chip you can take out (or, about
   your plans, which parts, with the exact text a click away), and how many
@@ -1471,8 +1486,8 @@ it's on.
 ## Notes from photos
 
 `features/capture` turns photos of handwritten notes, a whiteboard or slides
-into a note, with a chat model that can read pictures. (Voice notes are to
-join it.)
+into a note, with a chat model that can read pictures. Voice notes sit
+beside it (below).
 
 - **Choosing photos** (`components/PhotoNote.tsx`): up to ten, one a page,
   from the file picker (on a phone, the camera or the library), pasted, or
@@ -1507,6 +1522,48 @@ join it.)
   of them has been opened yet. The first load gains the route, the command
   and the icons (0.9 kB). Mapping pictures lives in the provider adapters,
   which load on the first AI request.
+
+## Voice notes
+
+The voice page (`components/VoiceNote.tsx`, `/capture/voice`) turns speech
+into a note: something said into the microphone, or a recording you have,
+such as a lecture.
+
+- **Recording** (`recorder.ts`): the microphone is asked for when you press
+  record (with echo cancellation and noise suppression) and let go of at
+  **Done**, or when you leave the page, which drops a recording under way (a
+  microphone allowed only after you've left is let go of at once). It
+  records Opus in WebM where the browser can, and AAC in MP4 on Safari
+  (`recordingFormat`), at 32 kbps: plenty for speech, so an hour is about 15
+  MB, inside the 25 MB providers take at once. A meter shows how loud it is,
+  the clock leaves out pauses, and it stops by itself at an hour.
+- **A recording you have**: MP3, M4A, MP4, WAV, WebM, OGG or FLAC, up to 25
+  MB. `audioExtension` reads the format from the name or the type, and a
+  file is sent under a name with the extension providers expect. One that
+  isn't audio, or is too big, is turned away with the reason.
+- **Sending it**: through the send preview, which gives the recording's
+  length and size where other previews give tokens. `ai.transcribe` sends it
+  to the transcription model chosen in Settings → AI; the language is left
+  for the model to detect.
+- **The note**: the transcript opens to read and edit, titled "Voice note,
+  10 October" until you name it. **Tidy it into notes…** sends the
+  transcript's text to the chat model (with its own preview) to organise it
+  into headings and points: what was said and nothing that wasn't, without
+  the filler words, maths in LaTeX, the transcript treated as material, not
+  instructions (`voice.ts`). It streams in; **Back to the transcript as it
+  was** undoes it, edits and title included. **Save as a note** makes it a
+  note, with a subject. A recording with no words in it says so.
+- **Not kept**: the recording stays in memory while the page is open, to
+  play back; only the note is saved.
+- **Elsewhere**: the microphone button on Notes, the empty notes card, and
+  ⌘K **Voice note** (it answers to "record", "dictate", "lecture",
+  "transcribe"…) lead here. Notes stays the current page in the menu on both
+  capture pages.
+- **Size**: the voice page shares the capture page's chunk with the photo
+  page: 32 kB (10 kB compressed) for both, of which voice notes are 17 kB
+  (4 kB), loaded when either is opened. Transcription adds 3 kB (0.7 kB
+  compressed) to the AI screens shared with Cards, Quizzes and Ask, and the
+  first load gains the route, the command and the icon (0.5 kB).
 
 ## Routines
 
@@ -1655,8 +1712,12 @@ sent from several sources (all through them, sharing the room, a long note
 cut at a word) and reading JSON from replies (cut-off lists), notes from
 photos (sizes within what providers read, turning, tokens per provider, the
 request with each photo numbered, streaming, the title from the first
-heading; pictures in both adapters' requests), the assistant
-(keyword ranking and fusion, joining neighbouring passages, the request and
+heading; pictures in both adapters' requests), voice notes (the recording
+format each browser can make, file names providers read, lengths as a
+clock and in words, a second of silence as a WAV, transcription models in
+model lists, the request with its name and type, usage counted only in
+tokens, Anthropic saying it doesn't transcribe, tidying as material), the
+assistant (keyword ranking and fusion, joining neighbouring passages, the request and
 its history, citations, the plans snapshot and its parts, keeping to one
 document, answers saved with what was sent, failures, Ask again, Stop
 whether the stream ends with an error or quietly), notes (links, backlinks, renaming
@@ -1685,5 +1746,10 @@ from the answer alone, leaving and coming back, links back to the page,
 cards from the missed questions, going again, Stop, deleting them all), and
 notes from photos (a photo stored sideways, turning one, one that can't be
 opened, pasting, the order and size of each photo sent, editing and saving,
-Stop, a model that can't read pictures) — are checked in a headless browser
-at desktop and phone sizes.
+Stop, a model that can't read pictures), and voice notes (recording from a
+fake microphone: the meter, Pause and Resume, the microphone let go at Done
+and on leaving; the connection test; nothing sent before Send; the
+recording sent once, with its type; tidying it and back; editing and
+saving; a recording chosen; files turned away; no words heard; Stop; a
+microphone that isn't allowed) — are checked in a headless browser at
+desktop and phone sizes.

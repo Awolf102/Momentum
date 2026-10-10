@@ -288,6 +288,20 @@ describe('Anthropic provider', () => {
     })
   })
 
+  it('says transcription is not available', async () => {
+    const fake = fakeSdk()
+    await expect(
+      createAnthropicProvider({
+        apiKey: 'k',
+        loadSdk: fake.loadSdk,
+      }).transcribe({
+        model: 'x',
+        audio: new Blob(['x']),
+        fileName: 'a.webm',
+      }),
+    ).rejects.toMatchObject({ kind: 'unsupported' })
+  })
+
   it('says embeddings are not available', async () => {
     const provider = createAnthropicProvider({
       apiKey: 'k',

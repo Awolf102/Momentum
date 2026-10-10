@@ -32,6 +32,11 @@ interface SendPreviewProps {
   onToggle?: (id: string, send: boolean) => void
   /** Estimated tokens of what's ticked. */
   tokens: number
+  /**
+   * Said instead of the tokens, for what isn't counted in them (a
+   * recording's length, say); there's no cost estimate then.
+   */
+  size?: string
   sendLabel: string
   onSend: () => void
 }
@@ -52,6 +57,7 @@ export function SendPreview({
   skipped,
   onToggle,
   tokens,
+  size,
   sendLabel,
   onSend,
 }: SendPreviewProps) {
@@ -102,8 +108,8 @@ export function SendPreview({
           <div className="flex items-baseline justify-between gap-4 rounded-2xl bg-tint px-4 py-2.5">
             <dt className="shrink-0 text-fg-muted">Size</dt>
             <dd className="text-right font-medium">
-              {formatTokenEstimate(tokens)}
-              {price && (
+              {size ?? formatTokenEstimate(tokens)}
+              {price && !size && (
                 <span className="block text-xs font-normal text-fg-subtle">
                   about {formatCost((tokens * price.input) / 1_000_000)}
                 </span>
@@ -169,7 +175,7 @@ export function SendPreview({
           </ul>
         </div>
 
-        {!price && (
+        {!price && !size && (
           <p className="text-xs leading-relaxed text-fg-subtle">
             Add this model’s price under Usage to see what a request costs.
           </p>

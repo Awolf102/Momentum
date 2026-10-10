@@ -209,6 +209,67 @@ describe('AI client', () => {
     expect(failing.provider.calls).toHaveLength(1)
   })
 
+  it('transcribes with the chosen model, counting tokens only when given', async () => {
+    const { client, provider, recordUsage, createProvider } = setup({
+      settings: {
+        transcription: {
+          provider: 'openai',
+          models: { openai: 'whisper-test' },
+        },
+      },
+      mock: { transcript: 'Karnaugh maps group the ones.' },
+    })
+    const audio = new Blob(['sound'], { type: 'audio/webm' })
+    expect(
+      await client.transcribe(audio, {
+        fileName: 'recording.webm',
+        language: 'en',
+      }),
+    ).toBe('Karnaugh maps group the ones.')
+    expect(createProvider).toHaveBeenCalledWith({
+      provider: 'openai',
+      apiKey: 'sk-test',
+    })
+    expect(provider.transcribeCalls[0]).toMatchObject({
+      model: 'whisper-test',
+      audio,
+      fileName: 'recording.webm',
+      language: 'en',
+    })
+    // Whisper reports no tokens, so there's nothing to count.
+    expect(recordUsage).not.toHaveBeenCalled()
+  })
+
+  it('asks for a transcription model when none is chosen', async () => {
+    const { client } = setup()
+    await expect(
+      client.transcribe(new Blob(['x']), { fileName: 'a.webm' }),
+    ).rejects.toMatchObject({
+      kind: 'no-model',
+      message: 'Choose a transcription model in Settings → AI.',
+    })
+  })
+
+  it('tests a transcription connection with a second of silence', async () => {
+    const { client, provider } = setup({
+      settings: {
+        transcription: {
+          provider: 'openai',
+          models: { openai: 'whisper-test' },
+        },
+      },
+      mock: { transcript: '' },
+    })
+    expect(await client.testConnection('transcription')).toMatchObject({
+      ok: true,
+      model: 'whisper-test',
+      reply: '',
+    })
+    const [call] = provider.transcribeCalls
+    expect(call.fileName).toBe('silence.wav')
+    expect(call.audio.type).toBe('audio/wav')
+  })
+
   it('lists a provider’s models', async () => {
     const { client } = setup({
       mock: { models: [{ id: 'one' }, { id: 'two' }] },

@@ -210,8 +210,8 @@ describe('redactSecrets', () => {
     expect(redactSecrets('key sk-proj-AbC123dEf456GhI789 rejected')).toBe(
       'key [redacted] rejected',
     )
-    expect(redactSecrets('model claude-opus-5-5 not found')).toBe(
-      'model claude-opus-5-5 not found',
+    expect(redactSecrets('model claude-test-model-2 not found')).toBe(
+      'model claude-test-model-2 not found',
     )
     expect(
       redactSecrets('token abcdefghijklmnopqrstuvwxyz0123456789ABCD'),

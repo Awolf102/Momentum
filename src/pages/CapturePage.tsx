@@ -1,12 +1,27 @@
 import { Link, Redirect, useParams } from 'wouter'
 import { ArrowLeftIcon } from '@/components/icons'
-import { PhotoNote } from '@/features/capture/page'
+import { PhotoNote, VoiceNote } from '@/features/capture/page'
 import { paths } from '@/lib/routes'
 
-/** Turning something captured into a note: for now, photos. */
+const MODES = {
+  photo: {
+    title: 'Note from a photo',
+    description:
+      'Handwritten notes, a whiteboard or slides, written out as a note you can edit.',
+  },
+  voice: {
+    title: 'Voice note',
+    description:
+      'Say it, or use a recording of a lecture, and it’s written out as a note you can edit.',
+  },
+}
+
+/** Turning something captured into a note: photos, or speech. */
 export default function CapturePage() {
   const { mode } = useParams<{ mode?: string }>()
-  if (mode !== 'photo') return <Redirect to={paths.photoNote} replace />
+  if (mode !== 'photo' && mode !== 'voice')
+    return <Redirect to={paths.photoNote} replace />
+  const copy = MODES[mode]
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col pt-2 pb-8 sm:pt-6 lg:pt-2">
       <div className="mb-6 flex items-center gap-3">
@@ -19,15 +34,14 @@ export default function CapturePage() {
         </Link>
         <div>
           <h1 className="font-serif text-4xl leading-none tracking-tight text-shadow-soft sm:text-5xl">
-            Note from a photo
+            {copy.title}
           </h1>
           <p className="mt-2 text-[15px] text-fg-muted text-shadow-soft">
-            Handwritten notes, a whiteboard or slides, written out as a note you
-            can edit.
+            {copy.description}
           </p>
         </div>
       </div>
-      <PhotoNote />
+      {mode === 'photo' ? <PhotoNote /> : <VoiceNote />}
     </div>
   )
 }
