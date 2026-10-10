@@ -216,6 +216,7 @@ export function Timeline({
     // day still scrolls under a finger.
     let active = event.pointerType !== 'touch' || mode === 'resize'
     let moved = false
+    let opened = false
     let current: Gesture | null = null
     const hold = active
       ? 0
@@ -283,9 +284,21 @@ export function Timeline({
           onChange(block, done.start, done.end)
       } else {
         // A tap (or a hold) without a drag opens it, from its edge too.
+        opened = true
         onOpen(block)
       }
     }
+    // After a tap the browser sends a click where the finger was, which
+    // would land on the sheet's backdrop, just opened, and close it again.
+    // Cancelling the tap's touchend (it comes after pointerup) stops that.
+    if (event.pointerType === 'touch')
+      element.addEventListener(
+        'touchend',
+        (end) => {
+          if (opened) end.preventDefault()
+        },
+        { once: true, passive: false },
+      )
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
     window.addEventListener('pointercancel', onUp)
