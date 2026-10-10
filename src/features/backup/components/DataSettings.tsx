@@ -31,6 +31,7 @@ import { logEntries } from '@/features/log'
 import { notes } from '@/features/notes'
 import { goals } from '@/features/goals/data'
 import { blocks, calendars } from '@/features/planner'
+import { reviewStore } from '@/features/review/settings'
 import { quizzes } from '@/features/quizzes'
 import { routineRuns, routinesStore } from '@/features/routines'
 import { tasks } from '@/features/tasks'
@@ -512,6 +513,14 @@ function ResetCard() {
           onReset={() => {
             void goals.clear()
             setDone('Your goals were deleted. Their tasks and habits are kept.')
+          }}
+        />
+        <ResetRow
+          label="Delete weekly write-ups"
+          confirm="Tap again to delete every week's AI write-up"
+          onReset={() => {
+            reviewStore.set((data) => ({ ...data, written: {} }))
+            setDone('Your weekly write-ups were deleted. The weeks are kept.')
           }}
         />
         <ResetRow

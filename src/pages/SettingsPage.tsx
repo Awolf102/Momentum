@@ -22,6 +22,7 @@ import { MeaningIndexCard } from '@/features/embeddings'
 import { FocusSettings } from '@/features/focus/settings'
 import { InstallSetting } from '@/features/pwa'
 import { ReminderSetting } from '@/features/reminder'
+import { WeekReviewSetting } from '@/features/review/settings'
 import { cn } from '@/lib/cn'
 import { formatHotkey } from '@/lib/hotkeys'
 import { openShortcuts } from '@/lib/overlays'
@@ -126,6 +127,9 @@ function SectionContent({ section }: { section: SettingsSection }) {
         <>
           <SettingsCard title="Reminder">
             <ReminderSetting />
+          </SettingsCard>
+          <SettingsCard title="Weekly review">
+            <WeekReviewSetting />
           </SettingsCard>
           <SettingsCard title="Install">
             <InstallSetting />

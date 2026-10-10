@@ -14,6 +14,7 @@ import { InboxNotice } from '@/features/inbox'
 import { ContinueReading } from '@/features/library'
 import { TodayLine } from '@/features/log'
 import { PlanTodayCard } from '@/features/planner'
+import { WeekCard } from '@/features/review'
 import { RoutinesCard } from '@/features/routines'
 import { openShare } from '@/features/share'
 import { TasksTodayCard, useTasksCalendarView } from '@/features/tasks'
@@ -49,6 +50,7 @@ export function DashboardPage() {
       />
       <div className="flex w-full max-w-3xl flex-col gap-4 sm:gap-5">
         <InboxNotice />
+        <WeekCard />
         <FocusCard />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
           <StreakStatTiles streak={streak} />

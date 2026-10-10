@@ -44,6 +44,16 @@ export interface Preview {
   title: string
 }
 
+/** A suggested block, not on the plan yet: dashed, and ticked to keep it. */
+export interface DraftItem {
+  key: string
+  start: number
+  end: number
+  title: string
+  color: string
+  keep: boolean
+}
+
 interface Gesture {
   id: string
   start: number
@@ -59,6 +69,7 @@ type Item =
       end: number
       event: EventOnDay
     }
+  | { type: 'draft'; key: string; start: number; end: number; draft: DraftItem }
 
 const LANE = 10 // room on the left for focus sessions done
 const EDGE = 48 // how near the top or bottom a drag starts scrolling
@@ -73,6 +84,9 @@ interface TimelineProps {
   /** Minutes after midnight now, when the day is today. */
   now: number | null
   preview: Preview | null
+  /** Suggested blocks to look over ("Plan my day"). */
+  drafts?: readonly DraftItem[]
+  onToggleDraft?: (key: string) => void
   titleOf: (block: Block) => string
   colorOf: (block: Block) => string
   isDone: (block: Block) => boolean
@@ -100,6 +114,8 @@ export function Timeline({
   marks,
   now,
   preview,
+  drafts = [],
+  onToggleDraft,
   titleOf,
   colorOf,
   isDone,
@@ -194,9 +210,16 @@ export function Timeline({
         end: event.end,
         event,
       })),
+      ...drafts.map((draft) => ({
+        type: 'draft' as const,
+        key: draft.key,
+        start: draft.start,
+        end: draft.end,
+        draft,
+      })),
     ]
     return layoutDay(list, 22 / scale)
-  }, [blocks, events, gesture, scale])
+  }, [blocks, events, drafts, gesture, scale])
 
   /** Moving (from the body) or stretching (from the bottom edge) a block. */
   function grab(
@@ -421,6 +444,50 @@ export function Timeline({
             const left = `calc(${LANE}px + (100% - ${LANE + 4}px) * ${column} / ${columns})`
             const top = item.start * scale
             const tall = Math.max(22, (item.end - item.start) * scale)
+            if (item.type === 'draft') {
+              const { draft } = item
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  role="checkbox"
+                  aria-checked={draft.keep}
+                  aria-label={`Suggested: ${draft.title}, ${formatSpan(draft.start, draft.end)}`}
+                  title={
+                    draft.keep
+                      ? 'Suggested: tap to leave it out'
+                      : 'Left out: tap to keep it'
+                  }
+                  onClick={(click) => {
+                    click.stopPropagation()
+                    onToggleDraft?.(draft.key)
+                  }}
+                  className={cn(
+                    'absolute z-10 overflow-hidden rounded-xl border-2 border-dashed px-2 py-1 text-left text-xs transition outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70',
+                    !draft.keep && 'opacity-40',
+                  )}
+                  style={{
+                    top,
+                    height: tall,
+                    left,
+                    width,
+                    borderColor: draft.color,
+                    background: draft.keep
+                      ? `color-mix(in oklab, ${draft.color} 14%, transparent)`
+                      : 'transparent',
+                  }}
+                >
+                  <span className="block truncate font-semibold">
+                    {draft.title}
+                  </span>
+                  {tall >= 40 && (
+                    <span className="block truncate text-fg-muted tabular-nums">
+                      {formatSpan(draft.start, draft.end)}
+                    </span>
+                  )}
+                </button>
+              )
+            }
             if (item.type === 'event') {
               const { event } = item
               const color = CALENDAR_SWATCHES[event.color]

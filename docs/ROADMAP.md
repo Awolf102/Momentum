@@ -153,7 +153,9 @@ versions and the flame stages could go in earlier.
   Usage is counted in tokens per model, and an estimated cost appears once you
   enter a price per million tokens for that model.
 - **Weekly review "every Sunday".** Without a server this runs the first time
-  Momentum is opened on or after Sunday, with an optional reminder.
+  Momentum is opened on or after Sunday, with an optional reminder. (Built as
+  the week on the dashboard on Sundays, and last week's on Mondays; see
+  below.)
 - **Analytics after the data exists.** "Best hours" and "focus by subject" need
   focus sessions (Phase 2) to accumulate, so analytics comes in Phase 6.
 - **Sync last, and minimal.** The Phase 1 storage interface keeps it possible.
@@ -180,7 +182,7 @@ versions and the flame stages could go in earlier.
 | 3     | In review | Notes with maths, code and links (`feature/notes`, PR #10); search in ⌘K (`feature/search`), stacked on notes                                                                                                                                                                                                                                              |
 | 4     | In review | Document library and PDF viewer with highlights (`feature/library`), stacked on search; search by meaning (`feature/embeddings`), stacked on the library; chat with documents and the assistant (`feature/assistant`), stacked on search by meaning                                                                                                        |
 | 5     | In review | Flashcards with FSRS (`feature/flashcards`, PR #15), stacked on the assistant; practice quizzes (`feature/quizzes`, PR #16), stacked on flashcards; image to notes (`feature/image-notes`, PR #17), stacked on quizzes; voice notes (`feature/voice-notes`, PR #18), stacked on image to notes                                                             |
-| 6     | Building  | Time blocking with .ics import (`feature/time-blocking`, PR #19), stacked on voice notes; goals with milestones, linked tasks and habits (`feature/goals`), stacked on time blocking                                                                                                                                                                       |
+| 6     | Building  | Time blocking with .ics import (`feature/time-blocking`, PR #19), stacked on voice notes; goals with milestones, linked tasks and habits (`feature/goals`, PR #20), stacked on time blocking; the AI planner and weekly review (`feature/ai-planner`), stacked on goals                                                                                    |
 | 7     | Planned   |                                                                                                                                                                                                                                                                                                                                                            |
 
 ### What Phase 1 changed in the plan
@@ -465,3 +467,28 @@ versions and the flame stages could go in earlier.
 - **Next:** the AI planner and weekly review (drafting a day from tasks,
   deadlines, goals and the calendar, onto the plan's timeline), then
   analytics.
+
+### What the AI planner and weekly review changed in the plan
+
+- **A draft to choose from, not a plan.** "Plan my day" suggests blocks
+  that show dashed on the day beside what's there, each ticked to keep; you
+  change times or titles, untick what you don't want and add the rest (with
+  Undo), or discard it. Suggestions over an event, a block or each other,
+  or outside the time left, are left out and counted, so a reply can't
+  double-book the day.
+- **Times go, even when titles don't.** Calendar events and blocks can be
+  left out of what's sent, but their times always go (as "busy"), so the
+  draft can't land on a class you'd rather not name.
+- **The review is worked out, not stored.** A week's numbers are counted
+  from what's on the device each time it's shown, so they follow edits
+  (a task reopened, a session deleted). Only the AI write-up is kept.
+- **Sundays, and Mondays too.** The week shows on the dashboard on Sundays,
+  and last week's on Mondays for anyone who didn't open Momentum on the
+  Sunday, rather than waiting for "the first time opened on or after
+  Sunday". It can be turned off; there's no Sunday notification yet (the
+  evening reminder is the only one).
+- **Writing it up is optional,** like every AI feature: the page is useful
+  without a model, and the write-up sends only the parts ticked (the log,
+  word for word, can stay home).
+- **Next:** analytics (focus by subject, best hours, streak history, task
+  completion, card retention), then the Phase 6 summary and Phase 7.
