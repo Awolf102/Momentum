@@ -1,4 +1,5 @@
 import { listAllPhotos, putPhoto } from '@/features/appearance'
+import { listAllFiles, putFile } from '@/features/library'
 import { collectionRegistry } from '@/lib/collection'
 import { toDateKey } from '@/lib/date'
 import { COLLECTION_STORES } from '@/lib/db/schema'
@@ -17,6 +18,8 @@ const appSources: BackupSources = {
   registry: storeRegistry,
   listPhotos: listAllPhotos,
   putPhoto,
+  listFiles: listAllFiles,
+  putFile,
   exportCollections: () => collectionRegistry.exportAll(COLLECTION_STORES),
   importCollection: (name, records) =>
     (COLLECTION_STORES as readonly string[]).includes(name)
@@ -32,6 +35,7 @@ const appSources: BackupSources = {
  */
 export async function downloadBackup(options: {
   includeSecrets: boolean
+  includeFiles: boolean
   password?: string
 }): Promise<void> {
   if (options.includeSecrets && !options.password)

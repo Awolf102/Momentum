@@ -1,14 +1,69 @@
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+import { cpSync, createReadStream, existsSync, statSync } from 'node:fs'
+import { join, normalize, resolve } from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
+import type { Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { defineConfig } from 'vitest/config'
+
+/**
+ * pdf.js reads a few files only when a PDF needs them: character maps (for
+ * CJK text), the standard fonts (for PDFs that don't embed theirs), image
+ * decoders and colour profiles. They're served from /pdfjs/: copied into
+ * the build, and straight from node_modules in development. (Its JavaScript
+ * engine for scripts in PDFs is left out; scripts never run.)
+ */
+function pdfjsResources(): Plugin {
+  const source = resolve('node_modules/pdfjs-dist')
+  const folders = ['cmaps', 'standard_fonts', 'wasm', 'iccs']
+  const wanted = (path: string) => !/quickjs/.test(path)
+  return {
+    name: 'momentum-pdfjs-resources',
+    configureServer(server) {
+      server.middlewares.use('/pdfjs', (request, response, next) => {
+        const path = normalize(
+          decodeURIComponent(request.url ?? '/').split('?')[0],
+        )
+        const [folder] = path.split('/').filter(Boolean)
+        const file = join(source, path)
+        if (
+          !folders.includes(folder) ||
+          !file.startsWith(source) ||
+          !wanted(file) ||
+          !existsSync(file) ||
+          !statSync(file).isFile()
+        )
+          return next()
+        response.setHeader(
+          'Content-Type',
+          file.endsWith('.wasm')
+            ? 'application/wasm'
+            : 'application/octet-stream',
+        )
+        createReadStream(file).pipe(response)
+      })
+    },
+    writeBundle(options) {
+      for (const folder of folders)
+        cpSync(
+          join(source, folder),
+          join(options.dir ?? 'dist', 'pdfjs', folder),
+          {
+            recursive: true,
+            filter: wanted,
+          },
+        )
+    },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    pdfjsResources(),
     VitePWA({
       // Our own service worker (src/sw.ts) for offline caching and reminders.
       strategies: 'injectManifest',
@@ -66,6 +121,10 @@ export default defineConfig({
           // AI SDKs download the first time an AI feature is used (then the
           // service worker keeps them), not on install.
           '**/assets/ai/**',
+          // So does pdf.js, the first time a PDF is added or opened, and
+          // the files it reads for some PDFs.
+          '**/assets/pdf/**',
+          '**/pdfjs/**',
           // So do the maths fonts, the first time a note shows maths.
           '**/KaTeX_*',
         ],
@@ -98,6 +157,13 @@ export default defineConfig({
             )
           )
             return 'assets/ai/[name]-[hash].js'
+          // pdf.js likewise (see globIgnores).
+          if (
+            chunk.moduleIds.some((id) =>
+              /node_modules[\\/]pdfjs-dist[\\/]/.test(id),
+            )
+          )
+            return 'assets/pdf/[name]-[hash].js'
           // Code the bundler splits out because several chunks share it is
           // named after whichever module came first, which misleads (a "log"
           // chunk full of timer code). Call it what it is.
@@ -108,6 +174,11 @@ export default defineConfig({
             return 'assets/shared-[hash].js'
           return 'assets/[name]-[hash].js'
         },
+        // pdf.js's worker (imported as a URL) goes with pdf.js.
+        assetFileNames: (asset) =>
+          asset.names.some((name) => name.startsWith('pdf.worker'))
+            ? 'assets/pdf/[name]-[hash][extname]'
+            : 'assets/[name]-[hash][extname]',
       },
     },
   },

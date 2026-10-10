@@ -69,11 +69,14 @@ function device() {
     registry: collections,
   })
   const photos = new Map<string, Blob>()
+  const files = new Map<string, Blob>()
   const secrets: Record<string, string> = {}
   const sources: BackupSources = {
     registry,
     listPhotos: async () => [...photos].map(([key, blob]) => ({ key, blob })),
     putPhoto: async (key, blob) => void photos.set(key, blob),
+    listFiles: async () => [...files].map(([key, blob]) => ({ key, blob })),
+    putFile: async (key, blob) => void files.set(key, blob),
     exportCollections: () =>
       collections.exportAll(['focusSessions', 'logEntries']),
     importCollection: (name, records) =>
@@ -94,6 +97,7 @@ function device() {
     sessions,
     log,
     photos,
+    files,
     secrets,
     sources,
     hydrate,
@@ -251,5 +255,40 @@ describe('backups', () => {
       version: 1,
       data: { tasks: [] },
     })
+  })
+
+  it('carries library files, unless left out', async () => {
+    const source = device()
+    await source.hydrate()
+    source.files.set(
+      'doc1',
+      new Blob(['%PDF-1.7 slides'], { type: 'application/pdf' }),
+    )
+    source.files.set('doc1:thumb', new Blob(['webp'], { type: 'image/webp' }))
+    const full = parseBackup(
+      JSON.stringify(
+        await createBackup(source.sources, { includeSecrets: false }),
+      ),
+    )
+    expect(full.files.map((file) => file.key).sort()).toEqual([
+      'doc1',
+      'doc1:thumb',
+    ])
+    const target = device()
+    await target.hydrate()
+    const report = await restoreBackup(full, target.sources, {
+      includeSecrets: false,
+    })
+    expect(report.files).toBe(1)
+    expect(await target.files.get('doc1')?.text()).toBe('%PDF-1.7 slides')
+    const lean = await createBackup(source.sources, {
+      includeSecrets: false,
+      includeFiles: false,
+    })
+    expect(lean.files).toEqual([])
+    // Backups from before the library have no files at all.
+    const old = JSON.parse(JSON.stringify(full))
+    delete old.files
+    expect(parseBackup(JSON.stringify(old)).files).toEqual([])
   })
 })

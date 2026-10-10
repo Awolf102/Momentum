@@ -1,1 +1,1 @@
-export { searchEverything } from './sources'
+export { prepareSearch, searchEverything } from './sources'

@@ -14,8 +14,12 @@ describe('database schema', () => {
     const db = await getDb()
     expect(db.version).toBe(DB_VERSION)
     expect([...db.objectStoreNames].sort()).toEqual([
+      'documentFiles',
+      'documentTexts',
+      'documents',
       'focusSessions',
       'habitCheckIns',
+      'highlights',
       'inboxItems',
       'kv',
       'logEntries',

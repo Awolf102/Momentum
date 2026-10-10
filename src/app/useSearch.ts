@@ -14,7 +14,10 @@ export function useSearch(open: boolean): Search {
     if (!open || search !== nothing) return
     let current = true
     import('@/features/search').then(
-      ({ searchEverything }) => current && setSearch(() => searchEverything),
+      async ({ prepareSearch, searchEverything }) => {
+        await prepareSearch()
+        if (current) setSearch(() => searchEverything)
+      },
       () => {},
     )
     return () => {

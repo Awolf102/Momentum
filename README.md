@@ -27,9 +27,13 @@ day, keep the flame lit, and watch your streak grow.
   KaTeX), highlighted code (Verilog and VHDL included), checklists you can tick
   while reading, and `[[links]]` between notes — or to tasks — with each note
   listing the notes that link to it. Renaming a note keeps its links working.
-- **Search everything** from ⌘K (Search on phones): notes, tasks, habits,
-  routines, the log and the inbox, as you type, with the matching words
-  marked and a line of context.
+- **Library:** add PDFs — lecture slides, papers, chapters — and read them
+  here: highlight in four colours with a note in the margin, pick up where you
+  left off, and turn your highlights into a note. Search finds the words
+  inside them.
+- **Search everything** from ⌘K (Search on phones): notes, documents, tasks,
+  habits, routines, the log and the inbox, as you type, with the matching
+  words marked and a line of context.
 - **Inbox:** catch a thought or a link in a second (I, or share to Momentum
   from another app on Android), then make it a task or a note, add it to
   today's log, or let it go.
@@ -57,8 +61,8 @@ day, keep the flame lit, and watch your streak grow.
 - **Your own photographs as backgrounds**, behind frosted-glass cards, dark mode
   by default with a light theme.
 - **Local-first:** everything is saved in your browser's database (IndexedDB),
-  with one-file backups of all of it: notes, habits, routines, tasks, the
-  inbox, focus sessions and the log included.
+  with one-file backups of all of it: notes, your library, habits, routines,
+  tasks, the inbox, focus sessions and the log included.
 - **Optional AI, with your own key:** Anthropic, OpenAI, or a server such as
   Ollama. Momentum works fully without it. (The AI features themselves arrive
   in later phases; see [docs/ROADMAP.md](docs/ROADMAP.md).)
@@ -159,6 +163,22 @@ Type `[[` to pick from your notes. Pin a note to keep it at the top; give it a
 subject to filter by. Nothing written in a note runs as code: HTML shows as
 text and unsafe links are removed.
 
+## Library
+
+Open **Library** and **Add PDF** (or drop PDFs on the page, or ⌘K → Add a
+PDF). Each is read in the background — its pages, a picture of the first page,
+and its text for Search — and stays on this device.
+
+Reading: type a page number to jump, ← and → for the previous and next page,
+
+- − and 0 to zoom, **H** for your highlights. A document opens where you left
+  off, and the dashboard offers to continue the one you're partway through.
+
+**Highlights:** select text and pick a colour, or **Note** to write in the
+margin. Tap a highlight to change it. The highlights panel lists them in
+order; **Make a note of these** turns them into a note with each quote and its
+page. Backups include your PDFs unless you turn off **Include documents**.
+
 ## Focus timer
 
 Pick a subject on the dashboard and press **Start focus** (or F). Pause, resume,
@@ -177,6 +197,9 @@ minutes.
 | N           | Add a task                   |
 | I           | Capture to inbox             |
 | L           | Write today's log line       |
+| ← →         | Previous / next page (PDF)   |
+| + − 0       | Zoom in / out / fit (PDF)    |
+| H           | Highlights (PDF)             |
 | E           | Write (on a note)            |
 | M           | View the climb               |
 | S           | Share streak card            |
@@ -201,18 +224,18 @@ itself.
 ## Tech stack
 
 React 19 · TypeScript · Vite · Tailwind CSS v4 · Motion · wouter · IndexedDB (idb) ·
-marked, DOMPurify, KaTeX and highlight.js for notes, and the Anthropic and OpenAI SDKs (all
-loaded on demand) · Web Audio · Workbox (vite-plugin-pwa) · Vitest
+marked, DOMPurify, KaTeX and highlight.js for notes, pdf.js for the library, and the
+Anthropic and OpenAI SDKs (all loaded on demand) · Web Audio · Workbox (vite-plugin-pwa) · Vitest
 
 ## Project structure
 
 ```
 src/
 ├── app/          App shell: routes, sidebar, tab bar, header, commands
-├── pages/        Pages composed from features (dashboard, tasks, notes, inbox,
-│                 log, settings)
+├── pages/        Pages composed from features (dashboard, tasks, notes,
+│                 library, inbox, log, settings)
 ├── features/     streak · habits · routines · focus · subjects · tasks · notes
-│                 search · inbox · log · calendar · motivation
+│                 library · search · inbox · log · calendar · motivation
 │                 appearance · climb · share · ambience · reminder · pwa
 │                 backup · ai
 ├── components/   Shared UI (glass card, sheet, settings card, icons…)

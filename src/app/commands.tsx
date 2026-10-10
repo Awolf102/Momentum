@@ -14,6 +14,7 @@ import {
   InboxIcon,
   InstallIcon,
   KeyboardIcon,
+  LibraryIcon,
   MoonIcon,
   MountainIcon,
   NoteIcon,
@@ -66,6 +67,7 @@ import {
 import { openCapture } from '@/features/inbox'
 import { writeLine } from '@/features/log'
 import { startNote } from '@/features/notes'
+import { choosePdfs } from '@/features/library'
 import { newRoutine } from '@/features/routines'
 import { openQuickAdd, setTasksView, tasksViewStore } from '@/features/tasks'
 import { installStore, promptInstall } from '@/features/pwa'
@@ -266,6 +268,22 @@ export function useAppCommands(): Command[] {
         run: () => void startNote(),
       },
       {
+        id: 'library-add',
+        title: 'Add a PDF to the library',
+        section: 'Library',
+        icon: <PlusIcon />,
+        keywords: [
+          'pdf',
+          'document',
+          'upload',
+          'import',
+          'slides',
+          'paper',
+          'book',
+        ],
+        run: choosePdfs,
+      },
+      {
         id: 'log-today',
         title: "Write today's line",
         section: 'Log',
@@ -323,6 +341,14 @@ export function useAppCommands(): Command[] {
         icon: <NoteIcon />,
         keywords: ['notes', 'markdown', 'wiki', 'pages', 'study'],
         run: () => navigate(paths.notes),
+      },
+      {
+        id: 'go-library',
+        title: 'Go to Library',
+        section: 'Go to',
+        icon: <LibraryIcon />,
+        keywords: ['pdf', 'documents', 'reading', 'papers', 'slides', 'books'],
+        run: () => navigate(paths.library),
       },
       {
         id: 'go-inbox',
@@ -441,7 +467,7 @@ export function useAppCommands(): Command[] {
         // Loaded on demand: backup code isn't needed to start the app.
         run: () =>
           void import('@/features/backup').then(({ downloadBackup }) =>
-            downloadBackup({ includeSecrets: false }),
+            downloadBackup({ includeSecrets: false, includeFiles: true }),
           ),
       },
       {
