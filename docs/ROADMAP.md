@@ -179,7 +179,7 @@ versions and the flame stages could go in earlier.
 | 2     | In review | Focus timer, subjects and collections (`feature/focus-timer`); daily log (`feature/daily-log`); tasks with quick add, repeats and the board (`feature/tasks`); password-protected backups (`feature/encrypted-backup`); more habits (`feature/habits`); routines (`feature/routines`); the inbox (`feature/inbox`). Each its own PR, stacked in that order |
 | 3     | In review | Notes with maths, code and links (`feature/notes`, PR #10); search in ⌘K (`feature/search`), stacked on notes                                                                                                                                                                                                                                              |
 | 4     | In review | Document library and PDF viewer with highlights (`feature/library`), stacked on search; search by meaning (`feature/embeddings`), stacked on the library; chat with documents and the assistant (`feature/assistant`), stacked on search by meaning                                                                                                        |
-| 5     | Building  | Flashcards with FSRS (`feature/flashcards`, PR #15), stacked on the assistant; practice quizzes (`feature/quizzes`), stacked on flashcards                                                                                                                                                                                                                 |
+| 5     | Building  | Flashcards with FSRS (`feature/flashcards`, PR #15), stacked on the assistant; practice quizzes (`feature/quizzes`, PR #16), stacked on flashcards; image to notes (`feature/image-notes`), stacked on quizzes                                                                                                                                             |
 | 6–7   | Planned   |                                                                                                                                                                                                                                                                                                                                                            |
 
 ### What Phase 1 changed in the plan
@@ -376,3 +376,20 @@ versions and the flame stages could go in earlier.
   and read JSON replies the same way.
 - **Next:** image to notes (a vision model turns a photo of handwritten
   notes or a whiteboard into markdown), then voice notes.
+
+### What image to notes changed in the plan
+
+- **The AI layer carries pictures.** A message can hold text and pictures;
+  each provider gets them its own way. Nothing else in the app had to
+  change, and voice notes can follow the same pattern for audio.
+- **The chat model, not a separate vision setting.** Most current chat
+  models read pictures; one that can't says so with an error, which the
+  page explains, rather than every user setting a third model.
+- **Photos are scaled down on the device** to what the model reads anyway
+  (1568 px, 1.15 megapixels), so uploads are smaller and the token
+  estimate is right. They aren't kept: notes have no attachments yet.
+- **You check it before it's a note.** The transcription opens to read and
+  edit, with `[?]` where a word couldn't be read; only **Save** makes it a
+  note.
+- **Next:** voice notes (record, transcribe with a speech-to-text API,
+  save as a note), the last of Phase 5.

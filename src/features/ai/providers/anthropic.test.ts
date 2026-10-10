@@ -136,6 +136,36 @@ describe('Anthropic provider', () => {
     })
   })
 
+  it('sends pictures as base64 image blocks', async () => {
+    const fake = fakeSdk({ events: reply(['ok']) })
+    await collect(
+      createAnthropicProvider({ apiKey: 'k', loadSdk: fake.loadSdk }).chat({
+        model: 'claude-test',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Photo 1 of 1' },
+              { type: 'image', mediaType: 'image/jpeg', data: 'AAAA' },
+            ],
+          },
+        ],
+      }),
+    )
+    expect(fake.requests[0].body.messages).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Photo 1 of 1' },
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: 'image/jpeg', data: 'AAAA' },
+          },
+        ],
+      },
+    ])
+  })
+
   it('talks to the API straight from the browser, with retries left to Momentum', async () => {
     const fake = fakeSdk({ events: reply(['ok']) })
     await collect(

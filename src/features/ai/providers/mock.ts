@@ -1,4 +1,5 @@
 import { abortError, type AiError } from '../errors'
+import { textOf } from '../lib/content'
 import type {
   AiProvider,
   ChatEvent,
@@ -53,7 +54,7 @@ export function createMockProvider(
     const { replies } = options
     if (typeof replies === 'function') return replies(request, call)
     if (replies?.length) return replies[Math.min(call, replies.length - 1)]
-    const last = request.messages.at(-1)?.content ?? ''
+    const last = textOf(request.messages.at(-1)?.content ?? '')
     return { chunks: ['Mock reply to: ', last] }
   }
 
@@ -68,7 +69,7 @@ export function createMockProvider(
       const chunks = reply.chunks ?? []
       const usage = reply.usage ?? {
         inputTokens: request.messages.reduce(
-          (sum, message) => sum + message.content.length,
+          (sum, message) => sum + textOf(message.content).length,
           0,
         ),
         outputTokens: chunks.join('').length,

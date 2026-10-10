@@ -3,6 +3,7 @@ import type { Command } from '@/lib/commands'
 import {
   BellIcon,
   BookIcon,
+  CameraIcon,
   CardsIcon,
   ChatIcon,
   ChecklistIcon,
@@ -270,6 +271,25 @@ export function useAppCommands(): Command[] {
         icon: <PlusIcon />,
         keywords: ['note', 'write', 'markdown', 'page', 'document', 'create'],
         run: () => void startNote(),
+      },
+      {
+        id: 'note-photo',
+        title: 'Note from a photo',
+        section: 'Notes',
+        icon: <CameraIcon />,
+        keywords: [
+          'photo',
+          'camera',
+          'picture',
+          'image',
+          'whiteboard',
+          'handwriting',
+          'handwritten',
+          'scan',
+          'transcribe',
+          'ocr',
+        ],
+        run: () => navigate(paths.photoNote),
       },
       {
         id: 'library-add',

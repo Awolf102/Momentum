@@ -1,5 +1,7 @@
+import { Link } from 'wouter'
 import { GlassCard } from '@/components/GlassCard'
-import { NoteIcon } from '@/components/icons'
+import { CameraIcon, NoteIcon } from '@/components/icons'
+import { paths } from '@/lib/routes'
 import { NewNoteButton } from './NewNoteButton'
 
 const EXAMPLES: [string, string][] = [
@@ -38,8 +40,14 @@ export function NotesWelcome({ empty }: { empty: boolean }) {
           </div>
         ))}
       </dl>
-      <div className="mt-6">
+      <div className="mt-6 flex flex-wrap gap-2">
         <NewNoteButton />
+        <Link
+          href={paths.photoNote}
+          className="inline-flex items-center gap-1.5 rounded-full bg-tint px-4 py-2 text-sm font-semibold transition hover:bg-line"
+        >
+          <CameraIcon /> From a photo
+        </Link>
       </div>
     </GlassCard>
   )
