@@ -250,7 +250,7 @@ function ClosedGoals({
         onClick={() => setOpen(!open)}
         className={cn(sectionTitle, 'flex items-center gap-1.5 hover:text-fg')}
       >
-        {title}
+        {title}{' '}
         <span className="font-medium tracking-normal normal-case tabular-nums">
           {views.length}
         </span>

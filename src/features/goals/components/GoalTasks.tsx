@@ -41,7 +41,7 @@ export function GoalTasks({
           id={headingId}
           className={cn(sectionTitle, 'flex items-center gap-2')}
         >
-          Tasks
+          Tasks{' '}
           {steps.length > 0 && (
             <span className="font-medium tracking-normal normal-case tabular-nums">
               {done} of {steps.length} done
@@ -73,7 +73,7 @@ export function GoalTasks({
       {!full && (
         <QuickAdd
           add={(input) => addTaskToGoal(goal.id, input)}
-          placeholder="Add a task towards it… e.g. Past paper sat"
+          placeholder="Add a task towards it… e.g. Past paper fri"
           label="New task for this goal"
           className="mt-3"
         />

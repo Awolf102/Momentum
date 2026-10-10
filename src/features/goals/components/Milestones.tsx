@@ -44,7 +44,7 @@ export function Milestones({ goal }: { goal: Goal }) {
         id={headingId}
         className={cn(sectionTitle, 'flex items-center gap-2')}
       >
-        Milestones
+        Milestones{' '}
         {goal.milestones.length > 0 && (
           <span className="font-medium tracking-normal normal-case tabular-nums">
             {done} of {goal.milestones.length}
