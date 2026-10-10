@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearch } from 'wouter'
 import { GlassCard } from '@/components/GlassCard'
 import { useFocusTotals, type DayTotal } from '@/features/focus'
 import { useLogLines } from '@/features/log'
@@ -15,7 +16,7 @@ import {
   type Subject,
 } from '@/features/subjects'
 import { useStreak } from '@/features/streak'
-import type { DateKey } from '@/lib/date'
+import { isDateKey, type DateKey } from '@/lib/date'
 import { useStore } from '@/lib/store'
 
 /** How many past days to show at first, and each time you ask for more. */
@@ -63,6 +64,27 @@ export default function LogPage() {
       }),
     [lines, streak.dates, totals, streak.today, subjects],
   )
+
+  // /log?day=… (a search result) shows that day, however far back.
+  const wanted = new URLSearchParams(useSearch()).get('day')
+  const found = isDateKey(wanted) ? wanted : null
+  const [revealed, setRevealed] = useState<DateKey | null>(null)
+  if (found && found !== revealed) {
+    setRevealed(found)
+    const index = past.findIndex((day) => day.day === found)
+    if (index >= shown) setShown(Math.ceil((index + 1) / PAGE) * PAGE)
+  }
+  useEffect(() => {
+    if (!found) return
+    // After the shell's own scroll to the top of a new page.
+    const frame = requestAnimationFrame(() =>
+      document
+        .getElementById(`log-${found}`)
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' }),
+    )
+    return () => cancelAnimationFrame(frame)
+  }, [found])
+
   const months = groupByMonth(past.slice(0, shown))
 
   return (
@@ -76,7 +98,7 @@ export default function LogPage() {
       <div className="mt-6 flex flex-col gap-4">
         <LogToday day={today} />
         {months.map((month) => (
-          <LogMonth key={month.month} {...month} />
+          <LogMonth key={month.month} {...month} found={found} />
         ))}
         {past.length === 0 && (
           <GlassCard className="px-5 py-5 text-sm leading-relaxed text-fg-muted sm:px-6">

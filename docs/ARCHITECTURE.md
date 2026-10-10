@@ -80,6 +80,9 @@ src/
 │   ├── subjects/             Labels for sessions: Calculus, Reading… (editable)
 │   ├── inbox/                Capture now, sort later; the PWA share target
 │   │   └── lib/share.ts      What other apps share, safe links (tested)
+│   ├── search/               Search everything from ⌘K (loaded when it opens)
+│   │   ├── lib/engine.ts     Folding, word-start matching, ranking, snippets (tested)
+│   │   └── sources.tsx       Every kind of record as something to find (tested)
 │   ├── notes/                Markdown notes with maths, code and [[links]]
 │   │   ├── notes.ts          The notes collection; save, rename-aware links (tested)
 │   │   ├── lib/links.ts      [[links]], backlinks, renaming (pure, tested)
@@ -392,7 +395,7 @@ database version.
 
 `wouter` (about 2 KB) maps paths to pages: `/` is the dashboard, and
 `/tasks` the tasks, `/notes` and `/notes/:id` the notes, `/inbox` the inbox,
-`/log` the daily log, and
+`/log` the daily log (`/log?day=…` scrolls to a day), and
 `/settings/:section` the settings (appearance,
 focus, app, AI, data). Pages other than
 the dashboard load on first visit, behind an error boundary that explains a
@@ -878,6 +881,45 @@ between notes.
   the note are separate screens with a way back. The list filters by words in
   titles and text, and by subject once notes have more than one.
 
+## Search
+
+The ⌘K palette (Search in the phone tab bar) finds things as well as
+commands: notes, tasks, habits, routines, log lines and inbox items.
+
+- **Matching** (`search/lib/engine.ts`, pure): text is folded — lowercase,
+  accents removed, so "godel" finds "Gödel" — and split into words. Each query
+  word has to match the start of a word, in the title or the text ("karn"
+  finds "Karnaugh"; "augh" doesn't); a single letter has to be a whole word,
+  or it would match nearly everything.
+- **Ranking:** a word in the title counts three times one in the text, a whole
+  word more than a prefix, and a title that is, starts with or contains the
+  whole query gets a bonus. Pinned notes are nudged up and finished tasks well
+  down, so open ones come first unless a finished one is a far better match.
+  Ties go to notes, then tasks, habits, routines, the log and the inbox, then
+  to the latest.
+- **The index** is each record's words, sorted, so a prefix is a binary
+  search. It's built the first time a record is searched and cached by the
+  record itself (records are replaced, never changed, when edited), with a
+  version for what else it shows, like a subject's name. Nothing is indexed
+  until you search, and only changed records are indexed again. With 300 long
+  notes and 1,000 tasks, the first search (loading and indexing everything)
+  takes about 120 ms and each keystroke after it about 25 ms.
+- **What's searched:** a note's title and its text as plain lines — markdown
+  marks gone, maths as readable text, code included — and its subject; a
+  task's title and subject; a habit's name; a routine's name and steps; a log
+  line and its date; an inbox item's text and link. Empty notes are left out.
+- **Results** are grouped by kind (at most five each, thirty in all), the kind
+  with the best match first, under the commands that match. Matched words are
+  marked in titles, and a line of context (cut around the first match, marked
+  too) shows why something matched on its text. A note opens on its page; a
+  task, habit or routine in its sheet; a log line on the Log page, scrolled to
+  its day (showing earlier days if needed) with a brief glow; an inbox item on
+  the Inbox page.
+- **Loading:** the search code loads the first time the palette opens; until
+  then, or if it can't load, the palette finds commands only. The palette
+  itself knows nothing about features: the shell passes it a `search`
+  function returning `PaletteResult`s.
+
 ## Routines
 
 `features/routines` keeps short checklists for a part of the day — a morning
@@ -933,7 +975,8 @@ created on the first play, which always follows a click or key press.
 ## Commands and shortcuts
 
 `app/commands.tsx` lists every action once (title, section, keywords, optional
-hotkey). The ⌘K / Ctrl K palette searches it; the same list drives the keyboard
+hotkey). The ⌘K / Ctrl K palette searches it (and everything else; see
+Search); the same list drives the keyboard
 shortcuts and the shortcuts sheet. Single-key shortcuts (C, F, N, I, L, M, S,
 A, T, `,`, `?`) are ignored while typing or while a dialog (`aria-modal`) is
 open. N adds a task and I captures to the inbox, from anywhere; New note and
@@ -992,7 +1035,9 @@ check-in once per day, two wake-ups at once, daily totals and levels),
 habits (streaks over chosen weekdays, days off, the last week, the four-week
 rate, ticking on and off, merging), routines (part of the day, today's order,
 editing steps, completing and reopening a day), the inbox (what apps share,
-safe links, capturing, making notes), notes (links, backlinks, renaming
+safe links, capturing, making notes), search (folding accents, word starts,
+every word, single letters, ranking and ties, snippets, every kind of record,
+finished tasks, edits, the per-kind limit), notes (links, backlinks, renaming
 links, previews, ticking boxes, `[[` suggestions, tidying empty notes; rendering:
 maths but not money, Verilog highlighting, raw HTML as text, TeX that can't
 link, clean MathML), the daily log (one line per day, edits, deletion, tidying, the timeline), tasks
