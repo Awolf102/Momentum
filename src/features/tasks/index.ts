@@ -22,5 +22,6 @@ export {
   reopenTask,
   tasks,
   updateTask,
+  type NewTask,
 } from './tasks'
 export type { Priority, Recurrence, Task, TaskStatus } from './types'
