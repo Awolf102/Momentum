@@ -6,7 +6,7 @@ import type { DBSchema, IDBPDatabase } from 'idb'
  * browser on any older version is brought up to date.
  */
 export const DB_NAME = 'momentum'
-export const DB_VERSION = 14
+export const DB_VERSION = 15
 
 /** Object stores that hold collections (see `lib/collection.ts`). */
 export const COLLECTION_STORES = [
@@ -23,6 +23,8 @@ export const COLLECTION_STORES = [
   'cards',
   'cardReviews',
   'quizzes',
+  'blocks',
+  'calendars',
 ] as const
 export type CollectionStoreName = (typeof COLLECTION_STORES)[number]
 
@@ -170,6 +172,17 @@ export interface MomentumDB extends DBSchema {
     key: string
     value: { id: string; [field: string]: unknown }
   }
+  /** Time set aside on the plan, read by day (see `features/planner`). */
+  blocks: {
+    key: string
+    value: { id: string; day: string; [field: string]: unknown }
+    indexes: { 'by-day': string }
+  }
+  /** Calendars imported from .ics files, each with its events. */
+  calendars: {
+    key: string
+    value: { id: string; [field: string]: unknown }
+  }
 }
 
 export function upgrade(
@@ -249,4 +262,10 @@ export function upgrade(
   }
   // v14: practice quizzes.
   if (oldVersion < 14) db.createObjectStore('quizzes', { keyPath: 'id' })
+  // v15: the plan: blocks of time by day, and imported calendars.
+  if (oldVersion < 15) {
+    const planned = db.createObjectStore('blocks', { keyPath: 'id' })
+    planned.createIndex('by-day', 'day')
+    db.createObjectStore('calendars', { keyPath: 'id' })
+  }
 }
