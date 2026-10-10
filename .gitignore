@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# The sync server's database (people's synced data): never committed
+data/
+*.db
+*.db-wal
+*.db-shm
