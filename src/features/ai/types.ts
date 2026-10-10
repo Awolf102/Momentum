@@ -1,7 +1,16 @@
-/** The services Momentum can talk to. API keys are saved under these names. */
-export type ProviderId = 'anthropic' | 'openai' | 'compatible'
+/**
+ * Where AI runs: a service Momentum talks to (API keys are saved under
+ * these names), or `browser`, a model running on this device.
+ */
+export type ProviderId = 'anthropic' | 'openai' | 'compatible' | 'browser'
 
-/** Anthropic has no embeddings API, so embeddings come from the others. */
+/** The providers that chat (the model on this device only makes embeddings). */
+export type ChatProviderId = Exclude<ProviderId, 'browser'>
+
+/**
+ * Anthropic has no embeddings API, so embeddings come from the others: OpenAI,
+ * a compatible server, or the model on this device.
+ */
 export type EmbeddingProviderId = Exclude<ProviderId, 'anthropic'>
 
 export type AiTask = 'chat' | 'embeddings'

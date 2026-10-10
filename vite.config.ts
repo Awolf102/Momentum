@@ -58,8 +58,15 @@ function pdfjsResources(): Plugin {
   }
 }
 
+// The engine for the in-browser embeddings model: its size is shown before
+// it's downloaded.
+const ortWasmBytes = statSync(
+  resolve('node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm'),
+).size
+
 // https://vite.dev/config/
 export default defineConfig({
+  define: { __ORT_WASM_BYTES__: JSON.stringify(ortWasmBytes) },
   plugins: [
     react(),
     tailwindcss(),
@@ -119,7 +126,8 @@ export default defineConfig({
         globIgnores: [
           '**/*-{cyrillic,cyrillic-ext,greek,greek-ext,vietnamese}-*',
           // AI SDKs download the first time an AI feature is used (then the
-          // service worker keeps them), not on install.
+          // service worker keeps them), not on install. So does the worker
+          // that runs the embeddings model on this device.
           '**/assets/ai/**',
           // So does pdf.js, the first time a PDF is added or opened, and
           // the files it reads for some PDFs.
@@ -135,6 +143,21 @@ export default defineConfig({
   ],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+  },
+  worker: {
+    // Module workers, so the embeddings worker can load its engine lazily.
+    format: 'es',
+    rolldownOptions: {
+      output: {
+        // With the AI SDKs (see globIgnores): only needed once it's used.
+        entryFileNames: 'assets/ai/[name]-[hash].js',
+        chunkFileNames: 'assets/ai/[name]-[hash].js',
+        assetFileNames: (asset) =>
+          asset.names.some((name) => name.startsWith('ort-wasm'))
+            ? 'assets/engine/[name]-[hash][extname]'
+            : 'assets/[name]-[hash][extname]',
+      },
+    },
   },
   build: {
     rolldownOptions: {
@@ -174,11 +197,16 @@ export default defineConfig({
             return 'assets/shared-[hash].js'
           return 'assets/[name]-[hash].js'
         },
-        // pdf.js's worker (imported as a URL) goes with pdf.js.
-        assetFileNames: (asset) =>
-          asset.names.some((name) => name.startsWith('pdf.worker'))
-            ? 'assets/pdf/[name]-[hash][extname]'
-            : 'assets/[name]-[hash][extname]',
+        assetFileNames: (asset) => {
+          // pdf.js's worker (imported as a URL) goes with pdf.js.
+          if (asset.names.some((name) => name.startsWith('pdf.worker')))
+            return 'assets/pdf/[name]-[hash][extname]'
+          // The embeddings engine is kept with the model it runs (in
+          // Cache Storage, by the worker), so the service worker leaves it.
+          if (asset.names.some((name) => name.startsWith('ort-wasm')))
+            return 'assets/engine/[name]-[hash][extname]'
+          return 'assets/[name]-[hash][extname]'
+        },
       },
     },
   },

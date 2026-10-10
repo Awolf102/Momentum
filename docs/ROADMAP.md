@@ -178,7 +178,7 @@ versions and the flame stages could go in earlier.
 | 1     | In review | Branch `claude/v3-phase-1-foundations` (PR #2), stacked on the v2 branch (PR #1)                                                                                                                                                                                                                                                                           |
 | 2     | In review | Focus timer, subjects and collections (`feature/focus-timer`); daily log (`feature/daily-log`); tasks with quick add, repeats and the board (`feature/tasks`); password-protected backups (`feature/encrypted-backup`); more habits (`feature/habits`); routines (`feature/routines`); the inbox (`feature/inbox`). Each its own PR, stacked in that order |
 | 3     | In review | Notes with maths, code and links (`feature/notes`, PR #10); search in ⌘K (`feature/search`), stacked on notes                                                                                                                                                                                                                                              |
-| 4     | Building  | Document library and PDF viewer with highlights (`feature/library`), stacked on search                                                                                                                                                                                                                                                                     |
+| 4     | Building  | Document library and PDF viewer with highlights (`feature/library`), stacked on search; search by meaning (`feature/embeddings`), stacked on the library                                                                                                                                                                                                   |
 | 5–7   | Planned   |                                                                                                                                                                                                                                                                                                                                                            |
 
 ### What Phase 1 changed in the plan
@@ -282,3 +282,31 @@ versions and the flame stages could go in earlier.
   it rather than parsing PDFs again.
 - **Highlights are fractions of the page,** so they survive zooming, other
   screen sizes and (later) sync between devices.
+
+### What search by meaning changed in the plan
+
+- **The model on this device runs on ONNX Runtime directly,** with Hugging
+  Face's tokenizer, not through transformers.js: that package also installs
+  Node-only parts (a 300 MB native runtime, an image library) that a browser
+  app never uses. What's needed — tokenise, run, average, normalise — is about
+  a hundred lines, and tested.
+- **The model is all-MiniLM-L6-v2** (English, 23 MB with 8-bit weights), the
+  one that could be checked end to end here. A stronger retrieval model such
+  as bge-small (about 50% bigger, slower) can be added as another built-in
+  choice; the code takes a model description, not a name.
+- **Its files come from Hugging Face** when you download it, from the `main`
+  revision (pinning a commit or a checksum needs the real files to check
+  against). `VITE_MODEL_HOST` points a build at a copy of your own. The engine
+  comes from Momentum's own server.
+- **With a provider, a search is sent only when chosen,** not as you type:
+  typing is not asking to send. On this device, nothing is sent, so it
+  searches as you type.
+- **The send preview is built** (`SendPreview` in `features/ai`): the
+  provider, the model, exactly what goes (with boxes to leave things out),
+  the size and the cost. Chat with documents will use it too.
+- **Related notes came with it,** under each note, from vectors already
+  indexed.
+- **The index isn't backed up.** It's derived from notes and documents, and is
+  rebuilt after a restore (the preview shows what that sends).
+- **Next:** chat with documents, citing pages, using this index to find the
+  passages to send; then the read-only assistant.

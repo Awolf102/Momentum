@@ -18,6 +18,7 @@ import {
   ThemeSetting,
 } from '@/features/appearance'
 import { DataSettings } from '@/features/backup'
+import { MeaningIndexCard } from '@/features/embeddings'
 import { FocusSettings } from '@/features/focus/settings'
 import { InstallSetting } from '@/features/pwa'
 import { ReminderSetting } from '@/features/reminder'
@@ -143,7 +144,7 @@ function SectionContent({ section }: { section: SettingsSection }) {
         </>
       )
     case 'ai':
-      return <AiSettingsPanel />
+      return <AiSettingsPanel afterEmbeddings={<MeaningIndexCard />} />
     case 'data':
       return <DataSettings />
   }

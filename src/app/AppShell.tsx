@@ -24,6 +24,7 @@ import { Header } from './Header'
 import { ShortcutsSheet } from './ShortcutsSheet'
 import { Sidebar } from './Sidebar'
 import { TabBar } from './TabBar'
+import { useMeaningSearch } from './useMeaningSearch'
 import { useSearch } from './useSearch'
 
 /**
@@ -65,6 +66,7 @@ function Chrome({ children }: { children: ReactNode }) {
   const climbing = useStore(climbViewStore) !== 'off'
   const commands = useAppCommands()
   const search = useSearch(paletteOpen)
+  const meaning = useMeaningSearch(paletteOpen)
   const [location] = useLocation()
   useUnlockCelebrations()
   useHotkeys([
@@ -122,6 +124,7 @@ function Chrome({ children }: { children: ReactNode }) {
         onClose={closePalette}
         commands={commands}
         search={search}
+        meaning={meaning}
       />
       <Toaster />
     </>

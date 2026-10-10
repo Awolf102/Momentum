@@ -30,7 +30,24 @@ export interface PaletteResult {
   snippet?: readonly MarkedText[]
   /** A detail on the right, e.g. a due date. */
   detail?: string
+  /**
+   * What choosing it opens, e.g. `note:<id>` or `document:<id>#3` (page 3).
+   * Results opening the same thing are listed once.
+   */
+  opens?: string
   run: () => void
+}
+
+/** Searching by meaning from the palette (see `features/embeddings`). */
+export interface MeaningSearch {
+  /**
+   * "auto" searches as you type: nothing leaves the device. "ask" searches
+   * only when chosen, because the search is sent to a provider.
+   */
+  mode: 'auto' | 'ask'
+  /** For "ask": who the search is sent to, e.g. "OpenAI". */
+  sendsTo?: string
+  find(query: string, signal: AbortSignal): Promise<readonly PaletteResult[]>
 }
 
 /** Every query word must appear somewhere; titles starting with the query rank first. */

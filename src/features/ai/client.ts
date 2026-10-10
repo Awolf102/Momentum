@@ -85,6 +85,8 @@ export function createAiClient(deps: AiClientDeps) {
 
   async function connectionFor(provider: ProviderId): Promise<Connection> {
     const meta = PROVIDERS[provider]
+    // Nothing to connect to: the model runs here.
+    if (meta.local) return { provider }
     const apiKey = await deps.getKey(provider)
     if (meta.needsKey && !apiKey) {
       throw new AiError(
@@ -171,7 +173,9 @@ export function createAiClient(deps: AiClientDeps) {
           onRetry: options.onRetry,
         },
       )
-      deps.recordUsage(connection.provider, model, result.usage)
+      // Usage is what providers charge for; the model on this device is free.
+      if (!PROVIDERS[connection.provider].local)
+        deps.recordUsage(connection.provider, model, result.usage)
       vectors.push(...result.vectors)
     }
     return vectors

@@ -6,7 +6,7 @@ import type { DBSchema, IDBPDatabase } from 'idb'
  * browser on any older version is brought up to date.
  */
 export const DB_NAME = 'momentum'
-export const DB_VERSION = 10
+export const DB_VERSION = 11
 
 /** Object stores that hold collections (see `lib/collection.ts`). */
 export const COLLECTION_STORES = [
@@ -118,6 +118,24 @@ export interface MomentumDB extends DBSchema {
   documentFiles: { key: string; value: Blob }
   /** Each document's text, one string per page, for search. */
   documentTexts: { key: string; value: string[] }
+  /**
+   * The search-by-meaning index, one record per note or document (keyed
+   * `note:<id>` / `document:<id>`): what it was made from…
+   */
+  embeddingSources: {
+    key: string
+    value: {
+      key: string
+      hash: string
+      space: string
+      [field: string]: unknown
+    }
+  }
+  /** …and its passages with their vectors. Rebuilt, never backed up. */
+  embeddingVectors: {
+    key: string
+    value: { key: string; [field: string]: unknown }
+  }
 }
 
 export function upgrade(
@@ -178,5 +196,11 @@ export function upgrade(
     highlights.createIndex('by-document', 'documentId')
     db.createObjectStore('documentFiles')
     db.createObjectStore('documentTexts')
+  }
+  // v11: search by meaning. What each entry was made from is kept apart from
+  // its vectors, so checking what's changed doesn't read every vector.
+  if (oldVersion < 11) {
+    db.createObjectStore('embeddingSources', { keyPath: 'key' })
+    db.createObjectStore('embeddingVectors', { keyPath: 'key' })
   }
 }

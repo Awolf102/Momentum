@@ -6,6 +6,7 @@ export {
   documentTexts,
   listAllFiles,
   loadDocumentTexts,
+  onDocumentTextsChange,
   putFile,
 } from './files'
 export { highlights } from './highlights'

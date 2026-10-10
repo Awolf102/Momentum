@@ -51,6 +51,7 @@ export async function deleteFiles(id: string): Promise<void> {
     tx.done,
   ])
   texts?.delete(id)
+  textsChanged()
 }
 
 export async function clearFiles(): Promise<void> {
@@ -62,11 +63,25 @@ export async function clearFiles(): Promise<void> {
     tx.done,
   ])
   texts?.clear()
+  textsChanged()
 }
 
 // Each document's text (one string per page), for search. Read from the
 // database once, when first needed, then kept up to date here.
 let texts: Map<string, readonly string[]> | null = null
+const textListeners = new Set<() => void>()
+
+function textsChanged() {
+  for (const listener of textListeners) listener()
+}
+
+/** Calls `listener` when a document's text is saved or deleted. */
+export function onDocumentTextsChange(listener: () => void): () => void {
+  textListeners.add(listener)
+  return () => {
+    textListeners.delete(listener)
+  }
+}
 let loadingTexts: Promise<ReadonlyMap<string, readonly string[]>> | null = null
 
 export function loadDocumentTexts(): Promise<
@@ -96,4 +111,5 @@ export async function saveDocumentText(
 ): Promise<void> {
   await (await getDb()).put('documentTexts', pages, id)
   texts?.set(id, pages)
+  textsChanged()
 }

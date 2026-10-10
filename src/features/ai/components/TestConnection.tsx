@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertIcon, CheckIcon } from '@/components/icons'
+import { useStore } from '@/lib/store'
 import { ai } from '../ai'
 import type { ConnectionTest } from '../client'
 import { describeAiError } from '../errors'
+import { localModelStore, modelStored } from '../local/client'
 import { formatLatency } from '../lib/format'
 import type { AiReadiness } from '../lib/readiness'
 import { PROVIDERS } from '../providers/meta'
@@ -31,7 +33,12 @@ export function TestConnection({
   } | null>(null)
   const [testing, setTesting] = useState(false)
   const controller = useRef<AbortController | null>(null)
-  const label = PROVIDERS[readiness.provider].label
+  const meta = PROVIDERS[readiness.provider]
+  const label = meta.label
+  // The model on this device is tested only once it's downloaded (Download
+  // says how big it is; a test shouldn't start that by surprise).
+  const model = useStore(localModelStore)
+  const waiting = meta.local && !modelStored(model)
   const target = readiness.ready
     ? `${readiness.provider}:${readiness.model}`
     : ''
@@ -55,7 +62,7 @@ export function TestConnection({
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          disabled={!readiness.ready || testing}
+          disabled={!readiness.ready || testing || waiting}
           onClick={() => void run()}
           className="rounded-full glass px-4 py-2 text-sm font-semibold transition hover:scale-[1.02] active:scale-95 disabled:pointer-events-none disabled:opacity-40"
         >
@@ -74,6 +81,12 @@ export function TestConnection({
       <p className="text-xs text-fg-subtle" role="status">
         {result ? (
           <ResultLine result={result} />
+        ) : readiness.ready && meta.local ? (
+          waiting ? (
+            'Download the model above first.'
+          ) : (
+            'Embeds one short test phrase on this device.'
+          )
         ) : readiness.ready ? (
           task === 'chat' ? (
             `Sends a one-line test message to ${label}.`

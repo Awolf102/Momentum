@@ -1,6 +1,7 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Link, Redirect, useParams } from 'wouter'
 import { ArrowLeftIcon } from '@/components/icons'
+import { useAiReadiness } from '@/features/ai'
 import { isEmptyNote, tidyEmptyNotes, useNotes } from '@/features/notes'
 import {
   NewNoteButton,
@@ -11,8 +12,16 @@ import {
 import { cn } from '@/lib/cn'
 import { paths } from '@/lib/routes'
 
+// Notes close in meaning, once embeddings are set up (loaded only then).
+const RelatedList = lazy(() =>
+  import('@/features/embeddings').then((module) => ({
+    default: module.RelatedList,
+  })),
+)
+
 export default function NotesPage() {
   const { id } = useParams<{ id?: string }>()
+  const embeddings = useAiReadiness('embeddings')
   const all = useNotes()
   const note = id ? all.find((each) => each.id === id) : undefined
   // Empty notes aren't listed (unless open), and are tidied away once left.
@@ -60,6 +69,13 @@ export default function NotesPage() {
                 <ArrowLeftIcon /> Notes
               </Link>
               <NoteEditor key={note.id} note={note} />
+              {embeddings.ready && (
+                <Suspense fallback={null}>
+                  <div className="mt-4">
+                    <RelatedList noteId={note.id} />
+                  </div>
+                </Suspense>
+              )}
             </>
           ) : (
             <NotesWelcome empty={listed.length === 0} />
