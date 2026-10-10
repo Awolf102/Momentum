@@ -2,6 +2,7 @@ import {
   useEffect,
   useId,
   useState,
+  type ChangeEvent,
   type FormEvent,
   type ReactNode,
 } from 'react'
@@ -90,6 +91,13 @@ function SignIn() {
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const creating = mode === 'create'
+  // Editing a field makes the last problem stale.
+  const change =
+    (set: (value: string) => void) =>
+    (event: ChangeEvent<HTMLInputElement>) => {
+      set(event.target.value)
+      setProblem(null)
+    }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -129,7 +137,7 @@ function SignIn() {
           <input
             id={id}
             value={server}
-            onChange={(event) => setServer(event.target.value)}
+            onChange={change(setServer)}
             placeholder="https://sync.example.com"
             inputMode="url"
             autoComplete="url"
@@ -144,7 +152,7 @@ function SignIn() {
           <input
             id={id}
             value={username}
-            onChange={(event) => setUsername(event.target.value)}
+            onChange={change(setUsername)}
             autoComplete="username"
             autoCapitalize="none"
             spellCheck={false}
@@ -166,7 +174,7 @@ function SignIn() {
             id={id}
             type="password"
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={change(setPassword)}
             autoComplete={creating ? 'new-password' : 'current-password'}
             required
             className={field}
@@ -181,7 +189,7 @@ function SignIn() {
                 id={id}
                 type="password"
                 value={confirm}
-                onChange={(event) => setConfirm(event.target.value)}
+                onChange={change(setConfirm)}
                 autoComplete="new-password"
                 required
                 className={field}
@@ -196,7 +204,7 @@ function SignIn() {
               <input
                 id={id}
                 value={invite}
-                onChange={(event) => setInvite(event.target.value)}
+                onChange={change(setInvite)}
                 autoComplete="off"
                 spellCheck={false}
                 className={field}
@@ -345,7 +353,10 @@ function Connected({
             id={passwordId}
             type="password"
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={(event) => {
+              setPassword(event.target.value)
+              setDeleteProblem(null)
+            }}
             autoComplete="current-password"
             required
             className={field}
