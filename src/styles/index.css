@@ -1,0 +1,144 @@
+@import 'tailwindcss';
+
+@custom-variant light (&:where([data-theme='light'], [data-theme='light'] *));
+
+@theme {
+  --font-sans:
+    'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    sans-serif;
+  --font-serif: 'Instrument Serif', ui-serif, Georgia, 'Times New Roman', serif;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-flicker: flicker 3.6s ease-in-out infinite;
+
+  @keyframes flicker {
+    0%,
+    100% {
+      transform: scale(1, 1) rotate(0deg);
+    }
+    20% {
+      transform: scale(1.02, 0.98) rotate(-1.2deg);
+    }
+    45% {
+      transform: scale(0.985, 1.03) rotate(0.8deg);
+    }
+    70% {
+      transform: scale(1.015, 0.99) rotate(-0.6deg);
+    }
+  }
+}
+
+/* Theme tokens are plain CSS variables so themes only swap values. */
+@theme inline {
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-line: var(--line);
+  --color-tint: var(--tint);
+}
+
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+  --fg: oklch(0.985 0.003 260);
+  --fg-muted: oklch(0.985 0.003 260 / 0.74);
+  --fg-subtle: oklch(0.985 0.003 260 / 0.52);
+  --line: oklch(1 0 0 / 0.1);
+  /* Subtle fills on top of glass (pills, tiles, empty dots). */
+  --tint: oklch(1 0 0 / 0.07);
+
+  --glass-bg: oklch(0.2 0.02 268 / 0.42);
+  --glass-strong: oklch(0.17 0.02 268 / 0.78);
+  --glass-border: oklch(1 0 0 / 0.13);
+  --glass-highlight: oklch(1 0 0 / 0.12);
+  --glass-shadow: 0 24px 60px -20px oklch(0 0 0 / 0.55);
+
+  /* Background scrim colour as an RGB triplet. */
+  --scrim: 4 6 14;
+
+  --cell-0: oklch(1 0 0 / 0.08);
+  --cell-1: oklch(0.8 0.15 65 / 0.32);
+  --cell-2: oklch(0.79 0.16 60 / 0.55);
+  --cell-3: oklch(0.76 0.18 52 / 0.8);
+  --cell-4: oklch(0.8 0.17 62);
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --fg: oklch(0.22 0.02 265);
+  --fg-muted: oklch(0.22 0.02 265 / 0.72);
+  --fg-subtle: oklch(0.22 0.02 265 / 0.52);
+  --line: oklch(0.22 0.02 265 / 0.1);
+  --tint: oklch(0.22 0.02 265 / 0.06);
+
+  --glass-bg: oklch(0.99 0.003 260 / 0.62);
+  --glass-strong: oklch(0.99 0.003 260 / 0.9);
+  --glass-border: oklch(1 0 0 / 0.7);
+  --glass-highlight: oklch(1 0 0 / 0.9);
+  --glass-shadow: 0 24px 60px -24px oklch(0.25 0.04 265 / 0.35);
+
+  --scrim: 246 247 251;
+
+  --cell-0: oklch(0.22 0.02 265 / 0.08);
+  --cell-1: oklch(0.75 0.16 60 / 0.38);
+  --cell-2: oklch(0.72 0.17 55 / 0.6);
+  --cell-3: oklch(0.68 0.19 48 / 0.85);
+  --cell-4: oklch(0.64 0.2 42);
+}
+
+/* Frosted glass that keeps text readable over photographs. */
+@utility glass {
+  background-color: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    var(--glass-shadow);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+}
+
+@utility glass-strong {
+  background-color: var(--glass-strong);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    var(--glass-shadow);
+  -webkit-backdrop-filter: blur(32px) saturate(170%);
+  backdrop-filter: blur(32px) saturate(170%);
+}
+
+/* Soft shadow for text that sits directly on the background. */
+@utility text-shadow-soft {
+  text-shadow: 0 1px 14px rgb(var(--scrim) / 0.55);
+}
+
+@layer base {
+  html {
+    background-color: #05070f;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    min-height: 100dvh;
+    font-family: var(--font-sans);
+    color: var(--fg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'cv11', 'ss01';
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: oklch(0.78 0.16 60 / 0.4);
+  }
+
+  :focus-visible {
+    outline: 2px solid oklch(0.82 0.15 65);
+    outline-offset: 3px;
+  }
+
+  input[type='range'] {
+    accent-color: oklch(0.75 0.17 55);
+  }
+}
