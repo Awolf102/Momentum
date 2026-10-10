@@ -15,6 +15,7 @@ import {
 } from '@/components/icons'
 import { SettingsCard } from '@/components/SettingsCard'
 import { Switch } from '@/components/Switch'
+import { conversations } from '@/features/assistant'
 import { focusSessions, resetTimer } from '@/features/focus'
 import { habitCheckIns, habitsStore } from '@/features/habits'
 import { inboxItems } from '@/features/inbox'
@@ -53,6 +54,7 @@ const RECORD_NAMES: Record<string, [one: string, many: string]> = {
   notes: ['note', 'notes'],
   documents: ['document', 'documents'],
   highlights: ['highlight', 'highlights'],
+  conversations: ['conversation', 'conversations'],
 }
 
 export function DataSettings() {
@@ -497,6 +499,14 @@ function ResetCard() {
           onReset={() => {
             void notes.clear()
             setDone('Your notes were deleted.')
+          }}
+        />
+        <ResetRow
+          label="Delete all conversations"
+          confirm="Tap again to delete every conversation"
+          onReset={() => {
+            void conversations.clear()
+            setDone('Your conversations with the assistant were deleted.')
           }}
         />
         <ResetRow

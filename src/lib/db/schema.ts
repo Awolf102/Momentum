@@ -6,7 +6,7 @@ import type { DBSchema, IDBPDatabase } from 'idb'
  * browser on any older version is brought up to date.
  */
 export const DB_NAME = 'momentum'
-export const DB_VERSION = 11
+export const DB_VERSION = 12
 
 /** Object stores that hold collections (see `lib/collection.ts`). */
 export const COLLECTION_STORES = [
@@ -19,6 +19,7 @@ export const COLLECTION_STORES = [
   'notes',
   'documents',
   'highlights',
+  'conversations',
 ] as const
 export type CollectionStoreName = (typeof COLLECTION_STORES)[number]
 
@@ -136,6 +137,11 @@ export interface MomentumDB extends DBSchema {
     key: string
     value: { key: string; [field: string]: unknown }
   }
+  /** Conversations with the assistant (see `features/assistant`). */
+  conversations: {
+    key: string
+    value: { id: string; [field: string]: unknown }
+  }
 }
 
 export function upgrade(
@@ -203,4 +209,6 @@ export function upgrade(
     db.createObjectStore('embeddingSources', { keyPath: 'key' })
     db.createObjectStore('embeddingVectors', { keyPath: 'key' })
   }
+  // v12: conversations with the assistant.
+  if (oldVersion < 12) db.createObjectStore('conversations', { keyPath: 'id' })
 }

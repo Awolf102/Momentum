@@ -12,6 +12,7 @@ import {
 import { Link } from 'wouter'
 import {
   ArrowLeftIcon,
+  ChatIcon,
   FitWidthIcon,
   HighlighterIcon,
   MinusIcon,
@@ -644,6 +645,15 @@ function PdfView({
             <PlusIcon />
           </button>
         </div>
+        <button
+          type="button"
+          onClick={() => navigate(paths.ask({ document: document.id }))}
+          aria-label="Ask about this document"
+          title="Ask about this document"
+          className={iconButton}
+        >
+          <ChatIcon />
+        </button>
         <button
           type="button"
           onClick={togglePanel}

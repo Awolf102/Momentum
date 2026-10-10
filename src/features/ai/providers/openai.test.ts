@@ -20,8 +20,16 @@ function fakeSdk(
     }
     chat = {
       completions: {
-        create: async (body: Record<string, unknown>) => {
+        create: async (
+          body: Record<string, unknown>,
+          requestOptions: { signal?: AbortSignal } = {},
+        ) => {
           chatBodies.push(body)
+          // Like the SDK: the caller's signal cancels the stream, which then
+          // ends without an error.
+          requestOptions.signal?.addEventListener('abort', () =>
+            controller.abort(),
+          )
           return {
             controller,
             async *[Symbol.asyncIterator]() {
@@ -186,6 +194,26 @@ describe('OpenAI provider', () => {
       if (event.type === 'text') break
     }
     expect(fake.controller.signal.aborted).toBe(true)
+  })
+
+  it('reports a cancelled reply as cancelled, not finished', async () => {
+    const fake = fakeSdk({
+      chunks: [chunk('a'), chunk('b'), chunk('c', 'stop')],
+    })
+    const stop = new AbortController()
+    const events: ChatEvent[] = []
+    const reading = (async () => {
+      for await (const event of createOpenAiProvider({
+        id: 'openai',
+        apiKey: 'k',
+        loadSdk: fake.loadSdk,
+      }).chat({ model: 'm', messages: [], signal: stop.signal })) {
+        events.push(event)
+        if (event.type === 'text') stop.abort()
+      }
+    })()
+    await expect(reading).rejects.toMatchObject({ kind: 'aborted' })
+    expect(events).toEqual([{ type: 'text', text: 'a' }])
   })
 
   it('embeds in input order, as floats', async () => {

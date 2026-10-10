@@ -32,6 +32,11 @@ function fakeSdk(options: FakeOptions = {}) {
         requestOptions: { signal?: AbortSignal } = {},
       ) {
         requests.push({ body, signal: requestOptions.signal })
+        // Like the SDK when no read is waiting: the caller's signal ends the
+        // stream without an error.
+        requestOptions.signal?.addEventListener('abort', () => {
+          aborted = true
+        })
         return {
           abort() {
             aborted = true
@@ -203,6 +208,29 @@ describe('Anthropic provider', () => {
       if (event.type === 'text') break
     }
     expect(fake.aborted).toBe(true)
+  })
+
+  it('reports a cancelled reply as cancelled, not finished', async () => {
+    const fake = fakeSdk({ events: reply(['one', 'two', 'three']) })
+    const stop = new AbortController()
+    const texts: string[] = []
+    const reading = (async () => {
+      for await (const event of createAnthropicProvider({
+        apiKey: 'k',
+        loadSdk: fake.loadSdk,
+      }).chat({
+        model: 'test-model',
+        messages: [{ role: 'user', content: 'Hi' }],
+        signal: stop.signal,
+      })) {
+        if (event.type === 'done') texts.push('(done)')
+        if (event.type !== 'text') continue
+        texts.push(event.text)
+        stop.abort()
+      }
+    })()
+    await expect(reading).rejects.toMatchObject({ kind: 'aborted' })
+    expect(texts).toEqual(['one'])
   })
 
   it('turns SDK errors into AiErrors', async () => {

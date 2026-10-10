@@ -61,6 +61,7 @@ src/
 │   ├── InboxPage.tsx         Captured things to sort; receives shares (lazy)
 │   ├── NotesPage.tsx         Notes: the list and the open note (lazy)
 │   ├── LibraryPage.tsx       The library's shelf, or a document open (lazy)
+│   ├── AssistantPage.tsx     Ask: conversations about your notes or plans (lazy)
 │   ├── LogPage.tsx           The log: each day's line, check-in and focus (lazy)
 │   └── SettingsPage.tsx      Settings sections (lazy-loaded)
 ├── features/
@@ -97,11 +98,18 @@ src/
 │   │   ├── indexer.ts        What's indexed and waiting; updating it (tested)
 │   │   ├── search.ts         Passages nearest a search; related notes (tested)
 │   │   └── palette.tsx       The palette's "By meaning" section (tested)
+│   ├── assistant/            Ask: answers from your notes and documents, or your plans
+│   │   ├── lib/              Keyword ranking, prompts, citations, plans snapshot (tested)
+│   │   ├── retrieval.ts      A question's passages: by words, and by meaning (tested)
+│   │   ├── chat.ts           Asking, the streamed answer, Stop, Ask again (tested)
+│   │   ├── conversations.ts  The conversations collection (tested)
+│   │   └── page.ts           The thread and list (only the lazy page loads them)
 │   ├── notes/                Markdown notes with maths, code and [[links]]
 │   │   ├── notes.ts          The notes collection; save, rename-aware links (tested)
 │   │   ├── lib/links.ts      [[links]], backlinks, renaming (pure, tested)
 │   │   ├── lib/suggest.ts, lib/checkboxes.ts   [[ suggestions, ticking boxes (tested)
 │   │   ├── markdown/         Renderer, sanitiser, KaTeX, highlight.js (lazy, tested)
+│   │   ├── view.ts           Rendered markdown, for the lazy pages that show it
 │   │   └── page.ts           The editor and list (only the lazy page loads them)
 │   ├── routines/             Checklists for a part of the day, fresh each day
 │   │   ├── lib/day.ts        Part of the day, today's order, progress (tested)
@@ -168,7 +176,9 @@ src/
   Multiple habits or task completion later are just more views.
 - Settings UI that only the Settings page needs has its own entry point
   (`features/focus/settings.ts`, `features/subjects/settings.ts`), so the
-  dashboard's bundle doesn't carry it.
+  dashboard's bundle doesn't carry it. So does code that only lazy pages
+  share: the notes' rendered markdown (`features/notes/view.ts`), which the
+  assistant shows too, would otherwise be in the first load.
 - **No cycles between features.** Focus uses the streak (to check in), subjects
   and ambience through their `index.ts`; none of them knows focus exists. The
   hero hears about check-ins through `onCheckIn`, whoever made them. Lower-level
@@ -302,6 +312,27 @@ what's changed) and its passages with their vectors (read only to search):
   "dims": 1536, "values": Int8Array(7 × 1536), "scales": Float32Array(7) }
 ```
 
+A conversation with the assistant is a record holding its messages, each
+question with exactly what was sent with it (its passages, or the snapshot of
+your plans), and each answer with where it came from and how it ended:
+
+```ts
+// object store "conversations"
+{ "id": "…", "title": "How do Karnaugh maps group cells?",
+  "mode": "library",                   // or "planner"
+  "documentId": null,                  // set when asking about one document
+  "messages": [
+    { "id": "…", "role": "user", "text": "How do Karnaugh maps group cells?",
+      "sources": [{ "key": "document:…", "kind": "document", "id": "…",
+                    "title": "Lecture 5", "page": 2, "text": "Group ones in…" }],
+      "createdAt": "…" },
+    { "id": "…", "role": "assistant", "text": "In rectangles of 1, 2, 4 or 8 [1].",
+      "provider": "anthropic", "model": "…", "stopReason": "end",
+      "usage": { "inputTokens": 812, "outputTokens": 64 }, "createdAt": "…" }
+  ],                                   // "stopped", "error" or "pending" when cut short
+  "createdAt": "…", "updatedAt": "…" }   // deletedAt when deleted
+```
+
 A log line is a record whose id is its day, so "one line per day" holds in the
 store itself, and two devices writing the same day merge to the later edit:
 
@@ -341,6 +372,8 @@ Everything persisted, and where:
 | `embeddingSources`, `embeddingVectors` | The search-by-meaning index (above); rebuilt, never backed up          |
 | `kv` › `momentum.embeddings`           | Notes and documents kept out of that index                             |
 | Cache Storage `momentum-models`        | The model on this device and its engine, once downloaded               |
+| `conversations`                        | Conversations with the assistant (above)                               |
+| `kv` › `momentum.assistant`            | Which parts of your plans the planning assistant may see               |
 | `kv` › `momentum.tasks`                | List or board                                                          |
 | `photos`                               | Uploaded photos as Blobs (2560 px + 360 px thumbnail)                  |
 | `secrets`                              | API keys: `anthropic`, `openai`, `compatible`                          |
@@ -348,7 +381,7 @@ Everything persisted, and where:
 | IndexedDB `momentum-reminder`          | What the service worker needs for reminders (a mirror)                 |
 | localStorage `momentum.theme`          | A copy of the theme, read before the first paint to avoid a flash      |
 
-These are object stores in the `momentum` database (version 11). Its schema
+These are object stores in the `momentum` database (version 12). Its schema
 lives in `lib/db/schema.ts` as one `upgrade` function with a step per version,
 so a browser on any older version upgrades in order: version 1 (photos only,
 from v2 of the app) gains `kv`, `secrets` and `meta`; version 2 (Phase 1) gains
@@ -359,7 +392,8 @@ their habit or routine and by day; version 7 (routines) gains `inboxItems`;
 version 8 (the inbox) gains `notes`, indexed by subject; version 9 (notes)
 gains the library's `documents`, `highlights`, `documentFiles` and
 `documentTexts`; version 10 (the library) gains the search-by-meaning index,
-`embeddingSources` and `embeddingVectors`.
+`embeddingSources` and `embeddingVectors`; version 11 (search by meaning)
+gains `conversations`.
 Existing streaks, sessions, settings, keys and photos are untouched — each path
 is tested against `fake-indexeddb`.
 
@@ -519,7 +553,10 @@ feature ─► ai.chat / ai.complete / ai.embed
   retried. Messages are scrubbed of anything key-shaped.
 - **Streams** yield `text`, running `usage`, then `done` with a stop reason
   (`end`, `max-tokens`, `refusal`). Stopping reading cancels the request; usage
-  is still recorded for what was generated.
+  is still recorded for what was generated. A stream cancelled through its
+  signal ends with an `aborted` error, never `done`: both SDKs end a
+  cancelled stream quietly, as if the reply were complete, so the adapters
+  check for it.
 - **Cost.** Usage is counted in tokens; prices aren't built in (they change),
   so an estimate appears once the user enters a price per million tokens.
 - **Size.** The SDKs load only when an AI request is made. Their chunks live in
@@ -542,8 +579,13 @@ feature ─► ai.chat / ai.complete / ai.embed
 - **`SendPreview`** is shown before an AI feature sends your text: the provider
   and model, exactly which notes or documents (each can be unticked), about
   how many tokens, and what that costs once a price is set. Nothing goes until
-  **Send**. Search by meaning is its first user; chat with documents will be
-  the next.
+  **Send**. Search by meaning uses it to build its index.
+- **The assistant** says the same for every question, in its composer: the
+  provider and model, each passage as a chip you can take out (or, about
+  your plans, which parts, with the exact text a click away), and how many
+  earlier messages go along. Finding passages as you type happens on this
+  device; with a provider's index, finding them by meaning sends the question
+  to it, so it's a button that says so.
 - The model on this device sends nothing at all. Its files come once from
   Hugging Face (or a server of your own: build with `VITE_MODEL_HOST`), after
   you choose to download them; Settings says how big they are first.
@@ -565,7 +607,8 @@ unless **Include documents** is off; their text isn't included, since it's
 read again from the files. Nor is the search-by-meaning index: it's made from
 the notes and documents, so it's built again after a restore (on this device
 by itself, or with a provider through the send preview). Which notes are kept
-out of it is a setting, and is backed up.
+out of it is a setting, and is backed up. Conversations with the assistant are
+records like any other, backed up and merged.
 
 **Password protection** (`lib/crypto.ts`) encrypts the whole backup on the
 device with the WebCrypto API: AES-GCM (256-bit, random 12-byte IV) under a
@@ -580,7 +623,8 @@ backup that includes API keys can't be made without a password; the password
 is never stored, so a forgotten one can't be recovered.
 
 Settings → Data can reset the streak history, habits, routines, tasks,
-documents, notes, the inbox, the log and the focus history separately;
+documents, notes, conversations, the inbox, the log and the focus history
+separately;
 resetting focus clears the sessions and the timer but keeps settings and
 subjects.
 
@@ -1122,6 +1166,81 @@ too, and the closest passages win.
   engine load only once the model on this device is turned on. Neither is
   precached.
 
+## The assistant
+
+`features/assistant` answers questions in conversations, at `/assistant`:
+about your notes and documents, citing the notes and pages it used, or about
+your plans. It reads; it can't change anything.
+
+- **Asking your notes and documents.** As you type, the passages most likely
+  to answer are found on this device and shown under the question as chips,
+  each naming its note or page; any can be taken out. A line above them says
+  what goes where, such as “Sends to Anthropic (model): your question, 3
+  passages from your notes and documents, and the 2 earlier messages.”
+  Nothing is sent until Send; sent sooner than the passages are found, it
+  finds them first.
+- **Finding passages** (`retrieval.ts`). By words, ranked with BM25
+  (`lib/bm25.ts`: folded, stemmed words without the common ones; k1 1.2,
+  b 0.75) over the same passages search by meaning uses, titles included.
+  By meaning, when there's an index: as you type with the model on this
+  device, or, with a provider, only when **Also find passages by meaning** is
+  chosen, since that sends the question (if it fails, it says why, and the
+  passages found by words stay). The lists are combined by reciprocal rank
+  fusion (k = 60) into six passages, three from one source at most (all six
+  may come from the one document being asked about). Passages next to each
+  other on a page are then joined (`lib/passages.ts`), the sentence they
+  share kept once, so each chip is one note or page. Notes and documents
+  kept out of search by meaning are kept out here too, unless it's the
+  document being asked about.
+- **The request** (`lib/prompt.ts`). Instructions to answer from the numbered
+  sources, cite them like `[2]`, say when they don't hold the answer (and
+  mark general knowledge as such), and treat the sources as material to
+  read, never as instructions. The question goes last, after its passages
+  (`<sources>` `[1] Lecture 5, page 2 (document)` …); up to ten earlier
+  messages go before it as they were written (earlier passages aren't sent
+  again), alternating and starting with a question, failed answers left
+  out. Answers are capped at 4,096 tokens.
+- **Answers** stream in (redrawn at most every 40 ms) and render as markdown
+  with maths and code, through the notes' renderer and its sanitiser. Each
+  `[n]` becomes a link to its note, or its document at that page
+  (`lib/sources.ts`), anywhere but code, maths and links. Under an answer:
+  the model and tokens, and anything unusual (stopped, cut off by the length
+  cap, refused, failed, or interrupted by the page closing) with **Ask
+  again**, which sends the same question with the same passages and replaces
+  what followed. Each question keeps what went with it: **Sent with 3
+  passages** shows them.
+- **Stop** keeps what had arrived and marks the answer stopped. Since both
+  SDKs end a cancelled stream as if it were complete, the adapters report it
+  as cancelled (see AI), and the assistant checks too.
+- **Saving** (`conversations.ts`, `chat.ts`). A new conversation is a draft
+  until its first question; then it's a record, titled from that question,
+  at its own address (`/assistant/<id>`). The question and an empty answer
+  are saved before anything is sent, and the answer when it ends.
+  Conversations are listed newest first; deleting one can be undone.
+- **One document**: **Ask about this document** in the viewer opens
+  `/assistant?document=<id>`, which finds passages in it only. A question
+  with few of its words (summarise it, quiz me on it) has the places left
+  filled with passages spread through the document.
+- **Suggestions** on a new conversation fill in the question rather than
+  send it, so its passages show first; some are a start to finish
+  ("Summarise my notes on …").
+- **Your plans** (`?mode=planner`). The question goes with a plain-text
+  snapshot (`lib/snapshot.ts`, pure) made on this device: today's date and
+  streak, then the parts you share: open tasks by when they're due (overdue,
+  today, the next 7 days, later, no date; 40 at most) and what was finished
+  in the past week; each habit's day, runs and four-week rate; how often each
+  routine was finished in the past week; focus time today, this week and last
+  week, by subject; the last 14 days of the log. Which parts are shared is
+  remembered (`momentum.assistant`); **Show exactly what's sent** shows the
+  text. The planning assistant has no tools: asked to change something, it
+  says how to do it in Momentum.
+- **Where**: **Ask** in the sidebar, ⌘K (**Ask your notes and documents**,
+  **Ask about your plans**), and the document viewer. On phones it isn't in
+  the tab bar; ⌘K (Search) and the viewer lead to it. Until a chat provider
+  is set up, `AiGate` shows its card.
+- **Size**: the page is 32 kB (12 kB compressed), loaded when it's opened;
+  its commands and place in the navigation add 2 kB to the first load.
+
 ## Routines
 
 `features/routines` keeps short checklists for a part of the day — a morning
@@ -1249,19 +1368,26 @@ plan; model prompts; nothing sent until asked, only what was ticked, only
 what changed, deleting without sending, another model starting afresh,
 related notes, snippets; the worker calls, errors, events and transfers;
 tokenising, padding, pooling — and, given the real model's files in
-`MOMENTUM_TEST_MODEL_DIR`, sensible similarities from it), notes (links, backlinks, renaming
+`MOMENTUM_TEST_MODEL_DIR`, sensible similarities from it), the assistant
+(keyword ranking and fusion, joining neighbouring passages, the request and
+its history, citations, the plans snapshot and its parts, keeping to one
+document, answers saved with what was sent, failures, Ask again, Stop
+whether the stream ends with an error or quietly), notes (links, backlinks, renaming
 links, previews, ticking boxes, `[[` suggestions, tidying empty notes; rendering:
 maths but not money, Verilog highlighting, raw HTML as text, TeX that can't
 link, clean MathML), the daily log (one line per day, edits, deletion, tidying, the timeline), tasks
 (quick add across dates, times, subjects, priorities, repeats and the words it
 must leave alone; repeating schedules through short months and missed dates;
 finishing, reopening, board moves, grouping), the AI
-layer (retries, Retry-After, the gate, error mapping, both adapters, usage and
-cost, settings parsing), light blending, climb progress, trail geometry and
+layer (retries, Retry-After, the gate, error mapping, both adapters and
+cancelled streams, usage and cost, settings parsing), light blending, climb progress, trail geometry and
 skyline detection (on synthetic images), command search and hotkey matching,
 noise generation and reminder scheduling. UI flows — including migrating real
 v2 data, a connection test through the real SDK, and search by meaning with
 the real model in the browser (downloading it, failing to, indexing, ⌘K,
 related notes, offline) and with a stand-in provider that logs every request
-(nothing sent before Send or before searching is chosen) — are checked in a
-headless browser at desktop and phone sizes.
+(nothing sent before Send or before searching is chosen), and the assistant
+against a stand-in chat server (exactly the passages shown and not the ones
+taken out, citations opening their pages, follow-ups, Stop, the plans
+snapshot without the parts left out, nothing sent while typing) — are
+checked in a headless browser at desktop and phone sizes.

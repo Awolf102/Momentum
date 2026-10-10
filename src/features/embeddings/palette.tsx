@@ -99,7 +99,7 @@ export async function meaningSearch(): Promise<MeaningSearch | null> {
     mode: target.local ? 'auto' : 'ask',
     sendsTo: target.local ? undefined : target.label,
     async find(query, signal) {
-      const { hits, searched } = await searchByMeaning(query, signal)
+      const { hits, searched } = await searchByMeaning(query, { signal })
       if (searched === 0)
         return [
           {

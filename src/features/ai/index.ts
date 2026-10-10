@@ -48,6 +48,7 @@ export type {
   ChatEvent,
   ChatMessage,
   ChatProviderId,
+  ChatRequest,
   EmbeddingProviderId,
   ModelInfo,
   ProviderId,
