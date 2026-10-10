@@ -109,6 +109,9 @@ day, keep the flame lit, and watch your streak grow.
   with one-file backups of all of it: notes, your library, habits, routines,
   tasks, cards, the inbox, conversations, focus sessions and the log
   included.
+- **Sync between devices** (optional): through a small server you run
+  yourself, encrypted on your device before it's sent, so the server can't
+  read any of it.
 - **Optional AI, with your own key:** Anthropic, OpenAI, or a server such as
   Ollama — or, for search by meaning, nothing but this device. Momentum works
   fully without it. Before anything is sent, you see exactly what goes and
@@ -477,6 +480,55 @@ minutes.
 | ,           | Settings                          |
 | ?           | All shortcuts                     |
 
+## Sync (optional)
+
+Momentum works on its own, on one device. To keep a phone and a laptop the
+same, run the sync server in `server/` somewhere both can reach, and sign in
+from **Settings → Sync** on each.
+
+**The server** needs only Node 22 (it uses Node's own SQLite; nothing to
+install):
+
+```bash
+npm run sync-server -- invite   # a one-time invite code for an account
+npm run sync-server -- serve    # http://127.0.0.1:8787
+npm run sync-server -- users    # accounts, and how much each keeps
+```
+
+Or with Docker: `docker build -f server/Dockerfile -t momentum-sync .`, then
+`docker run -p 8787:8787 -v momentum-sync:/data momentum-sync`. Settings come
+from the environment: `PORT`, `HOST` (127.0.0.1 unless you change it),
+`MOMENTUM_SYNC_DB` (where the database goes), `MOMENTUM_SYNC_SIGNUP`
+(`invite`, or `open` for anyone), `MOMENTUM_SYNC_ORIGINS` (the address the app
+is served from, so only it may call the server) and `MOMENTUM_SYNC_QUOTA_MB`
+(each account's space, 200 MB). Put it behind HTTPS (Caddy or nginx, say)
+before opening it to the internet: an app served over HTTPS can only reach an
+HTTPS server.
+
+**In the app:** on the first device, **Settings → Sync → Create an account**
+with the server's address, a username, a password and the invite code; on
+the others, **Sign in**. Each device then syncs when something changes, when
+it comes back into view, and every few minutes; **Sync now** (or ⌘K) does it
+at once.
+
+- **Private by design:** your password never leaves the device. From it comes
+  the key that encrypts every record before it's sent, so the server keeps
+  only what it can't read. It does see your username, how many records you
+  have of each kind and how large, and when they changed.
+- **Forget the password** and what's on the server can't be opened: each
+  device keeps its own copy, and backups still work. There's no reset.
+- **What syncs:** tasks, notes, habits and check-ins, routines, focus sessions
+  and subjects, the log, goals, the plan and calendars, cards and their
+  reviews, quizzes, the inbox, conversations, the library's documents and
+  highlights, and your weekly write-ups. **What doesn't:** API keys, PDF files
+  and photos (add a PDF again to read it on another device), appearance,
+  sound, reminders, AI setup and the search-by-meaning index.
+- When the same thing is changed on two devices, the later change wins.
+  Settings combine: check-ins, habits, routines and write-ups made on either
+  are kept, and a new device takes the account's settings rather than
+  sending its own. Deleting things one by one syncs; clearing everything in
+  Settings → Data clears this device only.
+
 ## Installing
 
 Momentum is a progressive web app. In Chrome or Edge use **Install app**
@@ -511,10 +563,11 @@ src/
 │                 flashcards · quizzes
 │                 assistant · inbox · log · calendar
 │                 motivation · appearance · climb · share · ambience
-│                 reminder · pwa · backup · ai
+│                 reminder · pwa · backup · sync · ai
 ├── components/   Shared UI (glass card, sheet, settings card, icons…)
 ├── lib/          Dates, the database and stores, secrets, routes, hooks
 └── styles/       Tailwind, design tokens, glass utility
+server/           The optional sync server (Node, SQLite; no dependencies)
 ```
 
 The architecture, data model and design decisions are explained in
