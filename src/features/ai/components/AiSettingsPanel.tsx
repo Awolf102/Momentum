@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { GlassCard } from '@/components/GlassCard'
 import { ExternalIcon, SparkleIcon } from '@/components/icons'
 import {
@@ -18,20 +18,29 @@ import {
   setCompatibleBaseUrl,
   setTaskProvider,
 } from '../store'
-import type { AiTask, EmbeddingProviderId, ProviderId } from '../types'
+import type { AiTask, ChatProviderId, EmbeddingProviderId } from '../types'
 import { KeyField } from './KeyField'
+import { LocalModelField } from './LocalModelField'
 import { ModelField } from './ModelField'
 import { TestConnection } from './TestConnection'
 import { UsageCard } from './UsageCard'
 
-/** Settings → AI: providers and keys, the model for each task, and usage. */
-export function AiSettingsPanel() {
+/**
+ * Settings → AI: providers and keys, the model for each task, and usage.
+ * Features built on embeddings can add a card after the embeddings one.
+ */
+export function AiSettingsPanel({
+  afterEmbeddings,
+}: {
+  afterEmbeddings?: ReactNode
+}) {
   return (
     <>
       <StatusCard />
       <KeysCard />
       <TaskCard task="chat" />
       <TaskCard task="embeddings" />
+      {afterEmbeddings}
       <UsageCard />
     </>
   )
@@ -198,7 +207,7 @@ function CompatibleProvider() {
   )
 }
 
-const CHAT_PROVIDERS: readonly SegmentedOption<ProviderId>[] = [
+const CHAT_PROVIDERS: readonly SegmentedOption<ChatProviderId>[] = [
   { value: 'anthropic', label: 'Anthropic' },
   { value: 'openai', label: 'OpenAI' },
   { value: 'compatible', label: 'Compatible' },
@@ -207,6 +216,7 @@ const CHAT_PROVIDERS: readonly SegmentedOption<ProviderId>[] = [
 const EMBEDDING_PROVIDERS: readonly SegmentedOption<EmbeddingProviderId>[] = [
   { value: 'openai', label: 'OpenAI' },
   { value: 'compatible', label: 'Compatible' },
+  { value: 'browser', label: 'This device' },
 ]
 
 const TASK_COPY: Record<AiTask, { title: string; description: string }> = {
@@ -217,7 +227,7 @@ const TASK_COPY: Record<AiTask, { title: string; description: string }> = {
   embeddings: {
     title: 'Embeddings',
     description:
-      "Search by meaning across notes and documents. Anthropic doesn't offer embeddings, so they come from OpenAI or a compatible server.",
+      "Search by meaning across notes and documents. Anthropic doesn't offer embeddings, so they come from OpenAI, a compatible server, or a small model that runs on this device.",
   },
 }
 
@@ -232,7 +242,7 @@ function TaskCard({ task }: { task: AiTask }) {
         {task === 'chat' ? (
           <SegmentedControl
             label="Chat provider"
-            value={provider}
+            value={provider as ChatProviderId}
             options={CHAT_PROVIDERS}
             onChange={(next) => setTaskProvider('chat', next)}
           />
@@ -244,7 +254,11 @@ function TaskCard({ task }: { task: AiTask }) {
             onChange={(next) => setTaskProvider('embeddings', next)}
           />
         )}
-        <ModelField task={task} provider={provider} model={model} />
+        {provider === 'browser' ? (
+          <LocalModelField modelId={model} />
+        ) : (
+          <ModelField task={task} provider={provider} model={model} />
+        )}
         <TestConnection task={task} readiness={readiness} />
       </div>
     </SettingsCard>

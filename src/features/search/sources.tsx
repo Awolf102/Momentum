@@ -61,7 +61,7 @@ interface Candidate {
   detail?: string
   run: () => void
   /** For documents: the page the match is on (the line of its text). */
-  atLine?: (line: number) => { detail: string; run: () => void }
+  atLine?: (line: number) => { detail: string; opens: string; run: () => void }
 }
 
 /** Gets search ready: loads the text of library documents. */
@@ -144,10 +144,12 @@ function candidates(today: string): Candidate[] {
         line < pages.length
           ? {
               detail: `p. ${line + 1}`,
+              opens: `document:${document.id}#${line + 1}`,
               run: () => navigate(paths.document(document.id, line + 1)),
             }
           : {
               detail: '',
+              opens: `document:${document.id}`,
               run: () => navigate(paths.document(document.id)),
             },
     })
@@ -273,6 +275,7 @@ export function searchEverything(query: string): PaletteResult[] {
       title: highlight(doc.title, query),
       snippet: snippet(doc.text, query) ?? undefined,
       detail: at?.detail || candidate.detail,
+      opens: at?.opens ?? doc.key,
       run: at?.run ?? candidate.run,
     }
   })

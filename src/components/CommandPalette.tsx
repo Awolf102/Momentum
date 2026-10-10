@@ -13,10 +13,11 @@ import {
   filterCommands,
   type Command,
   type MarkedText,
+  type MeaningSearch,
   type PaletteResult,
 } from '@/lib/commands'
 import { formatHotkey } from '@/lib/hotkeys'
-import { SearchIcon } from './icons'
+import { SearchIcon, SparkleIcon } from './icons'
 import { Kbd } from './Kbd'
 
 interface CommandPaletteProps {
@@ -25,6 +26,8 @@ interface CommandPaletteProps {
   commands: readonly Command[]
   /** Finds things (notes, tasks…) to list under the matching commands. */
   search?: (query: string) => readonly PaletteResult[]
+  /** Finds notes and passages by meaning, listed after the rest. */
+  meaning?: MeaningSearch | null
 }
 
 /** ⌘K: search everything, and run any action, from the keyboard. */
@@ -33,11 +36,17 @@ export function CommandPalette({
   onClose,
   commands,
   search,
+  meaning,
 }: CommandPaletteProps) {
   return createPortal(
     <AnimatePresence>
       {open && (
-        <Palette onClose={onClose} commands={commands} search={search} />
+        <Palette
+          onClose={onClose}
+          commands={commands}
+          search={search}
+          meaning={meaning}
+        />
       )}
     </AnimatePresence>,
     document.body,
@@ -47,6 +56,19 @@ export function CommandPalette({
 type Row =
   | { type: 'command'; id: string; section: string; command: Command }
   | { type: 'result'; id: string; section: string; result: PaletteResult }
+  /** "Search by meaning", when the search has to be sent to be run. */
+  | { type: 'ask'; id: string; section: string }
+
+const MEANING_SECTION = 'By meaning'
+/** Shorter searches than this aren't worth searching by meaning. */
+const MEANING_MIN = 3
+
+/** What a search by meaning found, for one query. */
+interface MeaningFound {
+  query: string
+  status: 'loading' | 'done' | 'error'
+  results: readonly PaletteResult[]
+}
 
 /** Text with its matched parts marked. */
 function Marked({ parts }: { parts: readonly MarkedText[] }) {
@@ -68,33 +90,107 @@ function Palette({
   onClose,
   commands,
   search,
+  meaning,
 }: Omit<CommandPaletteProps, 'open'>) {
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
+  const [meaningFound, setMeaningFound] = useState<MeaningFound | null>(null)
+  const asked = useRef<AbortController | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const listId = useId()
+  const text = query.trim()
+  // Only what was found for the query as it is now.
+  const byMeaning =
+    meaning && meaningFound?.query === text ? meaningFound : null
+  const canAsk =
+    meaning?.mode === 'ask' &&
+    text.length >= MEANING_MIN &&
+    byMeaning?.status !== 'done'
+
+  const found = useMemo(
+    () => (text && search ? search(query) : []),
+    [query, text, search],
+  )
+  // Something already found by its words isn't listed again.
+  const alike = useMemo(() => {
+    const listed = new Set(found.map((result) => result.opens ?? result.id))
+    return (byMeaning?.results ?? []).filter(
+      (result) => !result.opens || !listed.has(result.opens),
+    )
+  }, [found, byMeaning])
+
   const rows = useMemo((): Row[] => {
-    const found = query.trim() && search ? search(query) : []
     const matching = filterCommands(commands, query)
+    const anything = found.length + alike.length > 0
     return [
       ...matching.map((command) => ({
         type: 'command' as const,
         id: command.id,
         // Searching, the commands are one group above what was found.
-        section: query && found.length ? 'Commands' : command.section,
+        section: query && anything ? 'Commands' : command.section,
         command,
       })),
-      ...found.map((result) => ({
+      ...[...found, ...alike].map((result) => ({
         type: 'result' as const,
         id: result.id,
         section: result.section,
         result,
       })),
+      ...(canAsk
+        ? [
+            {
+              type: 'ask' as const,
+              id: 'meaning:ask',
+              section: MEANING_SECTION,
+            },
+          ]
+        : []),
     ]
-  }, [commands, query, search])
-  const searching = rows.some((row) => row.type === 'result')
+  }, [commands, query, found, alike, canAsk])
+  const searching = rows.some((row) => row.type !== 'command')
   const activeIndex = Math.min(active, Math.max(0, rows.length - 1))
+
+  // On this device, search by meaning runs as you type (nothing is sent).
+  useEffect(() => {
+    if (meaning?.mode !== 'auto' || text.length < MEANING_MIN) return
+    const controller = new AbortController()
+    const timer = setTimeout(() => {
+      setMeaningFound({ query: text, status: 'loading', results: [] })
+      meaning.find(text, controller.signal).then(
+        (results) =>
+          controller.signal.aborted ||
+          setMeaningFound({ query: text, status: 'done', results }),
+        () =>
+          controller.signal.aborted ||
+          setMeaningFound({ query: text, status: 'error', results: [] }),
+      )
+    }, 250)
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
+  }, [meaning, text])
+
+  useEffect(() => () => asked.current?.abort(), [])
+
+  /** With a provider, the search is sent only when you choose to. */
+  function askMeaning() {
+    if (!meaning || byMeaning?.status === 'loading') return
+    asked.current?.abort()
+    const controller = new AbortController()
+    asked.current = controller
+    const sent = text
+    setMeaningFound({ query: sent, status: 'loading', results: [] })
+    meaning.find(sent, controller.signal).then(
+      (results) =>
+        controller.signal.aborted ||
+        setMeaningFound({ query: sent, status: 'done', results }),
+      () =>
+        controller.signal.aborted ||
+        setMeaningFound({ query: sent, status: 'error', results: [] }),
+    )
+  }
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null
@@ -110,6 +206,10 @@ function Palette({
 
   function run(row: Row | undefined) {
     if (!row) return
+    if (row.type === 'ask') {
+      askMeaning()
+      return
+    }
     onClose()
     // Let the palette close (and restore focus) before the action opens anything.
     const action = row.type === 'command' ? row.command.run : row.result.run
@@ -192,9 +292,11 @@ function Palette({
         >
           {rows.length === 0 && (
             <p className="px-3 py-8 text-center text-sm text-fg-subtle">
-              {search && query.trim()
-                ? `Nothing matches “${query.trim()}”`
-                : 'No matching commands'}
+              {byMeaning?.status === 'loading'
+                ? 'Searching by meaning…'
+                : search && text
+                  ? `Nothing matches “${text}”`
+                  : 'No matching commands'}
             </p>
           )}
           {rows.map((row, index) => {
@@ -226,7 +328,26 @@ function Palette({
                     index === activeIndex ? 'bg-tint text-fg' : 'text-fg-muted',
                   )}
                 >
-                  {row.type === 'command' ? (
+                  {row.type === 'ask' ? (
+                    <>
+                      <span className="flex w-5 shrink-0 justify-center self-start pt-0.5 text-base text-orange-300 light:text-orange-500">
+                        <SparkleIcon />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">
+                          {byMeaning?.status === 'loading'
+                            ? 'Searching by meaning…'
+                            : byMeaning?.status === 'error'
+                              ? 'Couldn’t search by meaning. Try again'
+                              : 'Search by meaning'}
+                        </span>
+                        {/* Who it goes to first, so a long search can't hide it. */}
+                        <span className="mt-0.5 block truncate text-xs text-fg-subtle">
+                          Sends to {meaning?.sendsTo}: “{text}”
+                        </span>
+                      </span>
+                    </>
+                  ) : row.type === 'command' ? (
                     <>
                       <span className="flex w-5 shrink-0 justify-center text-base">
                         {row.command.icon}
@@ -269,8 +390,49 @@ function Palette({
               </div>
             )
           })}
+          {byMeaning && rows.length > 0 && byMeaning.status !== 'loading' && (
+            <MeaningNote found={byMeaning} shown={alike.length} />
+          )}
+          {meaning?.mode === 'auto' &&
+            byMeaning?.status === 'loading' &&
+            rows.length > 0 && (
+              <p
+                role="status"
+                className="px-3 pt-3 pb-2 text-xs text-fg-subtle"
+              >
+                Searching by meaning…
+              </p>
+            )}
         </div>
       </motion.div>
     </div>
+  )
+}
+
+/** Says when a search by meaning found nothing new, or failed. */
+function MeaningNote({
+  found,
+  shown,
+}: {
+  found: MeaningFound
+  /** Results listed (the rest were already found by their words). */
+  shown: number
+}) {
+  if (found.status === 'error')
+    return (
+      <p
+        role="status"
+        className="px-3 pt-3 pb-2 text-xs text-rose-300 light:text-rose-600"
+      >
+        Couldn’t search by meaning. Check Settings → AI, then try again.
+      </p>
+    )
+  if (shown > 0) return null
+  return (
+    <p role="status" className="px-3 pt-3 pb-2 text-xs text-fg-subtle">
+      {found.results.length > 0
+        ? 'Nothing else close in meaning.'
+        : 'Nothing close in meaning.'}
+    </p>
   )
 }

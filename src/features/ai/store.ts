@@ -8,9 +8,11 @@ import {
   type UsageData,
   type UsageTotals,
 } from './lib/usage'
-import { PROVIDER_IDS } from './providers/meta'
+import { DEFAULT_LOCAL_MODEL } from './local/models'
+import { CHAT_PROVIDER_IDS, EMBEDDING_PROVIDER_IDS } from './providers/meta'
 import type {
   AiTask,
+  ChatProviderId,
   EmbeddingProviderId,
   ModelPrice,
   ProviderId,
@@ -24,7 +26,7 @@ interface TaskSettings<P extends ProviderId> {
 }
 
 export interface AiSettings {
-  chat: TaskSettings<ProviderId>
+  chat: TaskSettings<ChatProviderId>
   embeddings: TaskSettings<EmbeddingProviderId>
   /** The OpenAI-compatible server, e.g. a local Ollama. */
   compatibleBaseUrl: string
@@ -40,11 +42,6 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
   compatibleBaseUrl: DEFAULT_COMPATIBLE_URL,
   prices: {},
 }
-
-const EMBEDDING_PROVIDERS: readonly EmbeddingProviderId[] = [
-  'openai',
-  'compatible',
-]
 
 function parseModels<P extends ProviderId>(
   value: unknown,
@@ -91,10 +88,10 @@ function parsePrices(value: unknown): Record<string, ModelPrice> {
 export function parseAiSettings(data: unknown): AiSettings | null {
   if (!isRecord(data)) return null
   return {
-    chat: parseTask(data.chat, PROVIDER_IDS, DEFAULT_AI_SETTINGS.chat),
+    chat: parseTask(data.chat, CHAT_PROVIDER_IDS, DEFAULT_AI_SETTINGS.chat),
     embeddings: parseTask(
       data.embeddings,
-      EMBEDDING_PROVIDERS,
+      EMBEDDING_PROVIDER_IDS,
       DEFAULT_AI_SETTINGS.embeddings,
     ),
     compatibleBaseUrl:
@@ -118,15 +115,17 @@ export function selection(
   task: AiTask,
 ): { provider: ProviderId; model: string } {
   const { provider, models } = settings[task] as TaskSettings<ProviderId>
-  return { provider, model: (models[provider] ?? '').trim() }
+  const model = (models[provider] ?? '').trim()
+  // The model on this device is built in, so there's always one.
+  if (provider === 'browser')
+    return { provider, model: model || DEFAULT_LOCAL_MODEL }
+  return { provider, model }
 }
 
 export function setTaskProvider(task: AiTask, provider: ProviderId): void {
-  if (
-    task === 'embeddings' &&
-    !EMBEDDING_PROVIDERS.includes(provider as EmbeddingProviderId)
-  )
-    return
+  const allowed: readonly ProviderId[] =
+    task === 'chat' ? CHAT_PROVIDER_IDS : EMBEDDING_PROVIDER_IDS
+  if (!allowed.includes(provider)) return
   aiSettingsStore.set((settings) => ({
     ...settings,
     [task]: { ...settings[task], provider },

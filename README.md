@@ -34,6 +34,11 @@ day, keep the flame lit, and watch your streak grow.
 - **Search everything** from ⌘K (Search on phones): notes, documents, tasks,
   habits, routines, the log and the inbox, as you type, with the matching
   words marked and a line of context.
+- **Search by meaning** (optional): find notes and PDF pages by what they're
+  about — "how do I make a boolean function smaller" finds the Karnaugh-map
+  pages — with a small model that runs on your device (a one-time 38 MB
+  download; nothing is sent), or your OpenAI or compatible server. Each note
+  lists the notes and pages related to it.
 - **Inbox:** catch a thought or a link in a second (I, or share to Momentum
   from another app on Android), then make it a task or a note, add it to
   today's log, or let it go.
@@ -64,8 +69,10 @@ day, keep the flame lit, and watch your streak grow.
   with one-file backups of all of it: notes, your library, habits, routines,
   tasks, the inbox, focus sessions and the log included.
 - **Optional AI, with your own key:** Anthropic, OpenAI, or a server such as
-  Ollama. Momentum works fully without it. (The AI features themselves arrive
-  in later phases; see [docs/ROADMAP.md](docs/ROADMAP.md).)
+  Ollama — or, for search by meaning, nothing but this device. Momentum works
+  fully without it. Before anything is sent, you see exactly what, to whom,
+  and roughly what it costs. (More AI features arrive in later phases; see
+  [docs/ROADMAP.md](docs/ROADMAP.md).)
 
 ## Getting started
 
@@ -123,6 +130,25 @@ needed.
 
 **Cost:** usage is counted per model each month. Prices aren't built in, because
 they change; add your provider's price per million tokens to see an estimate.
+
+### Search by meaning
+
+Under **Embeddings**, choose where vectors come from:
+
+- **This device:** press **Download** (or **Download and build the index**
+  under Search by meaning). The model (MiniLM, English) and the engine that
+  runs it are 38 MB, downloaded once from Hugging Face and Momentum, then kept
+  — it works offline. Your notes and PDFs are indexed on the device as they
+  change, and ⌘K searches by meaning as you type. Nothing is sent anywhere.
+- **OpenAI or a compatible server** (Ollama's `nomic-embed-text` works well):
+  **Review and index…** lists every note and PDF that would be sent, with its
+  size and the estimated cost; untick anything you'd rather keep to yourself,
+  then **Send**. In ⌘K, a **Search by meaning** row says exactly what it will
+  send and to whom, and sends only your search, only when you choose it.
+
+Results appear under **By meaning** in ⌘K, with the page for PDFs. To host the
+model files yourself, build with `VITE_MODEL_HOST=https://your.server`, using
+the same paths as Hugging Face (`/<repo>/resolve/main/<file>`).
 
 **Backups** leave API keys out unless you turn on **Include API keys**, and a
 backup with keys is always protected with a password (AES-GCM, with the key
@@ -224,7 +250,8 @@ itself.
 ## Tech stack
 
 React 19 · TypeScript · Vite · Tailwind CSS v4 · Motion · wouter · IndexedDB (idb) ·
-marked, DOMPurify, KaTeX and highlight.js for notes, pdf.js for the library, and the
+marked, DOMPurify, KaTeX and highlight.js for notes, pdf.js for the library, ONNX
+Runtime Web and Hugging Face's tokenizer for search by meaning, and the
 Anthropic and OpenAI SDKs (all loaded on demand) · Web Audio · Workbox (vite-plugin-pwa) · Vitest
 
 ## Project structure
@@ -235,9 +262,9 @@ src/
 ├── pages/        Pages composed from features (dashboard, tasks, notes,
 │                 library, inbox, log, settings)
 ├── features/     streak · habits · routines · focus · subjects · tasks · notes
-│                 library · search · inbox · log · calendar · motivation
-│                 appearance · climb · share · ambience · reminder · pwa
-│                 backup · ai
+│                 library · search · embeddings · inbox · log · calendar
+│                 motivation · appearance · climb · share · ambience
+│                 reminder · pwa · backup · ai
 ├── components/   Shared UI (glass card, sheet, settings card, icons…)
 ├── lib/          Dates, the database and stores, secrets, routes, hooks
 └── styles/       Tailwind, design tokens, glass utility

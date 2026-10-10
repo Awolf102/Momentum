@@ -66,7 +66,9 @@ src/
 ├── features/
 │   ├── ai/                   Optional AI: providers, client, Settings → AI, AiGate
 │   │   ├── client.ts         The one entry point features use (chat, embed…)
-│   │   ├── providers/        Anthropic, OpenAI(-compatible) adapters; mock
+│   │   ├── providers/        Anthropic, OpenAI(-compatible), this device; mock
+│   │   ├── local/            The embeddings model on this device: a worker (tested)
+│   │   ├── components/       Settings → AI, AiGate, SendPreview (what will be sent)
 │   │   └── lib/              Retries, rate-limit gate, error mapping, usage (tested)
 │   ├── backup/               Backup v3 (all data, opt-in keys) and Settings → Data
 │   ├── streak/               Check-ins, streak rules, hero card, stats, flame
@@ -90,6 +92,11 @@ src/
 │   ├── search/               Search everything from ⌘K (loaded when it opens)
 │   │   ├── lib/engine.ts     Folding, word-start matching, ranking, snippets (tested)
 │   │   └── sources.tsx       Every kind of record as something to find (tested)
+│   ├── embeddings/           Search by meaning: the index, ⌘K "By meaning", Related
+│   │   ├── lib/              Passages, 8-bit vectors, the update plan, prompts (tested)
+│   │   ├── indexer.ts        What's indexed and waiting; updating it (tested)
+│   │   ├── search.ts         Passages nearest a search; related notes (tested)
+│   │   └── palette.tsx       The palette's "By meaning" section (tested)
 │   ├── notes/                Markdown notes with maths, code and [[links]]
 │   │   ├── notes.ts          The notes collection; save, rename-aware links (tested)
 │   │   ├── lib/links.ts      [[links]], backlinks, renaming (pure, tested)
@@ -133,6 +140,7 @@ src/
 │   ├── store.ts              Tiny observable store + useStore
 │   ├── persistentStore.ts    Versioned stores + the registry that persists them
 │   ├── collection.ts         Record collections (sessions, later tasks…) (tested)
+│   ├── rpc.ts                Typed calls to a Web Worker, with progress (tested)
 │   ├── db/                   The IndexedDB database: schema, upgrades, connection
 │   ├── storage.ts            IndexedDB backends, localStorage migration, fallback
 │   ├── secrets.ts            API keys, in their own object store
@@ -277,6 +285,23 @@ fractions of the page's size, so it fits the page at any zoom:
   "note": "Powers of two only.", "createdAt": "…", "updatedAt": "…" }
 ```
 
+The search-by-meaning index keeps one entry per note or document, in two
+stores keyed the same way: what the entry was made from (small, read to see
+what's changed) and its passages with their vectors (read only to search):
+
+```ts
+// object store "embeddingSources"
+{ "key": "document:…", "kind": "document", "id": "…",
+  "hash": "1xt1brm3y19",              // of the title and text, as indexed
+  "space": "openai:text-embedding-3-small",  // vectors from different models don't mix
+  "dims": 1536, "chunks": 7, "indexedAt": "…" }
+
+// object store "embeddingVectors"
+{ "key": "document:…", "pages": [1, 1, 2, 3, 3, 5, 6],
+  "texts": ["Group ones in rectangles…", …],
+  "dims": 1536, "values": Int8Array(7 × 1536), "scales": Float32Array(7) }
+```
+
 A log line is a record whose id is its day, so "one line per day" holds in the
 store itself, and two devices writing the same day merge to the later edit:
 
@@ -288,39 +313,42 @@ store itself, and two devices writing the same day merge to the later edit:
 
 Everything persisted, and where:
 
-| Where                         | Holds                                                                  |
-| ----------------------------- | ---------------------------------------------------------------------- |
-| `kv` › `momentum.streak`      | Check-ins (above)                                                      |
-| `kv` › `momentum.appearance`  | Theme, background, overlay, light mode, photo list, celebrated rewards |
-| `kv` › `momentum.climb`       | Trails you traced, per background                                      |
-| `kv` › `momentum.ambience`    | Sound mix and volume (playback never auto-starts)                      |
-| `kv` › `momentum.reminder`    | Reminder on/off and time                                               |
-| `kv` › `momentum.focus`       | Session and break lengths, ambient sound on/off, last subject          |
-| `kv` › `momentum.focus.timer` | The phase on the clock (timestamps), place in the cycle                |
-| `kv` › `momentum.subjects`    | Subjects: name, colour, deleted (kept for old sessions)                |
-| `kv` › `momentum.calendar`    | Which calendar view is showing                                         |
-| `kv` › `momentum.ai`          | AI providers, model per task, compatible server address, prices        |
-| `kv` › `momentum.ai.usage`    | Tokens and requests per model per month (13 months kept)               |
-| `focusSessions`               | Finished focus sessions (above)                                        |
-| `logEntries`                  | The daily log, one line per day (above)                                |
-| `tasks`                       | Tasks (above)                                                          |
-| `kv` › `momentum.habits`      | Habits: name, colour, weekdays                                         |
-| `habitCheckIns`               | The days each habit was done                                           |
-| `kv` › `momentum.routines`    | Routines: name, part of the day, steps, weekdays                       |
-| `routineRuns`                 | Each day's ticked steps per routine                                    |
-| `inboxItems`                  | Captured things not yet sorted (text, an optional link)                |
-| `notes`                       | Notes: title, markdown, subject, pinned (above)                        |
-| `documents`, `highlights`     | The library's documents, and highlights with margin notes (above)      |
-| `documentFiles`               | Each document's PDF (`<id>`) and first-page picture (`<id>:thumb`)     |
-| `documentTexts`               | Each document's text, one string per page, for search                  |
-| `kv` › `momentum.tasks`       | List or board                                                          |
-| `photos`                      | Uploaded photos as Blobs (2560 px + 360 px thumbnail)                  |
-| `secrets`                     | API keys: `anthropic`, `openai`, `compatible`                          |
-| `meta`                        | Housekeeping, e.g. when localStorage data was migrated                 |
-| IndexedDB `momentum-reminder` | What the service worker needs for reminders (a mirror)                 |
-| localStorage `momentum.theme` | A copy of the theme, read before the first paint to avoid a flash      |
+| Where                                  | Holds                                                                  |
+| -------------------------------------- | ---------------------------------------------------------------------- |
+| `kv` › `momentum.streak`               | Check-ins (above)                                                      |
+| `kv` › `momentum.appearance`           | Theme, background, overlay, light mode, photo list, celebrated rewards |
+| `kv` › `momentum.climb`                | Trails you traced, per background                                      |
+| `kv` › `momentum.ambience`             | Sound mix and volume (playback never auto-starts)                      |
+| `kv` › `momentum.reminder`             | Reminder on/off and time                                               |
+| `kv` › `momentum.focus`                | Session and break lengths, ambient sound on/off, last subject          |
+| `kv` › `momentum.focus.timer`          | The phase on the clock (timestamps), place in the cycle                |
+| `kv` › `momentum.subjects`             | Subjects: name, colour, deleted (kept for old sessions)                |
+| `kv` › `momentum.calendar`             | Which calendar view is showing                                         |
+| `kv` › `momentum.ai`                   | AI providers, model per task, compatible server address, prices        |
+| `kv` › `momentum.ai.usage`             | Tokens and requests per model per month (13 months kept)               |
+| `focusSessions`                        | Finished focus sessions (above)                                        |
+| `logEntries`                           | The daily log, one line per day (above)                                |
+| `tasks`                                | Tasks (above)                                                          |
+| `kv` › `momentum.habits`               | Habits: name, colour, weekdays                                         |
+| `habitCheckIns`                        | The days each habit was done                                           |
+| `kv` › `momentum.routines`             | Routines: name, part of the day, steps, weekdays                       |
+| `routineRuns`                          | Each day's ticked steps per routine                                    |
+| `inboxItems`                           | Captured things not yet sorted (text, an optional link)                |
+| `notes`                                | Notes: title, markdown, subject, pinned (above)                        |
+| `documents`, `highlights`              | The library's documents, and highlights with margin notes (above)      |
+| `documentFiles`                        | Each document's PDF (`<id>`) and first-page picture (`<id>:thumb`)     |
+| `documentTexts`                        | Each document's text, one string per page, for search                  |
+| `embeddingSources`, `embeddingVectors` | The search-by-meaning index (above); rebuilt, never backed up          |
+| `kv` › `momentum.embeddings`           | Notes and documents kept out of that index                             |
+| Cache Storage `momentum-models`        | The model on this device and its engine, once downloaded               |
+| `kv` › `momentum.tasks`                | List or board                                                          |
+| `photos`                               | Uploaded photos as Blobs (2560 px + 360 px thumbnail)                  |
+| `secrets`                              | API keys: `anthropic`, `openai`, `compatible`                          |
+| `meta`                                 | Housekeeping, e.g. when localStorage data was migrated                 |
+| IndexedDB `momentum-reminder`          | What the service worker needs for reminders (a mirror)                 |
+| localStorage `momentum.theme`          | A copy of the theme, read before the first paint to avoid a flash      |
 
-These are object stores in the `momentum` database (version 10). Its schema
+These are object stores in the `momentum` database (version 11). Its schema
 lives in `lib/db/schema.ts` as one `upgrade` function with a step per version,
 so a browser on any older version upgrades in order: version 1 (photos only,
 from v2 of the app) gains `kv`, `secrets` and `meta`; version 2 (Phase 1) gains
@@ -330,7 +358,8 @@ version 4 (the log) gains `tasks` and its indexes; version 5 (tasks) gains
 their habit or routine and by day; version 7 (routines) gains `inboxItems`;
 version 8 (the inbox) gains `notes`, indexed by subject; version 9 (notes)
 gains the library's `documents`, `highlights`, `documentFiles` and
-`documentTexts`.
+`documentTexts`; version 10 (the library) gains the search-by-meaning index,
+`embeddingSources` and `embeddingVectors`.
 Existing streaks, sessions, settings, keys and photos are untouched — each path
 is tested against `fake-indexeddb`.
 
@@ -471,6 +500,10 @@ feature ─► ai.chat / ai.complete / ai.embed
   OpenAI-compatible server (Ollama, LM Studio, vLLM, OpenRouter…) through the
   `openai` SDK with a base URL. Chat and embeddings each have their own
   provider and model; Anthropic offers no embeddings, so it isn't offered there.
+  Embeddings can also come from **this device** (`browser`): a small model run
+  in a worker (see Search by meaning), behind the same `ai.embed`, so retries,
+  the gate and errors work the same. Nothing it does is counted as usage: it
+  costs nothing and sends nothing.
 - **Models are never hardcoded.** The model is text the user chooses, with
   suggestions from the provider's own model list. Anthropic's Models API also
   reports each model's largest `max_tokens`; the adapter caps requests to it
@@ -506,6 +539,14 @@ feature ─► ai.chat / ai.complete / ai.embed
   a masked hint (`sk-ant…a1b2`).
 - Nothing is sent to a provider except on a user's action. Test connection says
   exactly what it sends (one line of text).
+- **`SendPreview`** is shown before an AI feature sends your text: the provider
+  and model, exactly which notes or documents (each can be unticked), about
+  how many tokens, and what that costs once a price is set. Nothing goes until
+  **Send**. Search by meaning is its first user; chat with documents will be
+  the next.
+- The model on this device sends nothing at all. Its files come once from
+  Hugging Face (or a server of your own: build with `VITE_MODEL_HOST`), after
+  you choose to download them; Settings says how big they are first.
 - Usage is counted locally from what providers report.
 
 ## Backups
@@ -521,7 +562,10 @@ this version doesn't know is saved for when it does; data from a newer version
 of a store is left alone. v1 (streak only) and v2 (no collections) backups
 still import. The library's files come along too (base64, like photos)
 unless **Include documents** is off; their text isn't included, since it's
-read again from the files.
+read again from the files. Nor is the search-by-meaning index: it's made from
+the notes and documents, so it's built again after a restore (on this device
+by itself, or with a provider through the send preview). Which notes are kept
+out of it is a setting, and is backed up.
 
 **Password protection** (`lib/crypto.ts`) encrypts the whole backup on the
 device with the WebCrypto API: AES-GCM (256-bit, random 12-byte IV) under a
@@ -999,6 +1043,85 @@ items.
   itself knows nothing about features: the shell passes it a `search`
   function returning `PaletteResult`s.
 
+## Search by meaning
+
+`features/embeddings` finds notes and document pages by what they're about:
+"how do I make a boolean function smaller" finds the Karnaugh-map pages and a
+note on minimising logic, though they share hardly a word with it. Each
+passage of text becomes a vector (an embedding); a search is turned into one
+too, and the closest passages win.
+
+- **Where vectors come from** is the embeddings choice in Settings → AI:
+  OpenAI, an OpenAI-compatible server (Ollama's `nomic-embed-text`, say), or
+  **this device**. Vectors from different models can't be compared, so every
+  entry records its model (its "space") and only the current model's entries
+  are searched. Switching model doesn't throw the old vectors away; each entry
+  is replaced as it's indexed again.
+- **Passages** (`lib/chunk.ts`, pure): a note's plain text, or each page of a
+  document, split into runs of whole sentences of up to about 900 characters
+  (about 200 tokens: under the 256 the small model reads, and short enough to
+  be about one thing). A passage never spans two pages, so every match has a
+  page. A short last sentence also starts the next passage, for context.
+  Almost-empty pages (a page number, a caption) are skipped. What's embedded is
+  the title, then the passage, after any prompt the model wants
+  (`lib/prompts.ts`: `search_document:` / `search_query:` for nomic, `query:`
+  for e5, an instruction for bge, mxbai and arctic queries).
+- **Storage** (`lib/vectors.ts`): vectors are made unit length and kept as
+  8-bit steps of their largest value with one scale each: a quarter of the
+  space, with practically the same ranking. The vectors of 20,000 passages
+  take 31 MB at 1536 numbers each (OpenAI's), 8 MB at 384 (this device's).
+- **What changed** (`lib/plan.ts`, pure): every source is fingerprinted from
+  its title and text, so the plan is new or changed sources (or ones indexed
+  with another model) to embed, and gone or kept-out ones to delete. Deleting
+  never sends anything.
+- **Updating** (`indexer.ts`) embeds passages in batches across sources (64 a
+  request, 32 at a time on this device) and saves each source as soon as all
+  its passages are done, so stopping or a failure keeps what was finished. One
+  update runs at a time, across tabs too (Web Locks); the others hear about
+  changes over a BroadcastChannel.
+- **When.** With a provider, only when you ask: **Review and index…** opens
+  the send preview (every note and document, ticked; untick to keep one out,
+  remembered for next time), and nothing goes until Send. Searching from ⌘K
+  then shows a **Search by meaning** row that says what it sends and to whom
+  (`Sends to OpenAI: "…"`), and sends just your search, only when chosen. On
+  this device, once you've downloaded the model, the index keeps itself up to
+  date while Momentum is open (a few seconds after a change) and ⌘K searches
+  by meaning as you type. In both cases what's gone is taken out by itself.
+- **Searching** (`search.ts`) reads the index into memory the first time and
+  keeps it current from the change events. The nearest passages are found by
+  a dot product over every one (20,000 passages take about 14 ms with the
+  model on this device, 50 ms with OpenAI's longer vectors), then one per page
+  and three per document at most, eight in all. Matches far below the
+  best (0.25 lower) or below a floor are left out, so unrelated notes don't
+  pad the list: the floor is 0.2 for the model on this device, measured on
+  real notes (unrelated texts score up to about 0.15), and 0.1 for the rest,
+  whose scales vary. A search's vector is remembered (fifty of them), so going
+  back to one doesn't send it again.
+- **In ⌘K** the results are a **By meaning** group under the rest, each with
+  the passage (marking any of your words in it) and its page. Something the
+  words already found isn't listed twice (`opens`: the note, or the document
+  and page). The palette itself stays generic: the shell passes it a
+  `MeaningSearch` — searches as you type (`auto`) or when chosen (`ask`),
+  and whom it sends to.
+- **Related**: under a note, the notes and document pages closest to it, from
+  the vectors already in the index (the average of its own): nothing is sent.
+- **The model on this device** (`features/ai/local`) is all-MiniLM-L6-v2 with
+  8-bit weights: 384 numbers per passage, English, 23 MB, plus ONNX Runtime's
+  WebAssembly engine (14 MB, 3.7 MB compressed): 38 MB in all, downloaded
+  once, on request, with progress. It runs in a module worker
+  (`embed.worker.ts`, over `lib/rpc.ts`): Hugging Face's tokenizer, ONNX
+  Runtime on one thread, the mean of the token states, unit length. Texts of
+  similar length are batched together to save padding. The engine comes from
+  Momentum's own server and the model from Hugging Face; both are kept in
+  Cache Storage (`momentum-models`), so it works offline from then on, and a
+  newer engine replaces the old copy. The worker sleeps after three minutes
+  unused. If a download fails, the others stop with it, and both cards say
+  so, with Try again.
+- **Size:** the feature's code is 22 kB (8 kB compressed) and loads when ⌘K or
+  Settings first needs it; the worker (111 kB, 36 kB compressed) and the
+  engine load only once the model on this device is turned on. Neither is
+  precached.
+
 ## Routines
 
 `features/routines` keeps short checklists for a part of the day — a morning
@@ -1069,7 +1192,9 @@ pauses or resumes the focus timer; the palette also offers "Start focus on
   shell, pages, fonts and icons (Latin subsets only) and serves `index.html` for
   every navigation, so the app — including check-ins — works offline. The AI
   SDKs, pdf.js and the maths fonts are the exceptions: they're fetched the
-  first time they're needed and kept from then on.
+  first time they're needed and kept from then on. So is the embeddings
+  worker; the model it runs, and its engine, are kept in Cache Storage once
+  downloaded, so search by meaning on this device works offline too.
 - Updates are offered with a toast rather than applied silently.
 - **Chunks.** React and Motion are a `vendor` chunk, which rarely changes, so an
   update re-downloads only Momentum's own code. Code the bundler splits out
@@ -1118,7 +1243,13 @@ safe links, capturing, making notes), the library (selection rectangles,
 page text, highlights as a note, adding files and refusing others, Undo and
 freeing deleted files, damaged records), search (folding accents, word starts,
 every word, single letters, ranking and ties, snippets, every kind of record,
-finished tasks, edits, the per-kind limit), notes (links, backlinks, renaming
+finished tasks, edits, the per-kind limit), search by meaning (passages within
+pages, overlap, long sentences, nearly empty pages; 8-bit vectors; the update
+plan; model prompts; nothing sent until asked, only what was ticked, only
+what changed, deleting without sending, another model starting afresh,
+related notes, snippets; the worker calls, errors, events and transfers;
+tokenising, padding, pooling — and, given the real model's files in
+`MOMENTUM_TEST_MODEL_DIR`, sensible similarities from it), notes (links, backlinks, renaming
 links, previews, ticking boxes, `[[` suggestions, tidying empty notes; rendering:
 maths but not money, Verilog highlighting, raw HTML as text, TeX that can't
 link, clean MathML), the daily log (one line per day, edits, deletion, tidying, the timeline), tasks
@@ -1129,5 +1260,8 @@ layer (retries, Retry-After, the gate, error mapping, both adapters, usage and
 cost, settings parsing), light blending, climb progress, trail geometry and
 skyline detection (on synthetic images), command search and hotkey matching,
 noise generation and reminder scheduling. UI flows — including migrating real
-v2 data and a connection test through the real SDK — are checked in a headless
-browser at desktop and phone sizes.
+v2 data, a connection test through the real SDK, and search by meaning with
+the real model in the browser (downloading it, failing to, indexing, ⌘K,
+related notes, offline) and with a stand-in provider that logs every request
+(nothing sent before Send or before searching is chosen) — are checked in a
+headless browser at desktop and phone sizes.

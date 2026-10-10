@@ -17,6 +17,8 @@ describe('database schema', () => {
       'documentFiles',
       'documentTexts',
       'documents',
+      'embeddingSources',
+      'embeddingVectors',
       'focusSessions',
       'habitCheckIns',
       'highlights',

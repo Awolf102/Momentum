@@ -39,3 +39,18 @@ export function modelsForTask<T extends { id: string }>(
   const embedding = models.filter(isEmbedding)
   return embedding.length > 0 ? embedding : [...models]
 }
+
+/** A download's size, e.g. "38 MB". */
+export function formatMegabytes(bytes: number): string {
+  const megabytes = bytes / 1_000_000
+  return `${megabytes < 10 ? megabytes.toFixed(1) : Math.round(megabytes)} MB`
+}
+
+/** About how many tokens, e.g. "about 96,000 tokens". */
+export function formatTokenEstimate(count: number): string {
+  const rounded =
+    count < 1000
+      ? Math.max(10, Math.round(count / 10) * 10)
+      : Math.round(count / 1000) * 1000
+  return `about ${rounded.toLocaleString()} tokens`
+}

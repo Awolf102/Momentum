@@ -1,5 +1,6 @@
 import type { AiProvider, Connection } from '../types'
 import { createAnthropicProvider } from './anthropic'
+import { createBrowserProvider } from './browser'
 import { createOpenAiProvider } from './openai'
 
 /** The adapter for a connection. SDKs load on first use, not here. */
@@ -15,5 +16,7 @@ export function createProvider(connection: Connection): AiProvider {
         apiKey: connection.apiKey,
         baseUrl: connection.baseUrl,
       })
+    case 'browser':
+      return createBrowserProvider()
   }
 }

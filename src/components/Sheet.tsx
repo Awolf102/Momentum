@@ -10,6 +10,8 @@ interface SheetProps {
   onClose: () => void
   title: string
   children: ReactNode
+  /** Kept in view below the scrolling content, e.g. the main buttons. */
+  footer?: ReactNode
 }
 
 const FOCUSABLE =
@@ -19,7 +21,7 @@ const FOCUSABLE =
  * A modal panel: slides in from the right on larger screens and up from the
  * bottom on phones. Traps focus, closes on Escape, restores focus on close.
  */
-export function Sheet({ open, onClose, title, children }: SheetProps) {
+export function Sheet({ open, onClose, title, children, footer }: SheetProps) {
   const isWide = useMediaQuery('(min-width: 640px)')
   const panelRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
@@ -98,9 +100,20 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
                 <CloseIcon />
               </IconButton>
             </div>
-            <div className="flex-1 overflow-y-auto px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+            <div
+              className={
+                footer
+                  ? 'flex-1 overflow-y-auto px-6 pb-4'
+                  : 'flex-1 overflow-y-auto px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]'
+              }
+            >
               {children}
             </div>
+            {footer && (
+              <div className="border-t border-line px-6 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+                {footer}
+              </div>
+            )}
           </motion.div>
         </div>
       )}
