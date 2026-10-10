@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ActionRow } from '@/components/ActionRow'
-import { CardsIcon, NoteIcon, TrashIcon } from '@/components/icons'
+import { CardsIcon, NoteIcon, QuizIcon, TrashIcon } from '@/components/icons'
 import { Sheet } from '@/components/Sheet'
 import { SubjectPicker } from '@/features/subjects'
 import { formatDateKey, toDateKey } from '@/lib/date'
@@ -16,6 +16,7 @@ export function DocumentSheet({
   onClose,
   onMakeNote,
   onMakeCards,
+  onMakeQuiz,
   onDelete,
 }: {
   document: LibraryDocument
@@ -24,6 +25,7 @@ export function DocumentSheet({
   onClose: () => void
   onMakeNote: () => void
   onMakeCards: () => void
+  onMakeQuiz: () => void
   onDelete: () => void
 }) {
   return (
@@ -34,6 +36,7 @@ export function DocumentSheet({
         highlightCount={highlightCount}
         onMakeNote={onMakeNote}
         onMakeCards={onMakeCards}
+        onMakeQuiz={onMakeQuiz}
         onDelete={onDelete}
       />
     </Sheet>
@@ -45,12 +48,14 @@ function Details({
   highlightCount,
   onMakeNote,
   onMakeCards,
+  onMakeQuiz,
   onDelete,
 }: {
   document: LibraryDocument
   highlightCount: number
   onMakeNote: () => void
   onMakeCards: () => void
+  onMakeQuiz: () => void
   onDelete: () => void
 }) {
   const [title, setTitle] = useState(document.title)
@@ -114,6 +119,11 @@ function Details({
           icon={<CardsIcon />}
           label="Make cards from this PDF"
           onClick={onMakeCards}
+        />
+        <ActionRow
+          icon={<QuizIcon />}
+          label="Make a practice quiz"
+          onClick={onMakeQuiz}
         />
         <ActionRow
           icon={<TrashIcon />}

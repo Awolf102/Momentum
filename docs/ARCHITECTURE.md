@@ -63,6 +63,7 @@ src/
 │   ├── LibraryPage.tsx       The library's shelf, or a document open (lazy)
 │   ├── AssistantPage.tsx     Ask: conversations about your notes or plans (lazy)
 │   ├── CardsPage.tsx         Cards: what's due, studying, making cards (lazy)
+│   ├── QuizzesPage.tsx       Quizzes: making one, taking it, how it went (lazy)
 │   ├── LogPage.tsx           The log: each day's line, check-in and focus (lazy)
 │   └── SettingsPage.tsx      Settings sections (lazy-loaded)
 ├── features/
@@ -71,6 +72,7 @@ src/
 │   │   ├── providers/        Anthropic, OpenAI(-compatible), this device; mock
 │   │   ├── local/            The embeddings model on this device: a worker (tested)
 │   │   ├── components/       Settings → AI, AiGate, SendPreview (what will be sent)
+│   │   ├── material.ts       What's sent from notes and PDFs; reading JSON replies (tested)
 │   │   └── lib/              Retries, rate-limit gate, error mapping, usage (tested)
 │   ├── backup/               Backup v3 (all data, opt-in keys) and Settings → Data
 │   ├── streak/               Check-ins, streak rules, hero card, stats, flame
@@ -106,7 +108,14 @@ src/
 │   │   ├── review.ts         Rating, Undo, the habit (tested)
 │   │   ├── scheduler.ts      FSRS (ts-fsrs), with the page (tested)
 │   │   ├── generate.ts       Cards suggested by AI, as drafts
+│   │   ├── actions.ts        Adding, editing, deleting cards (an entry point for lazy pages)
 │   │   └── page.ts           Studying, the editor, making cards (lazy)
+│   ├── quizzes/              Practice quizzes: multiple choice and short answer
+│   │   ├── lib/              Pages, reading a quiz from a reply, a go, scores (tested)
+│   │   ├── quizzes.ts        The quizzes collection (tested)
+│   │   ├── generate.ts       Writing a quiz; marking a short answer (tested)
+│   │   ├── actions.ts        Goes at a quiz, going again, cards from missed ones (tested)
+│   │   └── page.ts           Making, taking, results (only the lazy page loads them)
 │   ├── assistant/            Ask: answers from your notes and documents, or your plans
 │   │   ├── lib/              Keyword ranking, prompts, citations, plans snapshot (tested)
 │   │   ├── retrieval.ts      A question's passages: by words, and by meaning (tested)
@@ -365,6 +374,35 @@ it; every rating goes in a log of its own:
   "due": "…", "stability": 9.2, "difficulty": 4.9, "durationMs": 4200 }
 ```
 
+A practice quiz keeps what it was made from, its questions and every go at
+it:
+
+```ts
+// object store "quizzes"
+{ "id": "…", "title": "lecture5 and Karnaugh maps", "subjectId": "digital-logic",
+  "sources": [                       // with their titles then, and the pages sent
+    { "kind": "document", "id": "…", "title": "lecture5", "pages": [1, 2] },
+    { "kind": "note", "id": "…", "title": "Karnaugh maps", "pages": null } ],
+  "questions": [
+    { "id": "…", "kind": "choice", "prompt": "Which cells does a Karnaugh map group?",
+      "choices": ["Any four cells", "Adjacent cells holding ones", "…"],
+      "answer": 1, "explanation": "Groups are rectangles of neighbouring ones.",
+      "source": { "kind": "document", "id": "…", "page": 1 } },
+    { "id": "…", "kind": "short", "prompt": "How large can a group of ones be?",
+      "answer": "A power of two: 1, 2, 4 or 8 cells.", "points": ["a power of two"],
+      "explanation": "…", "source": { "kind": "note", "id": "…", "page": null } } ],
+  "attempts": [                      // oldest first; the last may still be going
+    { "id": "…", "questionIds": ["…", "…"], "startedAt": "…", "finishedAt": "…",
+      "answers": [
+        { "questionId": "…", "choice": 0, "text": "", "mark": "wrong",
+          "markedBy": "auto", "feedback": null, "answeredAt": "…" },
+        { "questionId": "…", "choice": null, "text": "8 cells", "mark": "partly",
+          "markedBy": "ai",            // or "self"; null until marked
+          "feedback": "You gave the sizes, but not that each is a power of two.",
+          "answeredAt": "…" } ] } ],
+  "createdAt": "…", "updatedAt": "…" }   // deletedAt when deleted
+```
+
 A log line is a record whose id is its day, so "one line per day" holds in the
 store itself, and two devices writing the same day merge to the later edit:
 
@@ -409,6 +447,7 @@ Everything persisted, and where:
 | `cards`                                | Flashcards and their schedules (above)                                 |
 | `cardReviews`                          | Every rating given to a card (above); read by day                      |
 | `kv` › `momentum.cards`                | New cards a day, recall to aim for, the habit cards count towards      |
+| `quizzes`                              | Practice quizzes, their questions and every go at them (above)         |
 | `kv` › `momentum.tasks`                | List or board                                                          |
 | `photos`                               | Uploaded photos as Blobs (2560 px + 360 px thumbnail)                  |
 | `secrets`                              | API keys: `anthropic`, `openai`, `compatible`                          |
@@ -416,7 +455,7 @@ Everything persisted, and where:
 | IndexedDB `momentum-reminder`          | What the service worker needs for reminders (a mirror)                 |
 | localStorage `momentum.theme`          | A copy of the theme, read before the first paint to avoid a flash      |
 
-These are object stores in the `momentum` database (version 13). Its schema
+These are object stores in the `momentum` database (version 14). Its schema
 lives in `lib/db/schema.ts` as one `upgrade` function with a step per version,
 so a browser on any older version upgrades in order: version 1 (photos only,
 from v2 of the app) gains `kv`, `secrets` and `meta`; version 2 (Phase 1) gains
@@ -429,7 +468,7 @@ gains the library's `documents`, `highlights`, `documentFiles` and
 `documentTexts`; version 10 (the library) gains the search-by-meaning index,
 `embeddingSources` and `embeddingVectors`; version 11 (search by meaning)
 gains `conversations`; version 12 (the assistant) gains `cards` and
-`cardReviews`.
+`cardReviews`; version 13 (flashcards) gains `quizzes`.
 Existing streaks, sessions, settings, keys and photos are untouched — each path
 is tested against `fake-indexeddb`.
 
@@ -615,8 +654,12 @@ feature ─► ai.chat / ai.complete / ai.embed
 - **`SendPreview`** is shown before an AI feature sends your text: the provider
   and model, exactly which notes or documents (each can be unticked), about
   how many tokens, and what that costs once a price is set. Nothing goes until
-  **Send**. Search by meaning uses it to build its index, and flashcards
-  before AI suggests cards from a note or a PDF.
+  **Send**. Search by meaning uses it to build its index, flashcards
+  before AI suggests cards from a note or a PDF, and quizzes before AI
+  writes one (each note or PDF, and which of its pages go).
+- **Marking a short answer with AI** sends the question, its model answer
+  and your answer, never the document, and only when you press **Check
+  with AI** (or G); the line beside the button says exactly that.
 - **The assistant** says the same for every question, in its composer: the
   provider and model, each passage as a chip you can take out (or, about
   your plans, which parts, with the exact text a click away), and how many
@@ -645,7 +688,8 @@ read again from the files. Nor is the search-by-meaning index: it's made from
 the notes and documents, so it's built again after a restore (on this device
 by itself, or with a provider through the send preview). Which notes are kept
 out of it is a setting, and is backed up. Conversations with the assistant,
-cards and the review log are records like any other, backed up and merged.
+cards, the review log and quizzes (with every go at them) are records like
+any other, backed up and merged.
 
 **Password protection** (`lib/crypto.ts`) encrypts the whole backup on the
 device with the WebCrypto API: AES-GCM (256-bit, random 12-byte IV) under a
@@ -660,8 +704,8 @@ backup that includes API keys can't be made without a password; the password
 is never stored, so a forgotten one can't be recovered.
 
 Settings → Data can reset the streak history, habits, routines, tasks,
-documents, notes, cards (with their reviews), conversations, the inbox, the
-log and the focus history separately;
+documents, notes, cards (with their reviews), quizzes, conversations, the
+inbox, the log and the focus history separately;
 resetting focus clears the sessions and the timer but keeps settings and
 subjects.
 
@@ -1332,10 +1376,83 @@ Scheduler, through `ts-fsrs`, its reference implementation).
 - **Elsewhere**: the dashboard shows what's due once there are cards, ⌘K
   finds cards by either side and opens them, R starts studying, and
   Settings → Data can delete every card with its reviews.
-- **Size**: the Cards page is 54 kB (17 kB compressed) with FSRS, loaded when
+- **Size**: the Cards page is 53 kB (17 kB compressed) with FSRS, loaded when
   it's opened. The first load carries only what the dashboard card needs
   (the collection and what's due: 6 kB); card actions stay with the page, so
   the feature's `index.ts` doesn't re-export them.
+
+## Quizzes
+
+`features/quizzes` has AI write practice questions from your notes and PDFs,
+marks your answers as you go, and links each one you miss back to the page
+it's on.
+
+- **A quiz** (`quizzes.ts`): a collection. Each keeps what it was made from
+  (each note or document, its title then, and the pages sent), its questions
+  and every go at it. A question is multiple choice (two to six choices, one
+  right) or short answer (a model answer, and the one to three things a
+  right answer must include); each has an explanation and where it comes
+  from (a note, or a document and page). Records read back from storage or
+  a backup are checked: a stored mark that disagrees with a choice's key
+  gives way to the key, and a go counts as finished only when every answer
+  is marked.
+- **Making one** (`components/NewQuiz.tsx`, `generate.ts`): tick notes and
+  PDFs, choose a PDF's pages as in a print dialog (`3-7, 10`, `12-`;
+  `lib/pages.ts`), how many questions (5, 10 or 20) and what kind (mixed,
+  multiple choice or short answer). It all goes through the send preview,
+  which names each source and what of it goes. The sources share up to
+  24,000 characters; when they don't all fit, whole pages are taken from all
+  through them rather than from the start (`spreadSources`: the first page,
+  the middle, the quarters…), so the questions cover everything chosen, and
+  a note too long for the room left is cut at a paragraph or a word. In the
+  request each source is numbered and its pages marked. The model is asked
+  for a JSON list, with the right choice written out word for word (a bare
+  number is refused: counting from 0 or from 1 can't be told apart, and a
+  wrong key is worse than a question less), only what the material says,
+  and the material treated as material, not instructions. The reply is read
+  leniently (`lib/questions.ts`): a fence or words around it, choices
+  labelled "A)", a reply cut off part way (each whole question is kept).
+  Broken questions are left out, a page is kept only if it was sent, and
+  choices are shuffled, since models favour putting the right one first.
+- **Taking it** (`components/QuizSession.tsx`, `lib/attempt.ts`, pure): one
+  question at a time, keyboard first. Multiple choice: 1–4 picks, and it's
+  marked at once, with the right choice, why, and **Read it again** linking
+  to the page. Short answer: type it and press Enter (Shift Enter for a new
+  line) to see the model answer, then mark it yourself (1–3: right, partly,
+  wrong) or have AI mark it (G), which sends only the question, the model
+  answer and yours, as the line beside the button says. Your mark always
+  wins: marking it while AI is checking stops the check, and AI's mark can
+  be changed. **I don't know** shows the answer and counts as wrong. Enter
+  moves on, and the verdict scrolls clear of the Next button on a phone.
+  Every answer is saved as it's given, so leaving and coming back carries
+  on where you were. The go and the question on screen are kept in refs, so
+  a key pressed twice answers once. C, the obvious key for "check", is
+  already the app's check-in shortcut, and app-wide shortcuts come first.
+- **How it went** (`components/QuizResults.tsx`): the score (partly right
+  counts half, shown as 2.5: in the display font "2½" reads as "21⁄2"), how
+  long it took and last time's score; then each question missed or partly
+  right, with your answer, the right one, why, AI's comment and a link back
+  to its page. **Try the 3 you missed again** and **Take it again** start a
+  new go in a new order. **Make 3 cards to remember them** turns the missed
+  questions into flashcards (a multiple-choice one keeps its choices on the
+  front) with the quiz's subject and the question's page, leaving out cards
+  already made.
+- **Elsewhere**: ⌘K has New practice quiz and Open quizzes; a PDF's details
+  and a note's toolbar link to `/quizzes/new?document=…` or `?note=…`, so
+  neither feature imports this one. A quiz's details rename it, change its
+  subject, list what it was made from and delete it (with Undo); Settings →
+  Data can delete every quiz.
+- **Shared with flashcards**: what's sent and reading the reply
+  (`SourceText`, `fitSource`, `spreadSources`, `jsonItems`, `jsonObject`)
+  moved into `features/ai/material.ts`, an entry point of its own, so both
+  lazy pages share it and the first load doesn't carry it. Card actions are
+  their own entry point (`features/flashcards/actions.ts`) for the same
+  reason. Flashcards read cut-off replies the same way now.
+- **Size**: the Quizzes page is 45 kB (13 kB compressed), loaded when it's
+  opened, with the AI screens it shares with Cards and Ask (47 kB, 15 kB
+  compressed) if neither has been opened yet. Nothing of quizzes is in the
+  first load but the route, the menu item, the commands and the icon
+  (0.4 kB).
 
 ## Routines
 
@@ -1400,7 +1517,10 @@ is open. Bindings are refreshed before paint, so a key pressed as soon as
 something new shows reaches the handlers that go with it. N adds a task and I captures to the inbox, from anywhere; New note and
 Go to Notes are in the palette, and on a note E starts writing. F starts,
 pauses or resumes the focus timer; the palette also offers "Start focus on
-<subject>" for each subject, skip break and cancel, as they apply.
+<subject>" for each subject, skip break and cancel, as they apply. Pages
+add keys of their own where nothing app-wide uses them, since app-wide
+shortcuts are handled first: studying cards (Space, 1–4, Z, E) and taking a
+quiz (1–4 to choose, 1–3 to mark, G for AI's mark, Enter to move on).
 
 ## Offline, install and reminders
 
@@ -1469,7 +1589,16 @@ tokenising, padding, pooling — and, given the real model's files in
 records, what's due and in what order, the new-card limit across subjects,
 intervals, cards in notes, reading suggested cards, FSRS's steps and
 intervals, saving, logging and undoing a rating, the review log where
-backups read it, the habit), the assistant
+backups read it, the habit), quizzes (pages written as in a print dialog,
+what's sent in words, reading a quiz from a reply: both kinds, the right
+choice by its text or letter and never a bare number, broken questions,
+repeats, pages that weren't sent, cut-off replies; shuffled choices; a go:
+choices marked at once, short answers waiting to be marked, AI's mark and
+yours, not knowing, scores with halves, the ones missed; the requests for a
+quiz and for a mark, as material; saving goes, going again, renaming,
+deleting and Undo, cards from missed questions, damaged records), what's
+sent from several sources (all through them, sharing the room, a long note
+cut at a word) and reading JSON from replies (cut-off lists), the assistant
 (keyword ranking and fusion, joining neighbouring passages, the request and
 its history, citations, the plans snapshot and its parts, keeping to one
 document, answers saved with what was sent, failures, Ask again, Stop
@@ -1490,8 +1619,11 @@ related notes, offline) and with a stand-in provider that logs every request
 (nothing sent before Send or before searching is chosen), and the assistant
 against a stand-in chat server (exactly the passages shown and not the ones
 taken out, citations opening their pages, follow-ups, Stop, the plans
-snapshot without the parts left out, nothing sent while typing), and
+snapshot without the parts left out, nothing sent while typing),
 flashcards (studying with the keys, Undo, cards from a note's lines and
 from a PDF page with AI, nothing sent before Send, search, the habit,
-deleting them all) — are checked in a headless browser at desktop and phone
-sizes.
+deleting them all), and quizzes (pages chosen and refused, nothing sent
+before Send and only the pages chosen, answering with the keys, AI marking
+from the answer alone, leaving and coming back, links back to the page,
+cards from the missed questions, going again, Stop, deleting them all) —
+are checked in a headless browser at desktop and phone sizes.

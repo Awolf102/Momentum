@@ -15,6 +15,7 @@ import {
   PencilIcon,
   PinIcon,
   PlusIcon,
+  QuizIcon,
   TrashIcon,
 } from '@/components/icons'
 import { SegmentedControl } from '@/components/SegmentedControl'
@@ -232,14 +233,23 @@ export function NoteEditor({ note }: { note: Note }) {
   return (
     <div className="flex flex-col gap-4">
       <GlassCard className="px-5 pt-4 pb-6 sm:px-7 sm:pt-5 sm:pb-7">
-        <div className="flex items-center justify-between gap-3">
-          <div className="w-44">
+        {/* On a phone the modes go without icons, so four buttons fit beside them. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <div className="w-32 sm:w-44">
             <SegmentedControl<Mode>
               label="Mode"
               value={mode}
               options={[
-                { value: 'write', label: 'Write', icon: <PencilIcon /> },
-                { value: 'read', label: 'Read', icon: <EyeIcon /> },
+                {
+                  value: 'write',
+                  label: 'Write',
+                  icon: <PencilIcon className="hidden sm:block" />,
+                },
+                {
+                  value: 'read',
+                  label: 'Read',
+                  icon: <EyeIcon className="hidden sm:block" />,
+                },
               ]}
               onChange={switchMode}
               compact
@@ -257,6 +267,18 @@ export function NoteEditor({ note }: { note: Note }) {
               className="inline-flex size-10 items-center justify-center rounded-full text-lg text-fg-subtle transition hover:bg-tint hover:text-fg"
             >
               <CardsIcon />
+            </button>
+            <button
+              type="button"
+              title="Make a practice quiz from this note"
+              aria-label="Make a practice quiz from this note"
+              onClick={() => {
+                draft.flush()
+                navigate(paths.newQuiz({ note: note.id }))
+              }}
+              className="inline-flex size-10 items-center justify-center rounded-full text-lg text-fg-subtle transition hover:bg-tint hover:text-fg"
+            >
+              <QuizIcon />
             </button>
             <button
               type="button"

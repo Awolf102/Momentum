@@ -6,7 +6,7 @@ import type { DBSchema, IDBPDatabase } from 'idb'
  * browser on any older version is brought up to date.
  */
 export const DB_NAME = 'momentum'
-export const DB_VERSION = 13
+export const DB_VERSION = 14
 
 /** Object stores that hold collections (see `lib/collection.ts`). */
 export const COLLECTION_STORES = [
@@ -22,6 +22,7 @@ export const COLLECTION_STORES = [
   'conversations',
   'cards',
   'cardReviews',
+  'quizzes',
 ] as const
 export type CollectionStoreName = (typeof COLLECTION_STORES)[number]
 
@@ -164,6 +165,11 @@ export interface MomentumDB extends DBSchema {
     }
     indexes: { 'by-card': string; 'by-day': string }
   }
+  /** Practice quizzes, with their questions and attempts (see `features/quizzes`). */
+  quizzes: {
+    key: string
+    value: { id: string; [field: string]: unknown }
+  }
 }
 
 export function upgrade(
@@ -241,4 +247,6 @@ export function upgrade(
     reviews.createIndex('by-card', 'cardId')
     reviews.createIndex('by-day', 'day')
   }
+  // v14: practice quizzes.
+  if (oldVersion < 14) db.createObjectStore('quizzes', { keyPath: 'id' })
 }

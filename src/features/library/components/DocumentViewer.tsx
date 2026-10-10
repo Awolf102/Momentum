@@ -777,6 +777,10 @@ function PdfView({
           setDetailsOpen(false)
           navigate(paths.makeCards({ document: document.id, page: current }))
         }}
+        onMakeQuiz={() => {
+          setDetailsOpen(false)
+          navigate(paths.newQuiz({ document: document.id }))
+        }}
         onDelete={() => void remove()}
       />
     </div>

@@ -563,3 +563,13 @@ export function RefreshIcon(props: IconProps) {
     </Icon>
   )
 }
+
+export function QuizIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="4" y="3.5" width="16" height="17" rx="3" />
+      <path d="M9.75 9.75a2.25 2.25 0 113.4 1.95c-.7.4-1.15.9-1.15 1.75" />
+      <path d="M12 16.75h.01" />
+    </Icon>
+  )
+}
