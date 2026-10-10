@@ -41,7 +41,10 @@ export function Sidebar({ hidden }: { hidden: boolean }) {
         Search
         <Kbd className="ml-auto" keys={formatHotkey({ key: 'k', mod: true })} />
       </button>
-      <nav aria-label="Main" className="mt-4 flex flex-col gap-1">
+      <nav
+        aria-label="Main"
+        className="-mx-1 mt-4 flex min-h-0 [scrollbar-width:none] flex-col gap-1 overflow-y-auto px-1"
+      >
         {NAV_ITEMS.map((item) => {
           const active = item.isActive(location)
           return (

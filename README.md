@@ -37,6 +37,9 @@ day, keep the flame lit, and watch your streak grow.
   and still open, milestones and your log. AI can write it up (what went
   well, what slipped, an idea for next week) if you ask, sending only the
   parts you tick.
+- **Analytics:** charts of the last four weeks, three months or year: focus
+  by subject, your best hours of the day, your streak's history, how many
+  tasks you finish on time, and how well you remember your cards.
 - **More habits:** reading, exercise, practice — each with its own streak, on
   every day or just the days you choose (days off never break it), with the
   last week at a glance and its own calendar.
@@ -309,6 +312,24 @@ With a chat model set up, **Write it up** asks AI for what went well, what
 slipped and an idea for next week. You choose which parts are sent (your log
 can stay out), and the write-up is kept with its week.
 
+## Analytics
+
+Open **Analytics** in the sidebar (or ⌘K → **Go to Analytics**) and choose
+**4 weeks**, **3 months** or **12 months**:
+
+- **Focus by subject:** your focus time over the period, coloured by subject,
+  and each subject's total and share.
+- **Best hours:** when in the day you focus most, the two best hours in a row,
+  and which days of the week.
+- **Streak history:** how your streak rose and broke, your longest run, and
+  how many days you checked in.
+- **Tasks:** of the tasks that were due, how many you finished on time, late,
+  or not yet.
+- **Card recall:** how often you remembered the cards that were due, against
+  the recall you aim for (set on the Cards page).
+
+It's all worked out on your device; nothing is sent.
+
 ## Notes
 
 Open **Notes** (or ⌘K → New note). A note opens to read; **Write** (or E)
@@ -482,10 +503,11 @@ cards, and the Anthropic and OpenAI SDKs (all loaded on demand) · Web Audio · 
 src/
 ├── app/          App shell: routes, sidebar, tab bar, header, commands
 ├── pages/        Pages composed from features (dashboard, tasks, plan, goals,
-│                 your week, notes, photo and voice notes, library, cards,
-│                 quizzes, ask, inbox, log, settings)
+│                 your week, analytics, notes, photo and voice notes, library,
+│                 cards, quizzes, ask, inbox, log, settings)
 ├── features/     streak · habits · routines · focus · subjects · tasks · planner
-│                 goals · review · notes · capture · library · search · embeddings
+│                 goals · review · analytics · notes · capture · library
+│                 search · embeddings
 │                 flashcards · quizzes
 │                 assistant · inbox · log · calendar
 │                 motivation · appearance · climb · share · ambience

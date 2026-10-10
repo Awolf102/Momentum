@@ -648,6 +648,17 @@ export function GoalIcon(props: IconProps) {
   )
 }
 
+export function ChartIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 20.5h16" />
+      <path d="M7 17v-5" />
+      <path d="M12 17V6.5" />
+      <path d="M17 17v-8" />
+    </Icon>
+  )
+}
+
 export function ChevronUpIcon(props: IconProps) {
   return (
     <Icon {...props}>

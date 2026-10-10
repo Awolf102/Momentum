@@ -182,7 +182,7 @@ versions and the flame stages could go in earlier.
 | 3     | In review | Notes with maths, code and links (`feature/notes`, PR #10); search in ⌘K (`feature/search`), stacked on notes                                                                                                                                                                                                                                              |
 | 4     | In review | Document library and PDF viewer with highlights (`feature/library`), stacked on search; search by meaning (`feature/embeddings`), stacked on the library; chat with documents and the assistant (`feature/assistant`), stacked on search by meaning                                                                                                        |
 | 5     | In review | Flashcards with FSRS (`feature/flashcards`, PR #15), stacked on the assistant; practice quizzes (`feature/quizzes`, PR #16), stacked on flashcards; image to notes (`feature/image-notes`, PR #17), stacked on quizzes; voice notes (`feature/voice-notes`, PR #18), stacked on image to notes                                                             |
-| 6     | Building  | Time blocking with .ics import (`feature/time-blocking`, PR #19), stacked on voice notes; goals with milestones, linked tasks and habits (`feature/goals`, PR #20), stacked on time blocking; the AI planner and weekly review (`feature/ai-planner`), stacked on goals                                                                                    |
+| 6     | In review | Time blocking with .ics import (`feature/time-blocking`, PR #19), stacked on voice notes; goals with milestones, linked tasks and habits (`feature/goals`, PR #20), stacked on time blocking; the AI planner and weekly review (`feature/ai-planner`, PR #21), stacked on goals; analytics (`feature/analytics`), stacked on the AI planner                |
 | 7     | Planned   |                                                                                                                                                                                                                                                                                                                                                            |
 
 ### What Phase 1 changed in the plan
@@ -492,3 +492,28 @@ versions and the flame stages could go in earlier.
   word for word, can stay home).
 - **Next:** analytics (focus by subject, best hours, streak history, task
   completion, card retention), then the Phase 6 summary and Phase 7.
+
+### What analytics changed in the plan
+
+- **Charts drawn here, not a library.** Columns, stacked parts and a stepped
+  area are a few hundred lines of markup in the glass style, and a charting
+  library would have weighed more than the page.
+- **Best hours by the clock.** A session counts in the hours it ran, so one
+  from 9:50 to 10:20 is mostly 10 o'clock. Where a paused session's breaks
+  fell isn't kept, so its focus is spread over its whole span.
+- **Recall is of cards that were due.** Ratings of new cards and cards
+  still being learned are counted but left out of the rate, which is the
+  share the schedule aims for, so the two can be compared.
+- **On time is by the day.** A task done any time on its due day is on time;
+  one due today isn't late until tomorrow.
+- **Nothing stored.** The page is worked out from the collections and the
+  review log each time, so it follows edits, imports and restores.
+
+### Phase 6, done
+
+Time blocking with calendars, goals, Plan my day, the weekly review and
+analytics are built, each in its own PR, stacked in that order. What didn't
+fit is noted in each PR: calendars are files, not subscriptions;
+tasks have no time estimate for the planner to use; there's no Sunday
+notification; and analytics can't place a paused session's breaks. **Next:**
+Phase 7, the optional sync server.
