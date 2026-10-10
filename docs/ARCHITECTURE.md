@@ -61,6 +61,7 @@ src/
 │   ├── PlanPage.tsx          The plan: a day's timeline (lazy)
 │   ├── GoalsPage.tsx         Goals, or one goal's page (lazy)
 │   ├── ReviewPage.tsx        A week in review (lazy)
+│   ├── AnalyticsPage.tsx     Charts of focus, streaks, tasks and cards (lazy)
 │   ├── InboxPage.tsx         Captured things to sort; receives shares (lazy)
 │   ├── NotesPage.tsx         Notes: the list and the open note (lazy)
 │   ├── LibraryPage.tsx       The library's shelf, or a document open (lazy)
@@ -176,6 +177,11 @@ src/
 │   │   ├── store.ts, write.ts   The setting and the write-ups kept (tested)
 │   │   ├── settings.ts       The setting and the store, for the lazy settings pages
 │   │   └── page.ts           The Review page (only the lazy page loads it)
+│   ├── analytics/            Charts over four weeks, three months or a year
+│   │   ├── lib/              Periods and columns; focus, hours, streaks, tasks, cards (tested)
+│   │   ├── hooks/useAnalytics.ts   Everything for a period, kept up to date
+│   │   ├── components/       The page, and its charts (columns, the streak's area)
+│   │   └── page.ts           The Analytics page (only the lazy page loads it)
 │   ├── log/                  The daily log: one line per day, editable in place
 │   │   ├── entries.ts        The logEntries collection; setLine (tested)
 │   │   ├── lib/timeline.ts   Days with a line, check-in or focus (pure, tested)
@@ -239,6 +245,8 @@ src/
   compressed 5 kB worse. The weekly review's setting is likewise in
   `features/review/settings.ts`, and its dashboard card loads its body
   (`WeekGlance`, with the week's numbers) only on the days it shows.
+  Analytics reads the cards' review log through `features/flashcards/stats.ts`
+  for the same reason.
 - **No cycles between features.** Focus uses the streak (to check in), subjects
   and ambience through their `index.ts`; none of them knows focus exists. The
   hero hears about check-ins through `onCheckIn`, whoever made them. Lower-level
@@ -623,8 +631,9 @@ offline; a static host needs the usual single-page-app fallback to `index.html`.
 The shell keeps the existing look:
 
 - **Wide screens (≥ 1024 px):** a glass sidebar with the logo, search (⌘K), the
-  pages (Home, Tasks, Notes, Inbox with a count, Log, Settings), today's date
-  and the sound control.
+  pages (Home, Tasks, Plan, Goals, Notes, Library, Cards, Quizzes, Ask, Inbox
+  with a count, Log, Analytics, Settings), today's date and the sound
+  control. On a short window the pages scroll, and the date stays in view.
 - **Phones and tablets:** the header stays, and a floating glass tab bar (Home,
   Tasks, Notes, Search, Settings) sits within thumb reach; the inbox is reached
   from the dashboard notice, ⌘K or a home-screen shortcut, and the Log from
@@ -1237,6 +1246,39 @@ week**), and the week at a glance on the dashboard on Sundays.
   opened. The dashboard's check (the setting and which week) adds under
   1 kB compressed to the first load; the glance and the week's numbers are
   4 kB (2 kB compressed), loaded on Sundays and Mondays.
+
+## Analytics
+
+`features/analytics` charts what's on this device (`/analytics`, the sidebar,
+⌘K **Go to Analytics**), over four weeks by day, three months by week
+(Monday to Sunday) or twelve months by month (`lib/period.ts`; the address
+keeps the choice, `?period=quarter`). Everything is worked out when it's
+shown, from the collections and the review log; nothing is stored or sent.
+
+- **Focus by subject** (`lib/focus.ts`): each column stacked by subject in
+  the subject's colour, and each subject's total and share.
+- **Best hours:** focus in each hour of the day, a session's focused time
+  spread over the hours it ran by the clock (one from 9:50 to 10:20 counts a
+  third at 9; pauses aren't placed, so a paused session is spread over its
+  whole span); the two hours in a row, past midnight too, that hold the
+  most; and focus on each day of the week.
+- **Streak history** (`lib/streaks.ts`): the runs of check-ins, the streak's
+  height each day (counting days before the period), the longest run ever
+  and in the period, the days checked in and the streaks started.
+- **Tasks** (`lib/tasks.ts`): tasks due in the period, by the day they were
+  due: done on time (by the local day they were done), late, or still open
+  once their day has passed (today's count only once they're done); and
+  tasks finished, dated or not.
+- **Card recall** (`lib/cards.ts`): of the reviews of cards that were due
+  (not new or still being learned), the share remembered (anything but
+  Again), against the recall the schedule aims for (on the Cards page); every
+  rating given, and the days studied. The log is read for the period from
+  IndexedDB (it isn't held in memory), again when a rating is added.
+- **Charts** (`components/charts.tsx`): columns of stacked parts with some
+  labelled, a dashed line for a target, and the streak as a stepped area.
+  Each column has its own description for screen readers and on hover.
+- **Size**: the page is loaded when it's opened; the nav item and command
+  add under 1 kB to the first load.
 
 ## Habits
 
@@ -1864,7 +1906,8 @@ plan (← → for the day before and after; on a block, ↑ ↓ to move it, with
 Shift to change its length, Enter to open it, Delete to take it off). P opens
 the plan from anywhere. Goals have no key of their own (G is the quiz's AI
 mark): New goal and Go to Goals are in the palette. So are Plan my day with
-AI (the plan with Plan my day ready to send) and Review my week.
+AI (the plan with Plan my day ready to send), Review my week and Go to
+Analytics.
 
 ## Offline, install and reminders
 
@@ -1976,8 +2019,13 @@ week a day is in and when the dashboard shows it; focus against the week
 before, by day and subject; check-ins and habits on their scheduled days,
 so far; tasks finished and still open; milestones and the log; an empty
 week; the request with only the ticked parts; reading a reply; keeping a
-write-up, merging and damaged ones; a reply with none), the local day of a
-timestamp, the
+write-up, merging and damaged ones; a reply with none), analytics (the three
+periods and their columns, through short months; focus by subject, by
+column, by hour spread by the clock, over midnight and a night the clocks
+go back, the best two hours wrapping past midnight, by weekday; streak
+runs, heights and the period's history; tasks on time, late and open by
+their day, today's and later ones, finished by the local day; recall of
+cards due, by column, and every rating), the local day of a timestamp, the
 assistant (keyword ranking and fusion, joining neighbouring passages, the request and
 its history, citations, the plans snapshot and its parts, keeping to one
 document, answers saved with what was sent, failures, Ask again, Stop
@@ -2037,5 +2085,9 @@ review (with the page's clock moved to a Sunday, a Monday and a Wednesday:
 the week's numbers against synthetic data, paging through weeks, the
 dashboard card and its setting, the write-up with the log left out and
 only the ticked parts sent, kept after a reload, written again, Stop,
-⌘K, deleting the write-ups) — are checked in a headless browser at desktop
-and phone sizes.
+⌘K, deleting the write-ups), and analytics (synthetic sessions, tasks and
+reviews against numbers worked out in the test: the tiles, each subject's
+share, an hour's focus and the best hours, the streak, tasks on time, late
+and open, recall against the aim; the three periods and a reload; the
+empty page; the sidebar on a short window) — are checked in a headless
+browser at desktop and phone sizes.
