@@ -19,6 +19,10 @@ export const streakStore = createPersistentStore<StreakData>({
   version: 1,
   defaultValue: { checkIns: {} },
   parse: parseStreakData,
+  // Restoring a backup never erases progress: check-ins are combined.
+  merge: (current, incoming) => ({
+    checkIns: { ...incoming.checkIns, ...current.checkIns },
+  }),
 })
 
 const checkInListeners = new Set<() => void>()

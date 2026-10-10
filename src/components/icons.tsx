@@ -277,3 +277,67 @@ export function CopyIcon(props: IconProps) {
     </Icon>
   )
 }
+
+export function HomeIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 10.5L12 4l8 6.5" />
+      <path d="M6 9v9.5A1.5 1.5 0 007.5 20H10v-5h4v5h2.5a1.5 1.5 0 001.5-1.5V9" />
+    </Icon>
+  )
+}
+
+export function KeyIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="8" cy="15" r="4" />
+      <path d="M11 12l8.5-8.5M16.5 6.5l2.5 2.5M14 9l2 2" />
+    </Icon>
+  )
+}
+
+export function DatabaseIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <ellipse cx="12" cy="6" rx="7" ry="2.75" />
+      <path d="M5 6v12c0 1.5 3.1 2.75 7 2.75s7-1.25 7-2.75V6M5 12c0 1.5 3.1 2.75 7 2.75s7-1.25 7-2.75" />
+    </Icon>
+  )
+}
+
+export function PaletteIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3.5a8.5 8.5 0 100 17c1.2 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1 .8-1.7 1.7-1.7h2a4.5 4.5 0 004.5-4.5c0-3.6-4-6.5-9-6.5z" />
+      <circle cx="7.5" cy="11" r="1" />
+      <circle cx="10" cy="7.5" r="1" />
+      <circle cx="14.5" cy="7.5" r="1" />
+    </Icon>
+  )
+}
+
+export function AppIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="6" y="3" width="12" height="18" rx="3" />
+      <path d="M10.5 17.5h3" />
+    </Icon>
+  )
+}
+
+export function ExternalIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M14 5h5v5M19 5l-8 8M17 14v4a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 015 18V8.5A1.5 1.5 0 016.5 7H10" />
+    </Icon>
+  )
+}
+
+export function AlertIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5v5.5M12 16.25v.25" />
+    </Icon>
+  )
+}

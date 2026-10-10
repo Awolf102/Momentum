@@ -22,8 +22,12 @@ day, keep the flame lit, and watch your streak grow.
 - **Installable and offline**, with an optional evening reminder if you haven't
   checked in.
 - **Your own photographs as backgrounds**, behind frosted-glass cards, dark mode
-  by default with a light theme, and everything saved on your device with
-  export/import backups.
+  by default with a light theme.
+- **Local-first:** everything is saved in your browser's database (IndexedDB),
+  with one-file backups of all of it.
+- **Optional AI, with your own key:** Anthropic, OpenAI, or a server such as
+  Ollama. Momentum works fully without it. (The AI features themselves arrive
+  in later phases; see [docs/ROADMAP.md](docs/ROADMAP.md).)
 
 ## Getting started
 
@@ -53,12 +57,36 @@ To try it on your phone over your local network, run `npm run dev -- --host`.
    `src/assets/backgrounds/australia-mountains.jpg`. It's picked up
    automatically, named after the file ("Australia Mountains"), and becomes the
    default background. Around 2560 px wide at JPEG quality ~85 loads quickly.
-2. **Keep it on one device.** Open **Settings → Background → Your photo**. The
+2. **Keep it on one device.** Open **Settings → Appearance → Your photo**. The
    photo is resized in the browser and stored locally; it is never uploaded.
 
 **Reward photos** unlock with your longest streak: put them in
 `src/assets/backgrounds/unlocks/30/` (or `60/`, `100/`, any number of days), or
-add them from **Settings → Background → Rewards → Reward photo**.
+add them from **Settings → Appearance → Rewards → Reward photo**.
+
+## Using AI (optional)
+
+Open **Settings → AI**.
+
+1. **Add a provider.** Paste an API key from
+   [Anthropic](https://platform.claude.com/) or
+   [OpenAI](https://platform.openai.com/api-keys), or enter the address of an
+   OpenAI-compatible server. Keys are stored only on this device and sent only
+   to their own provider.
+2. **Choose models** for chat and for embeddings (they can come from different
+   providers). Type a model name, or **Load list** to pick from the models your
+   key can use. Anthropic doesn't offer embeddings.
+3. **Test connection** sends one short test message and shows the reply.
+
+**Ollama on your computer:** start it so the browser may reach it, e.g.
+`OLLAMA_ORIGINS=http://localhost:5173 ollama serve` (use the address you open
+Momentum at), then use `http://localhost:11434` as the server address. No key
+needed.
+
+**Cost:** usage is counted per model each month. Prices aren't built in, because
+they change; add your provider's price per million tokens to see an estimate.
+
+**Backups** leave API keys out unless you turn on **Include API keys**.
 
 ## Keyboard shortcuts
 
@@ -81,22 +109,29 @@ loaded it works offline. Try a production build locally with
 `npm run build && npm run preview` — the service worker isn't active in
 `npm run dev`.
 
+**Hosting:** `dist/` is a static site. Pages have real paths (`/settings/ai`),
+so the host should serve `index.html` for unknown paths (the usual
+single-page-app setting); once installed, the service worker handles this
+itself.
+
 ## Tech stack
 
-React 19 · TypeScript · Vite · Tailwind CSS v4 · Motion · Web Audio · Workbox (vite-plugin-pwa) · Vitest
+React 19 · TypeScript · Vite · Tailwind CSS v4 · Motion · wouter · IndexedDB (idb) ·
+Anthropic and OpenAI SDKs (loaded on demand) · Web Audio · Workbox (vite-plugin-pwa) · Vitest
 
 ## Project structure
 
 ```
 src/
-├── app/          App shell: providers, header, footer, settings
-├── pages/        Pages composed from features (the dashboard)
+├── app/          App shell: routes, sidebar, tab bar, header, commands
+├── pages/        Pages composed from features (dashboard, settings)
 ├── features/     streak · calendar · motivation · appearance · climb · share
-│                 ambience · reminder · pwa · settings
-├── components/   Shared UI (glass card, sheet, icons…)
-├── lib/          Dates, persistent storage, hooks
+│                 ambience · reminder · pwa · backup · ai
+├── components/   Shared UI (glass card, sheet, settings card, icons…)
+├── lib/          Dates, the database and stores, secrets, routes, hooks
 └── styles/       Tailwind, design tokens, glass utility
 ```
 
 The architecture, data model and design decisions are explained in
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); what's next is in
+[docs/ROADMAP.md](docs/ROADMAP.md).

@@ -1,24 +1,24 @@
-import { IconButton } from '@/components/IconButton'
-import { SearchIcon, SlidersIcon } from '@/components/icons'
-import { Kbd } from '@/components/Kbd'
+import { Link } from 'wouter'
 import { AmbienceControl } from '@/features/ambience'
-import { openSettings } from '@/features/settings'
 import { formatDateKey } from '@/lib/date'
-import { formatHotkey } from '@/lib/hotkeys'
+import { paths } from '@/lib/routes'
 import { useToday } from '@/lib/useToday'
 import { Logo } from './Logo'
-import { togglePalette } from './overlays'
 
+/** The top bar on phones and tablets (wide screens have the sidebar). */
 export function Header() {
   const today = useToday()
   return (
-    <header className="flex items-center justify-between gap-3 py-4 sm:py-6">
-      <div className="flex items-center gap-2.5 rounded-full glass py-1 pr-4 pl-1">
+    <header className="flex items-center justify-between gap-3 py-4 sm:py-6 lg:hidden">
+      <Link
+        href={paths.home}
+        className="flex items-center gap-2.5 rounded-full glass py-1 pr-4 pl-1"
+      >
         <Logo className="size-8" />
         <span className="text-[15px] font-semibold tracking-tight">
           Momentum
         </span>
-      </div>
+      </Link>
       <div className="flex items-center gap-2">
         <time
           dateTime={today}
@@ -30,19 +30,7 @@ export function Header() {
             day: 'numeric',
           })}
         </time>
-        <button
-          type="button"
-          onClick={togglePalette}
-          aria-label="Open command palette"
-          className="hidden h-10 items-center gap-2 rounded-full glass pr-2.5 pl-3.5 text-sm text-fg-muted transition hover:text-fg sm:inline-flex"
-        >
-          <SearchIcon className="text-base" />
-          <Kbd keys={formatHotkey({ key: 'k', mod: true })} />
-        </button>
         <AmbienceControl />
-        <IconButton label="Settings" onClick={openSettings}>
-          <SlidersIcon />
-        </IconButton>
       </div>
     </header>
   )

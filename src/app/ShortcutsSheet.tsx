@@ -2,8 +2,8 @@ import type { Command } from '@/lib/commands'
 import { Kbd } from '@/components/Kbd'
 import { Sheet } from '@/components/Sheet'
 import { formatHotkey } from '@/lib/hotkeys'
+import { closeShortcuts, shortcutsOpenStore } from '@/lib/overlays'
 import { useStore } from '@/lib/store'
-import { closeShortcuts, shortcutsOpenStore } from './overlays'
 
 export function ShortcutsSheet({ commands }: { commands: readonly Command[] }) {
   const open = useStore(shortcutsOpenStore)

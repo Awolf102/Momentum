@@ -8,7 +8,9 @@ import {
   createHandlerBoundToURL,
   precacheAndRoute,
 } from 'workbox-precaching'
+import { ExpirationPlugin } from 'workbox-expiration'
 import { NavigationRoute, registerRoute } from 'workbox-routing'
+import { CacheFirst } from 'workbox-strategies'
 import { toDateKey } from './lib/date'
 import { readMirror, writeMirror } from './features/reminder/lib/mirror'
 import {
@@ -25,6 +27,19 @@ precacheAndRoute(self.__WB_MANIFEST)
 cleanupOutdatedCaches()
 // Every navigation gets the app shell, so deep links work offline too.
 registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html')))
+// The AI SDKs aren't precached; once fetched they're kept. File names
+// change with their contents, so a cached copy is never stale.
+registerRoute(
+  ({ url }) =>
+    url.origin === self.location.origin &&
+    url.pathname.startsWith('/assets/ai/'),
+  new CacheFirst({
+    cacheName: 'momentum-ai-sdk',
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 20, purgeOnQuotaError: true }),
+    ],
+  }),
+)
 
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') void self.skipWaiting()

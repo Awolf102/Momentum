@@ -1,20 +1,24 @@
 import { useMemo } from 'react'
 import type { Command } from '@/lib/commands'
 import {
-  CheckIcon,
-  DownloadIcon,
   BellIcon,
+  CheckIcon,
+  DatabaseIcon,
+  DownloadIcon,
+  HomeIcon,
   ImageIcon,
   InstallIcon,
   KeyboardIcon,
   MoonIcon,
   MountainIcon,
+  PaletteIcon,
   PencilIcon,
   ShareIcon,
-  VolumeIcon,
   SlidersIcon,
+  SparkleIcon,
   SunIcon,
   SunriseIcon,
+  VolumeIcon,
 } from '@/components/icons'
 import {
   appearanceStore,
@@ -36,15 +40,21 @@ import {
 import { startTracing, toggleClimb } from '@/features/climb'
 import { installStore, promptInstall } from '@/features/pwa'
 import { reminderStore } from '@/features/reminder'
-import { exportBackup, openSettings } from '@/features/settings'
 import { openShare } from '@/features/share'
 import { checkIn } from '@/features/streak'
+import { openShortcuts } from '@/lib/overlays'
 import { useProgress } from '@/lib/progress'
+import { navigate, openSettings, paths } from '@/lib/routes'
 import { useStore } from '@/lib/store'
 import { toast } from '@/lib/toast'
-import { openShortcuts } from './overlays'
 
 function checkInFromShortcut() {
+  // Check in on the dashboard, where the celebration plays.
+  if (window.location.pathname !== paths.home) {
+    navigate(paths.home)
+    requestAnimationFrame(checkInFromShortcut)
+    return
+  }
   if (!checkIn()) {
     toast({
       id: 'already-checked-in',
@@ -109,13 +119,55 @@ export function useAppCommands(): Command[] {
         run: startTracing,
       },
       {
+        id: 'go-home',
+        title: 'Go to Home',
+        section: 'Go to',
+        icon: <HomeIcon />,
+        keywords: ['dashboard', 'today', 'streak'],
+        run: () => navigate(paths.home),
+      },
+      {
         id: 'settings',
         title: 'Open settings',
-        section: 'General',
+        section: 'Go to',
         icon: <SlidersIcon />,
         keywords: ['preferences', 'options'],
         hotkey: { key: ',' },
-        run: openSettings,
+        run: () => openSettings(),
+      },
+      {
+        id: 'settings-appearance',
+        title: 'Appearance settings',
+        section: 'Go to',
+        icon: <PaletteIcon />,
+        keywords: ['theme', 'background', 'photo', 'light'],
+        run: () => openSettings('appearance'),
+      },
+      {
+        id: 'settings-ai',
+        title: 'AI settings: providers, keys and models',
+        section: 'Go to',
+        icon: <SparkleIcon />,
+        keywords: [
+          'anthropic',
+          'claude',
+          'openai',
+          'gpt',
+          'ollama',
+          'api key',
+          'model',
+          'usage',
+          'cost',
+        ],
+        run: () => openSettings('ai'),
+      },
+      {
+        id: 'settings-data',
+        title: 'Data and backup',
+        section: 'Go to',
+        icon: <DatabaseIcon />,
+        keywords: ['export', 'import', 'storage', 'restore', 'reset'],
+        run: () => openSettings('data'),
       },
       {
         id: 'theme',
@@ -144,7 +196,7 @@ export function useAppCommands(): Command[] {
         section: 'General',
         icon: <BellIcon />,
         keywords: ['notification', 'notify', 'alert', 'remind'],
-        run: openSettings,
+        run: () => openSettings('app'),
       },
       ...(canPrompt
         ? [
@@ -164,7 +216,11 @@ export function useAppCommands(): Command[] {
         section: 'General',
         icon: <DownloadIcon />,
         keywords: ['download', 'save', 'data'],
-        run: exportBackup,
+        // Loaded on demand: backup code isn't needed to start the app.
+        run: () =>
+          void import('@/features/backup').then(({ downloadBackup }) =>
+            downloadBackup({ includeSecrets: false }),
+          ),
       },
       {
         id: 'sound',

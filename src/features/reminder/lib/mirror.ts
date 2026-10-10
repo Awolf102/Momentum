@@ -1,16 +1,26 @@
 // Relative imports only: this file is also bundled into the service worker.
-import { createStore, get, set } from 'idb-keyval'
+import { openDB } from 'idb'
 import type { ReminderMirror } from './schedule'
 
 /**
- * The service worker can't read localStorage, so the bits it needs for
- * reminders are copied into IndexedDB.
+ * The service worker can't read the app's stores, so the bits it needs for
+ * reminders are copied into a small IndexedDB database of their own. (Created
+ * by idb-keyval in earlier versions; same name, version and store.)
  */
-let database: ReturnType<typeof createStore> | undefined
-const db = () => (database ??= createStore('momentum-reminder', 'state'))
+const db = () =>
+  openDB('momentum-reminder', 1, {
+    upgrade(database) {
+      database.createObjectStore('state')
+    },
+  })
 
-export function readMirror(): Promise<ReminderMirror | undefined> {
-  return get<ReminderMirror>('state', db())
+export async function readMirror(): Promise<ReminderMirror | undefined> {
+  const database = await db()
+  try {
+    return (await database.get('state', 'state')) as ReminderMirror | undefined
+  } finally {
+    database.close()
+  }
 }
 
 export async function writeMirror(
@@ -24,6 +34,11 @@ export async function writeMirror(
     streak: 0,
   }
   const next = { ...current, ...update }
-  await set('state', next, db())
+  const database = await db()
+  try {
+    await database.put('state', next, 'state')
+  } finally {
+    database.close()
+  }
   return next
 }

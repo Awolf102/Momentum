@@ -50,6 +50,9 @@ export default defineConfig({
         // Fonts for scripts Momentum doesn't use are fetched on demand instead.
         globIgnores: [
           '**/*-{cyrillic,cyrillic-ext,greek,greek-ext,vietnamese}-*',
+          // AI SDKs download the first time an AI feature is used (then the
+          // service worker keeps them), not on install.
+          '**/assets/ai/**',
         ],
         // Bundled background photos can be large.
         maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
@@ -58,6 +61,19 @@ export default defineConfig({
   ],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+  },
+  build: {
+    rolldownOptions: {
+      output: {
+        // Chunks holding the AI SDKs go in their own folder (see globIgnores).
+        chunkFileNames: (chunk) =>
+          chunk.moduleIds.some((id) =>
+            /node_modules[\\/](openai|@anthropic-ai[\\/]sdk)[\\/]/.test(id),
+          )
+            ? 'assets/ai/[name]-[hash].js'
+            : 'assets/[name]-[hash].js',
+      },
+    },
   },
   test: {
     // Run date logic in a time zone with daylight saving to catch DST bugs.

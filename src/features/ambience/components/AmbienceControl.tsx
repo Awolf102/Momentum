@@ -39,8 +39,16 @@ function Equalizer() {
   )
 }
 
-/** Header button + small mixer for the ambient soundscape. */
-export function AmbienceControl() {
+/**
+ * Header button + small mixer for the ambient soundscape. The mixer opens
+ * below the button, or above it when the button sits at the bottom of the
+ * sidebar.
+ */
+export function AmbienceControl({
+  placement = 'below',
+}: {
+  placement?: 'below' | 'above'
+}) {
   const playing = useStore(playingStore)
   const { sounds, volume } = useStore(ambienceStore)
   const [open, setOpen] = useState(false)
@@ -82,16 +90,25 @@ export function AmbienceControl() {
             id={panelId}
             role="dialog"
             aria-label="Ambient sound"
-            initial={{ opacity: 0, y: -6, scale: 0.97 }}
+            initial={{
+              opacity: 0,
+              y: placement === 'below' ? -6 : 6,
+              scale: 0.97,
+            }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{
               opacity: 0,
-              y: -4,
+              y: placement === 'below' ? -4 : 4,
               scale: 0.97,
               transition: { duration: 0.12 },
             }}
             transition={{ type: 'spring', stiffness: 500, damping: 34 }}
-            className="absolute top-12 right-0 z-40 w-72 origin-top-right rounded-3xl glass-strong p-4"
+            className={cn(
+              'absolute z-40 w-72 rounded-3xl glass-strong p-4',
+              placement === 'below'
+                ? 'top-12 right-0 origin-top-right'
+                : 'bottom-12 left-0 origin-bottom-left',
+            )}
           >
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold">Ambient sound</p>

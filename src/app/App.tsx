@@ -1,7 +1,7 @@
 import { MotionConfig } from 'motion/react'
 import { useApplyTheme } from '@/features/appearance'
-import { DashboardPage } from '@/pages/DashboardPage'
 import { AppShell } from './AppShell'
+import { AppRoutes } from './routes'
 
 export function App() {
   useApplyTheme()
@@ -9,7 +9,7 @@ export function App() {
     // Respect the OS "reduce motion" setting for every animation in the app.
     <MotionConfig reducedMotion="user">
       <AppShell>
-        <DashboardPage />
+        <AppRoutes />
       </AppShell>
     </MotionConfig>
   )
