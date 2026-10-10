@@ -9,6 +9,7 @@ import {
 } from '@/features/focus'
 import { HabitsCard, useHabitsCalendarView } from '@/features/habits'
 import { TodayLine } from '@/features/log'
+import { RoutinesCard } from '@/features/routines'
 import { openShare } from '@/features/share'
 import { TasksTodayCard, useTasksCalendarView } from '@/features/tasks'
 import {
@@ -49,6 +50,7 @@ export function DashboardPage() {
         </div>
         <TasksTodayCard />
         <HabitsCard />
+        <RoutinesCard />
         <ClimbCard />
         <CalendarCard
           today={streak.today}

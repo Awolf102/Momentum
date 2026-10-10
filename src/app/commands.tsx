@@ -62,6 +62,7 @@ import {
   toggleHabit,
 } from '@/features/habits'
 import { writeLine } from '@/features/log'
+import { newRoutine } from '@/features/routines'
 import { openQuickAdd, setTasksView, tasksViewStore } from '@/features/tasks'
 import { installStore, promptInstall } from '@/features/pwa'
 import { reminderStore } from '@/features/reminder'
@@ -230,6 +231,17 @@ export function useAppCommands(): Command[] {
         run: () => {
           navigate(paths.home)
           newHabit()
+        },
+      },
+      {
+        id: 'routine-new',
+        title: 'New routine',
+        section: 'Habits',
+        icon: <PlusIcon />,
+        keywords: ['routine', 'checklist', 'morning', 'evening', 'steps'],
+        run: () => {
+          navigate(paths.home)
+          newRoutine()
         },
       },
       {

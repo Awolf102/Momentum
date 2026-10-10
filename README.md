@@ -23,6 +23,9 @@ day, keep the flame lit, and watch your streak grow.
 - **More habits:** reading, exercise, practice — each with its own streak, on
   every day or just the days you choose (days off never break it), with the
   last week at a glance and its own calendar.
+- **Routines:** short checklists for the morning, a study session or the
+  evening, fresh each day — the one for now first on the dashboard, with
+  ready-made ones to start from.
 - **Daily log:** one line a day about what you did — right after you check in,
   or any time with L. The Log page shows each day's line beside its check-in
   and focus time, and earlier days can get a line too.
@@ -43,8 +46,8 @@ day, keep the flame lit, and watch your streak grow.
 - **Your own photographs as backgrounds**, behind frosted-glass cards, dark mode
   by default with a light theme.
 - **Local-first:** everything is saved in your browser's database (IndexedDB),
-  with one-file backups of all of it, habits, tasks, focus sessions and the
-  log included.
+  with one-file backups of all of it: habits, routines, tasks, focus sessions
+  and the log included.
 - **Optional AI, with your own key:** Anthropic, OpenAI, or a server such as
   Ollama. Momentum works fully without it. (The AI features themselves arrive
   in later phases; see [docs/ROADMAP.md](docs/ROADMAP.md).)
@@ -175,8 +178,8 @@ Anthropic and OpenAI SDKs (loaded on demand) · Web Audio · Workbox (vite-plugi
 src/
 ├── app/          App shell: routes, sidebar, tab bar, header, commands
 ├── pages/        Pages composed from features (dashboard, tasks, log, settings)
-├── features/     streak · habits · focus · subjects · tasks · log · calendar
-│                 motivation
+├── features/     streak · habits · routines · focus · subjects · tasks · log
+│                 calendar · motivation
 │                 appearance · climb · share · ambience · reminder · pwa
 │                 backup · ai
 ├── components/   Shared UI (glass card, sheet, settings card, icons…)
