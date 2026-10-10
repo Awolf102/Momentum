@@ -73,7 +73,7 @@ export function GoalTasks({
       {!full && (
         <QuickAdd
           add={(input) => addTaskToGoal(goal.id, input)}
-          placeholder="Add a task towards it… e.g. Past paper fri"
+          placeholder="Add a task… e.g. Past paper fri"
           label="New task for this goal"
           className="mt-3"
         />

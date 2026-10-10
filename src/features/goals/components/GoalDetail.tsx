@@ -102,14 +102,13 @@ export function GoalDetail({ id }: { id: string }) {
             {goal.title}
           </h1>
           {(subject || goal.target) && (
-            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-fg-muted text-shadow-soft">
+            <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-fg-muted text-shadow-soft">
               {subject && (
                 <span className="inline-flex items-center gap-1.5">
                   <SubjectDot color={subject.color} />
                   {subject.name}
                 </span>
               )}
-              {subject && goal.target && <span aria-hidden="true">·</span>}
               {goal.target && (
                 <span>
                   Reach it by{' '}
