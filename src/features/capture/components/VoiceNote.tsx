@@ -72,6 +72,8 @@ export function VoiceNote() {
     null,
   )
   const [title, setTitle] = useState('')
+  // The title it was given, kept for tidying: a title you chose stays.
+  const [givenTitle, setGivenTitle] = useState('')
   const [body, setBody] = useState('')
   const [view, setView] = useState<'read' | 'edit'>('read')
   const [subjectId, setSubjectId] = useState<string | null>(null)
@@ -168,8 +170,10 @@ export function VoiceNote() {
         setPhase('recorded')
         return
       }
+      const named = voiceNoteTitle(new Date())
       setBody(text)
-      setTitle(voiceNoteTitle(new Date()))
+      setTitle(named)
+      setGivenTitle(named)
       setUntidied(null)
       setCutShort(false)
       setView('read')
@@ -196,7 +200,12 @@ export function VoiceNote() {
       const note = noteFromTranscription(result.text)
       if (note.body) {
         setBody(note.body)
-        if (note.title) setTitle(note.title)
+        // The notes' title replaces only the one it was given.
+        const tidiedTitle = note.title
+        if (tidiedTitle)
+          setTitle((current) =>
+            !current.trim() || current === givenTitle ? tidiedTitle : current,
+          )
         setUntidied(before)
         setView('read')
       }

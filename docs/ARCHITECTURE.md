@@ -1550,8 +1550,9 @@ such as a lecture.
   transcript's text to the chat model (with its own preview) to organise it
   into headings and points: what was said and nothing that wasn't, without
   the filler words, maths in LaTeX, the transcript treated as material, not
-  instructions (`voice.ts`). It streams in; **Back to the transcript as it
-  was** undoes it, edits and title included. **Save as a note** makes it a
+  instructions (`voice.ts`). It streams in, and its heading becomes the
+  title unless you've named the note yourself; **Back to the transcript as
+  it was** undoes it, edits and title included. **Save as a note** makes it a
   note, with a subject. A recording with no words in it says so.
 - **Not kept**: the recording stays in memory while the page is open, to
   play back; only the note is saved.
