@@ -490,6 +490,23 @@ export function useAppCommands(): Command[] {
         run: () => navigate(paths.plan),
       },
       {
+        id: 'plan-my-day',
+        title: 'Plan my day with AI',
+        section: 'Go to',
+        icon: <SparkleIcon />,
+        keywords: [
+          'plan',
+          'schedule',
+          'draft',
+          'ai',
+          'organise',
+          'organize',
+          'day',
+          'suggest',
+        ],
+        run: () => navigate(paths.planDraft),
+      },
+      {
         id: 'plan-import',
         title: 'Import a calendar (.ics)',
         section: 'Go to',

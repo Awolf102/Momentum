@@ -13,10 +13,15 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ChecklistIcon,
+  GoalIcon,
+  PlanIcon,
   PlusIcon,
+  RepeatIcon,
+  SparkleIcon,
 } from '@/components/icons'
 import { IconButton } from '@/components/IconButton'
 import { Sheet } from '@/components/Sheet'
+import { SendPreview } from '@/features/ai'
 import { focusTimerStore, startFocus } from '@/features/focus'
 import { toggleDone, type Task } from '@/features/tasks'
 import { addDays, formatDateKey, isDateKey, type DateKey } from '@/lib/date'
@@ -38,6 +43,7 @@ import {
   updateCalendar,
 } from '../actions'
 import { usePlanDay } from '../hooks/usePlanDay'
+import { usePlanMyDay } from '../hooks/usePlanMyDay'
 import { CALENDAR_SWATCHES } from '../lib/colors'
 import { IcsError } from '../lib/ics'
 import {
@@ -47,9 +53,11 @@ import {
   formatSpan,
   freeSlot,
 } from '../lib/time'
+import { addDraft, changeDraft, clearDraft, removeAdded } from '../planMyDay'
 import type { Block, Calendar } from '../types'
 import { BlockSheet, type BlockFields, type Editing } from './BlockSheet'
 import { CalendarsPanel } from './CalendarsPanel'
+import { DraftList, PlanMyDayStart } from './PlanMyDay'
 import { Timeline, type Preview, type TimelineHandle } from './Timeline'
 import { ToPlan } from './ToPlan'
 
@@ -73,6 +81,8 @@ export function PlanDay() {
   const day: DateKey = isDateKey(wanted) ? wanted : today
   // From ⌘K "Import a calendar": the calendars, ready to import one.
   const askCalendars = params.get('calendars') === '1'
+  // From ⌘K "Plan my day": what would be sent, ready to send.
+  const askDraft = params.get('draft') === '1'
   const isToday = day === today
   const plan = usePlanDay(day)
   const clock = useClock()
@@ -81,7 +91,10 @@ export function PlanDay() {
   const wide = useMediaQuery('(min-width: 1024px)')
   const timeline = useRef<TimelineHandle>(null)
   const [editing, setEditing] = useState<Editing | null>(null)
-  const [sheet, setSheet] = useState<'tasks' | 'calendars' | null>(null)
+  const [sheet, setSheet] = useState<'tasks' | 'calendars' | 'draft' | null>(
+    null,
+  )
+  const planner = usePlanMyDay(day)
   const [drag, setDrag] = useState<{
     title: string
     x: number
@@ -99,9 +112,9 @@ export function PlanDay() {
   ])
 
   // Open on what matters: the time now, or the day's first thing.
-  const latest = useRef({ plan, isToday, nowMinutes })
+  const latest = useRef({ plan, isToday, nowMinutes, planner, wide, navigate })
   useLayoutEffect(() => {
-    latest.current = { plan, isToday, nowMinutes }
+    latest.current = { plan, isToday, nowMinutes, planner, wide, navigate }
   })
   useEffect(() => {
     const { plan, isToday, nowMinutes } = latest.current
@@ -112,6 +125,42 @@ export function PlanDay() {
     const target = isToday ? nowMinutes - 60 : Math.min(8 * 60, ...starts) - 30
     timeline.current?.scrollTo(Math.max(0, target))
   }, [day])
+
+  useEffect(() => {
+    if (!askDraft) return
+    const { planner, isToday, navigate } = latest.current
+    navigate(isToday ? paths.plan : paths.planDay(day), { replace: true })
+    if (planner.readiness.ready && planner.window && !planner.draft)
+      planner.open()
+    else setSheet('draft')
+  }, [askDraft, day])
+
+  // On a phone, a new draft opens to be looked over.
+  const draftId = planner.draft?.id
+  useEffect(() => {
+    if (draftId && !latest.current.wide) setSheet('draft')
+    if (draftId) {
+      const count = latest.current.planner.draft?.blocks.length ?? 0
+      setSaid(`${plural(count, 'suggested block')} to look over`)
+    }
+  }, [draftId])
+
+  async function addSuggested() {
+    const added = await addDraft()
+    setSheet(null)
+    if (added.length === 0) return
+    toast({
+      id: 'plan-draft-added',
+      icon: <SparkleIcon />,
+      title: `Added ${plural(added.length, 'block')} to the plan`,
+      action: { label: 'Undo', run: () => void removeAdded(added) },
+    })
+  }
+
+  function discardSuggested() {
+    clearDraft()
+    setSheet(null)
+  }
 
   useEffect(() => {
     if (!askCalendars || !wide) return
@@ -393,6 +442,30 @@ export function PlanDay() {
             <div className="mb-3 flex flex-wrap gap-2">
               <button
                 type="button"
+                onClick={() =>
+                  !planner.draft &&
+                  !planner.drafting &&
+                  planner.readiness.ready &&
+                  planner.window
+                    ? planner.open()
+                    : setSheet('draft')
+                }
+                className={pill}
+              >
+                <SparkleIcon />
+                {planner.draft
+                  ? 'Suggested'
+                  : planner.drafting
+                    ? 'Drafting…'
+                    : 'Plan my day'}
+                {planner.draft && (
+                  <span className="text-fg-subtle">
+                    {planner.draft.blocks.filter((block) => block.keep).length}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
                 onClick={() => setSheet('tasks')}
                 className={pill}
               >
@@ -420,6 +493,20 @@ export function PlanDay() {
             marks={plan.marks}
             now={isToday ? nowMinutes : null}
             preview={drag?.preview ?? null}
+            drafts={planner.draft?.blocks.map((block) => ({
+              key: block.key,
+              start: block.start,
+              end: block.end,
+              title: plan.titleOf(block),
+              color: plan.colorOf(block),
+              keep: block.keep,
+            }))}
+            onToggleDraft={(key) => {
+              const block = planner.draft?.blocks.find(
+                (each) => each.key === key,
+              )
+              if (block) changeDraft(key, { keep: !block.keep })
+            }}
             titleOf={plan.titleOf}
             colorOf={plan.colorOf}
             isDone={(block) => plan.task(block.taskId)?.status === 'done'}
@@ -450,6 +537,26 @@ export function PlanDay() {
         </div>
         {wide && (
           <aside className="flex flex-col gap-4">
+            <GlassCard aria-labelledby="plan-my-day" className="p-4">
+              <h2
+                id="plan-my-day"
+                className="mb-2 flex items-center gap-1.5 text-xs font-semibold tracking-[0.14em] text-fg-subtle uppercase"
+              >
+                <SparkleIcon />
+                {planner.draft ? 'Suggested' : 'Plan my day'}
+              </h2>
+              {planner.draft ? (
+                <DraftList
+                  draft={planner.draft}
+                  titleOf={plan.titleOf}
+                  colorOf={plan.colorOf}
+                  onAdd={() => void addSuggested()}
+                  onDiscard={discardSuggested}
+                />
+              ) : (
+                <PlanMyDayStart planner={planner} />
+              )}
+            </GlassCard>
             <GlassCard className="p-4">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <h2 className="text-xs font-semibold tracking-[0.14em] text-fg-subtle uppercase">
@@ -507,7 +614,73 @@ export function PlanDay() {
           >
             <CalendarsPanel {...calendarProps} />
           </Sheet>
+          <Sheet
+            open={openSheet === 'draft' && !planner.previewing}
+            onClose={closeSheet}
+            title={planner.draft ? 'Suggested plan' : 'Plan my day'}
+          >
+            {planner.draft ? (
+              <DraftList
+                draft={planner.draft}
+                titleOf={plan.titleOf}
+                colorOf={plan.colorOf}
+                onAdd={() => void addSuggested()}
+                onDiscard={discardSuggested}
+              />
+            ) : (
+              <PlanMyDayStart planner={planner} />
+            )}
+          </Sheet>
         </>
+      )}
+      {planner.readiness.ready && planner.window && (
+        <SendPreview
+          open={planner.previewing}
+          onClose={planner.close}
+          title="Plan my day"
+          purpose={
+            planner.items.length > 0 ? (
+              <>
+                To draft {dayName}, {formatClock(planner.window.from)} until{' '}
+                {formatClock(planner.window.until)}, what’s ticked below is sent
+                with instructions to plan the day. The times of your events and
+                blocks always go (without their titles, if unticked), so nothing
+                is planned over them. What comes back is a draft: nothing goes
+                on the plan until you add it.
+              </>
+            ) : (
+              <>
+                There’s nothing to plan with yet: add some tasks, or import a
+                calendar, and try again.
+              </>
+            )
+          }
+          provider={planner.readiness.provider}
+          model={planner.readiness.model}
+          items={planner.items.map((item) => ({
+            ...item,
+            icon:
+              item.id === 'events' ? (
+                <CalendarIcon />
+              ) : item.id === 'blocks' ? (
+                <PlanIcon />
+              ) : item.id === 'tasks' ? (
+                <ChecklistIcon />
+              ) : item.id === 'goals' ? (
+                <GoalIcon />
+              ) : (
+                <RepeatIcon />
+              ),
+          }))}
+          skipped={planner.leftOut}
+          onToggle={planner.toggle}
+          tokens={planner.tokens}
+          sendLabel="Send"
+          onSend={() => {
+            setSheet(null)
+            planner.send()
+          }}
+        />
       )}
 
       {drag && !drag.preview && (

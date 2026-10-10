@@ -10,6 +10,7 @@ import {
 import { liveSubjects, subjectsStore } from '@/features/subjects'
 import { tasks, type Task } from '@/features/tasks'
 import { addDays, type DateKey } from '@/lib/date'
+import { createId } from '@/lib/id'
 import { createStore } from '@/lib/store'
 import { addBlock, removeBlock } from './actions'
 import { blocks } from './blocks'
@@ -188,6 +189,8 @@ export async function draftPlan(
 
 /** A draft being looked over, for one day, with the blocks to keep. */
 export interface DraftOnPlan {
+  /** Each draft's own, so a new one can be told from a change to this one. */
+  id: string
   day: DateKey
   blocks: Array<DraftBlock & { keep: boolean }>
   note: string
@@ -199,6 +202,7 @@ export const planDraftStore = createStore<DraftOnPlan | null>(null)
 
 export function showDraft(day: DateKey, draft: PlanDraft): void {
   planDraftStore.set({
+    id: createId(),
     day,
     blocks: draft.blocks.map((block) => ({ ...block, keep: true })),
     note: draft.note,

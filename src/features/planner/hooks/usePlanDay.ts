@@ -21,6 +21,9 @@ export interface SessionOnDay {
   subject: string | null
 }
 
+/** What names and colours a block: a block, or a suggested one. */
+export type BlockShape = Pick<Block, 'kind' | 'subjectId' | 'taskId' | 'title'>
+
 /** A task due at a time on the day, not yet given a block. */
 export interface TaskMark {
   id: string
@@ -36,10 +39,10 @@ export interface PlanDay {
   marks: TaskMark[]
   /** Not done, not on this day's plan yet: overdue, due then, or undated. */
   toPlan: Task[]
-  /** What a block is called: its task's title, or its own. */
-  titleOf: (block: Block) => string
+  /** What a block (or a suggested one) is called: its task's title, or its own. */
+  titleOf: (block: BlockShape) => string
   /** Its subject's colour, or one for its kind. */
-  colorOf: (block: Block) => string
+  colorOf: (block: BlockShape) => string
   subjectName: (id: string | null) => string | null
   task: (id: string | null) => Task | undefined
   calendarCount: number
@@ -114,7 +117,7 @@ export function usePlanDay(day: DateKey): PlanDay {
         : [{ id: task.id, title: task.title, minutes }]
     })
 
-    const titleOf = (block: Block) =>
+    const titleOf = (block: BlockShape) =>
       (block.taskId ? taskById.get(block.taskId)?.title : null) ||
       block.title ||
       (block.kind === 'focus'
@@ -122,7 +125,7 @@ export function usePlanDay(day: DateKey): PlanDay {
           ? `Focus: ${subjects.get(block.subjectId)!.name}`
           : 'Focus'
         : 'Untitled block')
-    const colorOf = (block: Block) => {
+    const colorOf = (block: BlockShape) => {
       const subject = block.subjectId
         ? subjects.get(block.subjectId)
         : undefined
