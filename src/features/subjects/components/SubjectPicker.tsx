@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState } from 'react'
 import { PlusIcon } from '@/components/icons'
 import { cn } from '@/lib/cn'
 import { useStore } from '@/lib/store'
@@ -26,8 +26,7 @@ export function SubjectPicker({
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
 
-  function submit(event: FormEvent) {
-    event.preventDefault()
+  function add() {
     const subject = addSubject(name)
     if (subject) onChange(subject.id)
     setName('')
@@ -58,28 +57,39 @@ export function SubjectPicker({
         )
       })}
       {adding ? (
-        <form
-          onSubmit={submit}
-          className="inline-flex items-center rounded-full bg-tint py-1 pr-1 pl-3.5 ring-1 ring-orange-300/60"
-        >
+        // Not a form of its own: the picker often sits inside one, and a
+        // form within a form sends the outer one (reloading the page).
+        <span className="inline-flex items-center rounded-full bg-tint py-1 pr-1 pl-3.5 ring-1 ring-orange-300/60">
           <input
             autoFocus
             value={name}
             maxLength={MAX_NAME_LENGTH}
             onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => event.key === 'Escape' && setAdding(false)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                // Adds the subject, without sending a form around it.
+                event.preventDefault()
+                add()
+              } else if (event.key === 'Escape') {
+                // Closes this box, not the sheet it's in.
+                event.preventDefault()
+                event.stopPropagation()
+                setAdding(false)
+              }
+            }}
             onBlur={() => !name.trim() && setAdding(false)}
             placeholder="New subject"
             aria-label="New subject name"
             className="w-32 bg-transparent text-sm outline-none placeholder:text-fg-subtle focus-visible:outline-none"
           />
           <button
-            type="submit"
+            type="button"
+            onClick={add}
             className="rounded-full px-2.5 py-0.5 text-xs font-semibold transition hover:bg-line"
           >
             Add
           </button>
-        </form>
+        </span>
       ) : (
         <button
           type="button"
