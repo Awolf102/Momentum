@@ -8,6 +8,7 @@ import {
   InboxIcon,
   LibraryIcon,
   NoteIcon,
+  PlanIcon,
   QuizIcon,
   SlidersIcon,
 } from '@/components/icons'
@@ -38,6 +39,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Tasks',
     icon: <ChecklistIcon />,
     isActive: (location) => location.startsWith(paths.tasks),
+  },
+  {
+    href: paths.plan,
+    label: 'Plan',
+    icon: <PlanIcon />,
+    isActive: (location) => location.startsWith(paths.plan),
+    tabBar: false,
   },
   {
     href: paths.notes,

@@ -1,7 +1,7 @@
 import { createCollection } from '@/lib/collection'
 import { isDateKey, type Weekday } from '@/lib/date'
 import { isRecord } from '@/lib/guards'
-import { MAX_EVENTS, MAX_TEXT } from './lib/ics'
+import { MAX_EVENTS, MAX_TEXT } from './lib/limits'
 import type {
   Calendar,
   CalendarColor,

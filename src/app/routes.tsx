@@ -26,6 +26,7 @@ function lazyPage(load: () => Promise<{ default: ComponentType }>) {
 
 const LogPage = lazyPage(() => import('@/pages/LogPage'))
 const TasksPage = lazyPage(() => import('@/pages/TasksPage'))
+const PlanPage = lazyPage(() => import('@/pages/PlanPage'))
 const InboxPage = lazyPage(() => import('@/pages/InboxPage'))
 const NotesPage = lazyPage(() => import('@/pages/NotesPage'))
 const LibraryPage = lazyPage(() => import('@/pages/LibraryPage'))
@@ -43,6 +44,7 @@ export function AppRoutes() {
         <Switch>
           <Route path={paths.home} component={DashboardPage} />
           <Route path={paths.tasks} component={TasksPage} />
+          <Route path={paths.plan} component={PlanPage} />
           <Route path={paths.inbox} component={InboxPage} />
           <Route path="/notes/:id?" component={NotesPage} />
           <Route path="/library/:id?" component={LibraryPage} />

@@ -14,12 +14,8 @@ import type {
   Frequency,
   RecurrenceRule,
 } from '../types'
+import { MAX_EVENTS, MAX_TEXT } from './limits'
 import { resolveZone, zonedMoment } from './zones'
-
-/** The most events kept from one file. */
-export const MAX_EVENTS = 5000
-/** Titles and places are cut to this length. */
-export const MAX_TEXT = 200
 
 export class IcsError extends Error {}
 
