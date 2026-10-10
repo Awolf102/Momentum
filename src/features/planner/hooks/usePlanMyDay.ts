@@ -70,27 +70,29 @@ export function usePlanMyDay(day: DateKey) {
               'events',
               'Calendar events',
               everything.busy.filter((busy) => busy.kind === 'event').length,
-              (n: number) => `${n} in the time to plan, with their titles`,
+              (n: number) =>
+                `${n} in the time to plan, with ${n === 1 ? 'its title' : 'their titles'}`,
             ],
             [
               'blocks',
               'Already on the plan',
               everything.busy.filter((busy) => busy.kind === 'block').length,
               (n: number) =>
-                `${n} ${n === 1 ? 'block' : 'blocks'}, with their titles`,
+                `${n} ${n === 1 ? 'block, with its title' : 'blocks, with their titles'}`,
             ],
             [
               'tasks',
               'Tasks',
               everything.tasks.length,
               (n: number) =>
-                `${n} open: overdue, due in the next two weeks, or without a date; with their subjects and priorities`,
+                `${n} open: overdue, due in the next two weeks, or without a date; with ${n === 1 ? 'its subject and priority' : 'their subjects and priorities'}`,
             ],
             [
               'goals',
               'Goals',
               everything.goals.length,
-              (n: number) => `${n} on the go, with their next milestones`,
+              (n: number) =>
+                `${n} on the go, with ${n === 1 ? 'its next milestone' : 'their next milestones'}`,
             ],
             [
               'habits',

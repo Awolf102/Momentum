@@ -147,7 +147,7 @@ export function DraftList({
                       className="w-full rounded-lg bg-transparent text-sm font-semibold outline-none placeholder:text-fg focus-visible:bg-tint focus-visible:px-1.5"
                     />
                   )}
-                  <div className="flex items-center gap-1.5 text-xs text-fg-muted">
+                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-fg-muted">
                     <input
                       type="time"
                       step={900}
@@ -166,22 +166,24 @@ export function DraftList({
                       aria-label={`Starts: ${title}`}
                       className="h-7 rounded-lg bg-tint px-1.5 tabular-nums outline-none focus-visible:outline-2"
                     />
-                    <span>to</span>
-                    <input
-                      type="time"
-                      step={900}
-                      value={clock(block.end)}
-                      onChange={(event) => {
-                        // A new end stretches it (midnight is the day's end).
-                        let end = parseClock(event.target.value)
-                        if (end === 0) end = DAY_MINUTES
-                        if (end === null || end - block.start < MIN_BLOCK)
-                          return
-                        changeDraft(block.key, { end })
-                      }}
-                      aria-label={`Ends: ${title}`}
-                      className="h-7 rounded-lg bg-tint px-1.5 tabular-nums outline-none focus-visible:outline-2"
-                    />
+                    <span className="flex items-center gap-1.5">
+                      <span>to</span>
+                      <input
+                        type="time"
+                        step={900}
+                        value={clock(block.end)}
+                        onChange={(event) => {
+                          // A new end stretches it (midnight is the day's end).
+                          let end = parseClock(event.target.value)
+                          if (end === 0) end = DAY_MINUTES
+                          if (end === null || end - block.start < MIN_BLOCK)
+                            return
+                          changeDraft(block.key, { end })
+                        }}
+                        aria-label={`Ends: ${title}`}
+                        className="h-7 rounded-lg bg-tint px-1.5 tabular-nums outline-none focus-visible:outline-2"
+                      />
+                    </span>
                   </div>
                   {block.why && (
                     <p className="text-xs text-fg-subtle">{block.why}</p>
