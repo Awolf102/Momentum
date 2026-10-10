@@ -4,6 +4,7 @@ import {
   CardsIcon,
   ChatIcon,
   ChecklistIcon,
+  GoalIcon,
   HomeIcon,
   InboxIcon,
   LibraryIcon,
@@ -45,6 +46,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Plan',
     icon: <PlanIcon />,
     isActive: (location) => location.startsWith(paths.plan),
+    tabBar: false,
+  },
+  {
+    href: paths.goals,
+    label: 'Goals',
+    icon: <GoalIcon />,
+    isActive: (location) => location.startsWith(paths.goals),
     tabBar: false,
   },
   {

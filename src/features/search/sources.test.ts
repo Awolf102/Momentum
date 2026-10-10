@@ -2,6 +2,8 @@ import 'fake-indexeddb/auto'
 import { afterEach, describe, expect, it } from 'vitest'
 import { cards } from '@/features/flashcards'
 import { addCards } from '@/features/flashcards/actions'
+import { goals } from '@/features/goals'
+import { achieveGoal, addGoal } from '@/features/goals/actions'
 import { addHabit, habitsStore } from '@/features/habits'
 import { capture, inboxItems } from '@/features/inbox'
 import { documents, loadDocumentTexts } from '@/features/library'
@@ -11,6 +13,7 @@ import { createNote, notes, saveNote } from '@/features/notes'
 import { addRoutine, routinesStore } from '@/features/routines'
 import { addTask, completeTask, tasks } from '@/features/tasks'
 import type { MarkedText } from '@/lib/commands'
+import { formatDateKey } from '@/lib/date'
 import { searchEverything } from './sources'
 
 afterEach(async () => {
@@ -21,6 +24,7 @@ afterEach(async () => {
     inboxItems.clear(),
     documents.clear(),
     cards.clear(),
+    goals.clear(),
   ])
   habitsStore.reset()
   routinesStore.reset()
@@ -114,6 +118,28 @@ describe('searching everything', () => {
     expect(text(byFront.title)).toBe('What does a [Karnaugh] map group?')
     expect(byFront.detail).toBe('New')
     expect(searchEverything('rectangles')[0].id).toBe(`card:${card.id}`)
+  })
+
+  it('finds goals by title, milestones and why they matter', async () => {
+    const goal = await addGoal({
+      title: 'Distinction in Digital Logic',
+      why: 'The honours year needs it',
+      target: '2026-11-20',
+      milestones: ['Karnaugh map quiz', 'Final exam'],
+    })
+    const done = await addGoal({ title: 'Digital Logic lab skills' })
+    await achieveGoal(done!.id)
+    const [byTitle, closed] = searchEverything('digital logic')
+    expect(byTitle).toMatchObject({ id: `goal:${goal!.id}`, section: 'Goals' })
+    expect(byTitle.detail).toBe(
+      `By ${formatDateKey('2026-11-20', { weekday: 'short', day: 'numeric', month: 'short' })}`,
+    )
+    // Reached goals come after the ones on the go.
+    expect(closed).toMatchObject({ id: `goal:${done!.id}`, detail: 'Reached' })
+    expect(text(searchEverything('honours')[0].snippet)).toBe(
+      'The [honours] year needs it',
+    )
+    expect(searchEverything('karnaugh quiz')[0].id).toBe(`goal:${goal!.id}`)
   })
 
   it('lists at most five of a kind', async () => {

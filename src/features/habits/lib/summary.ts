@@ -96,6 +96,18 @@ export function summarizeHabit(
   }
 }
 
+/** "5 days in a row" ("5 in a row" on chosen days), "Start today" or "A day off". */
+export function describeRun(
+  summary: Pick<HabitSummary, 'current' | 'dueToday'>,
+  weekdays: readonly Weekday[],
+): string {
+  if (summary.current > 0)
+    return weekdays.length
+      ? `${summary.current} in a row`
+      : `${summary.current} ${summary.current === 1 ? 'day' : 'days'} in a row`
+  return summary.dueToday ? 'Start today' : 'A day off'
+}
+
 export type DotState = 'done' | 'missed' | 'open' | 'off'
 
 /** The last seven days for the week dots, oldest first. */

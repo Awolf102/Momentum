@@ -321,6 +321,22 @@ export async function reopenGoal(
   )
 }
 
+/**
+ * Undo for reaching, putting away or reopening a goal: its status, when it
+ * closed and its place go back to what they were.
+ */
+export async function revertGoal(
+  previous: Goal,
+  now: Date = new Date(),
+): Promise<void> {
+  await change(previous.id, now, (goal) => ({
+    ...goal,
+    status: previous.status,
+    closedAt: previous.closedAt,
+    order: previous.order,
+  }))
+}
+
 /** Moves an active goal up (-1) or down (1) the list. */
 export async function moveGoal(
   id: string,

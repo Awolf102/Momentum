@@ -4,6 +4,7 @@ import {
   CardsIcon,
   CheckIcon,
   ChecklistIcon,
+  GoalIcon,
   InboxIcon,
   LibraryIcon,
   NoteIcon,
@@ -16,6 +17,7 @@ import {
   liveHabits,
 } from '@/features/habits'
 import { cards, openCard } from '@/features/flashcards'
+import { goals } from '@/features/goals'
 import { inboxItems } from '@/features/inbox'
 import { documents, documentTexts, loadDocumentTexts } from '@/features/library'
 import { logEntries } from '@/features/log'
@@ -49,11 +51,12 @@ const ORDER = {
   note: 0,
   document: 1,
   card: 2,
-  task: 3,
-  habit: 4,
-  routine: 5,
-  log: 6,
-  inbox: 7,
+  goal: 3,
+  task: 4,
+  habit: 5,
+  routine: 6,
+  log: 7,
+  inbox: 8,
 }
 
 /** Something searchable, with what to show and do when it's found. */
@@ -180,6 +183,37 @@ function candidates(today: string): Candidate[] {
     })
   }
 
+  for (const goal of goals.get()) {
+    const subject = subjectOf(goal.subjectId)
+    const active = goal.status === 'active'
+    found.push({
+      entry: entryFor(goal, subject, () => ({
+        order: ORDER.goal,
+        key: `goal:${goal.id}`,
+        title: goal.title,
+        text: [
+          goal.why,
+          ...goal.milestones.map((milestone) => milestone.title),
+          subject,
+        ].join('\n'),
+        updatedAt: goal.updatedAt,
+        // Reached and put-away goals are history: below the ones on the go,
+        // as finished tasks are.
+        boost: active ? 0 : -4,
+      })),
+      section: 'Goals',
+      icon: <GoalIcon />,
+      detail: !active
+        ? goal.status === 'achieved'
+          ? 'Reached'
+          : 'Put away'
+        : goal.target
+          ? `By ${day(goal.target, today)}`
+          : undefined,
+      run: () => navigate(paths.goal(goal.id)),
+    })
+  }
+
   for (const task of tasks.get()) {
     const subject = subjectOf(task.subjectId)
     const done = task.status === 'done'
@@ -269,8 +303,9 @@ function candidates(today: string): Candidate[] {
 }
 
 /**
- * Everything matching the query — notes, tasks, habits, routines, the log
- * and the inbox — grouped by kind, the kind with the best match first.
+ * Everything matching the query — notes, documents, cards, goals, tasks,
+ * habits, routines, the log and the inbox — grouped by kind, the kind with
+ * the best match first.
  */
 export function searchEverything(query: string): PaletteResult[] {
   const all = candidates(toDateKey(new Date()))
