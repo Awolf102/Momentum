@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { GlassCard } from '@/components/GlassCard'
 import { PlusIcon, RepeatIcon } from '@/components/icons'
+import { localDay } from '@/lib/date'
 import { useToday } from '@/lib/useToday'
 import { useHabitDays, useHabits } from '../hooks/useHabits'
 import {
@@ -26,7 +27,7 @@ export function HabitsCard() {
     () =>
       habits.map((habit) => {
         const done = days.get(habit.id) ?? EMPTY
-        const since = habit.createdAt.slice(0, 10)
+        const since = localDay(habit.createdAt)
         return {
           habit,
           summary: summarizeHabit(done, today, habit.weekdays, since),

@@ -4,6 +4,7 @@ import { GlassCard } from '@/components/GlassCard'
 import { CheckIcon, PlusIcon } from '@/components/icons'
 import { isScheduled, summarizeHabit } from '@/features/habits'
 import { cn } from '@/lib/cn'
+import { localDay } from '@/lib/date'
 import { useClock } from '@/lib/useClock'
 import { useToday } from '@/lib/useToday'
 import { useCompletedDays, useRoutines, useRuns } from '../hooks/useRoutines'
@@ -98,7 +99,7 @@ export function RoutinesCard() {
             days,
             today,
             routine.weekdays,
-            routine.createdAt.slice(0, 10),
+            localDay(routine.createdAt),
           ).current
           return (
             <RoutineRow

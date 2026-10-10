@@ -6,7 +6,7 @@ import { Sheet } from '@/components/Sheet'
 import { ActivityCalendar } from '@/features/calendar'
 import { SUBJECT_COLORS, type SubjectColor } from '@/features/subjects'
 import { cn } from '@/lib/cn'
-import { formatDateKey, type DateKey, type Weekday } from '@/lib/date'
+import { formatDateKey, localDay, type DateKey, type Weekday } from '@/lib/date'
 import { weekStartsOn } from '@/lib/locale'
 import { useStore } from '@/lib/store'
 import { useToday } from '@/lib/useToday'
@@ -128,7 +128,7 @@ function HabitEditor({ habit }: { habit: Habit }) {
     days,
     today,
     habit.weekdays,
-    habit.createdAt.slice(0, 10),
+    localDay(habit.createdAt),
   )
   const levels = new Map(
     [...summary.depths].map(([day, depth]) => [day, depthLevel(depth)]),

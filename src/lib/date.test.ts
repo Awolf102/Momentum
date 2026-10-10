@@ -11,8 +11,18 @@ import {
   monthsBetween,
   msUntilNextDay,
   startOfWeek,
+  localDay,
   toDateKey,
 } from './date'
+
+describe('localDay', () => {
+  it('is the day where you are, not in UTC', () => {
+    // 8am on Sunday 11 October in Sydney is still the 10th in UTC.
+    expect(localDay('2026-10-10T21:00:00.000Z')).toBe('2026-10-11')
+    expect(localDay('2026-10-11T12:59:00.000Z')).toBe('2026-10-11')
+    expect(localDay('2026-10-11T13:00:00.000Z')).toBe('2026-10-12')
+  })
+})
 
 describe('toDateKey', () => {
   it('uses the local calendar day, not UTC', () => {

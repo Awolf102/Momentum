@@ -7,7 +7,7 @@ import {
   type HabitSummary,
 } from '@/features/habits'
 import { tasks } from '@/features/tasks'
-import type { DateKey } from '@/lib/date'
+import { localDay, type DateKey } from '@/lib/date'
 import { useStore } from '@/lib/store'
 import { useToday } from '@/lib/useToday'
 import { goals, sortGoals } from '../goals'
@@ -53,7 +53,7 @@ export function useGoalViews(): GoalView[] {
           days.get(id) ?? NONE,
           today,
           habit.weekdays,
-          habit.createdAt.slice(0, 10),
+          localDay(habit.createdAt),
         )
         return [{ habit, summary }]
       })

@@ -5,6 +5,7 @@ import { CloseIcon, PlusIcon, TrashIcon } from '@/components/icons'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { Sheet } from '@/components/Sheet'
 import { summarizeHabit } from '@/features/habits'
+import { localDay } from '@/lib/date'
 import { useStore } from '@/lib/store'
 import { useToday } from '@/lib/useToday'
 import { useCompletedDays, useRoutines } from '../hooks/useRoutines'
@@ -154,7 +155,7 @@ function RoutineEditor({ routine }: { routine: Routine }) {
     days,
     today,
     routine.weekdays,
-    routine.createdAt.slice(0, 10),
+    localDay(routine.createdAt),
   )
 
   return (

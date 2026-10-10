@@ -4,7 +4,13 @@ import { TrashIcon } from '@/components/icons'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { Sheet } from '@/components/Sheet'
 import { SubjectPicker } from '@/features/subjects'
-import { addDays, formatDateKey, isDateKey, type DateKey } from '@/lib/date'
+import {
+  addDays,
+  formatDateKey,
+  isDateKey,
+  localDay,
+  type DateKey,
+} from '@/lib/date'
 import { useStore } from '@/lib/store'
 import { useToday } from '@/lib/useToday'
 import { useTasks } from '../hooks/useTasks'
@@ -267,12 +273,12 @@ function TaskEditor({ task }: { task: Task }) {
         />
         <p className="px-1 text-xs text-fg-subtle">
           Added{' '}
-          {formatDateKey(task.createdAt.slice(0, 10), {
+          {formatDateKey(localDay(task.createdAt), {
             day: 'numeric',
             month: 'short',
           })}
           {task.completedAt &&
-            ` · done ${formatDateKey(task.completedAt.slice(0, 10), { day: 'numeric', month: 'short' })}`}
+            ` · done ${formatDateKey(localDay(task.completedAt), { day: 'numeric', month: 'short' })}`}
         </p>
       </div>
     </div>

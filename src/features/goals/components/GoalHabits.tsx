@@ -16,7 +16,7 @@ import {
 } from '@/features/habits'
 import { SUBJECT_COLORS } from '@/features/subjects'
 import { cn } from '@/lib/cn'
-import type { DateKey } from '@/lib/date'
+import { localDay, type DateKey } from '@/lib/date'
 import { toast } from '@/lib/toast'
 import { useToday } from '@/lib/useToday'
 import { linkHabit, unlinkHabit } from '../actions'
@@ -49,7 +49,7 @@ export function GoalHabits({
           id={headingId}
           className={cn(sectionTitle, 'flex items-center gap-2')}
         >
-          Habits
+          Habits{' '}
           {habitRate !== null && (
             <span className="font-medium tracking-normal normal-case tabular-nums">
               {percent(habitRate)} over 4 weeks
@@ -103,7 +103,7 @@ export function GoalHabits({
                     days.get(habit.id) ?? NONE,
                     today,
                     habit.weekdays,
-                    habit.createdAt.slice(0, 10),
+                    localDay(habit.createdAt),
                   )}
                 />
               </span>
