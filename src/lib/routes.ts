@@ -17,6 +17,7 @@ export function isSettingsSection(value: string): value is SettingsSection {
 export const paths = {
   home: '/',
   log: '/log',
+  tasks: '/tasks',
   settings: (section?: SettingsSection) =>
     section ? `/settings/${section}` : '/settings',
 }

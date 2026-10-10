@@ -1,5 +1,10 @@
 import type { ReactNode } from 'react'
-import { BookIcon, HomeIcon, SlidersIcon } from '@/components/icons'
+import {
+  BookIcon,
+  ChecklistIcon,
+  HomeIcon,
+  SlidersIcon,
+} from '@/components/icons'
 import { paths } from '@/lib/routes'
 
 export interface NavItem {
@@ -16,6 +21,12 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Home',
     icon: <HomeIcon />,
     isActive: (location) => location === paths.home,
+  },
+  {
+    href: paths.tasks,
+    label: 'Tasks',
+    icon: <ChecklistIcon />,
+    isActive: (location) => location.startsWith(paths.tasks),
   },
   {
     href: paths.log,

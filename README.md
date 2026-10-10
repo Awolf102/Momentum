@@ -16,6 +16,10 @@ day, keep the flame lit, and watch your streak grow.
   tab reloads, and a session that ends while Momentum is closed still counts.
   A chime and a notification when a phase ends, the countdown in the tab title,
   today's focus minutes, and a calendar view shaded by focus time.
+- **Tasks:** type "Lab report fri 5pm #calculus !high every week" and it
+  becomes a task with a date, time, subject, priority and repeat. A list by
+  due date, or a To do / Doing / Done board with drag and drop. Today's tasks
+  on the dashboard, and N adds one from anywhere.
 - **Daily log:** one line a day about what you did — right after you check in,
   or any time with L. The Log page shows each day's line beside its check-in
   and focus time, and earlier days can get a line too.
@@ -29,14 +33,15 @@ day, keep the flame lit, and watch your streak grow.
 - **Ambient sound** for studying: wind, rain and a quiet fire, generated live —
   optionally only while a focus session runs.
 - **Shareable streak card**: an image of your streak over your background.
-- **Keyboard first:** C to check in, F to start or pause focus, L to write
-  today's line, ⌘K for the command palette.
+- **Keyboard first:** C to check in, F to start or pause focus, N to add a
+  task, L to write today's line, ⌘K for the command palette.
 - **Installable and offline**, with an optional evening reminder if you haven't
   checked in.
 - **Your own photographs as backgrounds**, behind frosted-glass cards, dark mode
   by default with a light theme.
 - **Local-first:** everything is saved in your browser's database (IndexedDB),
-  with one-file backups of all of it, focus sessions and the log included.
+  with one-file backups of all of it, tasks, focus sessions and the log
+  included.
 - **Optional AI, with your own key:** Anthropic, OpenAI, or a server such as
   Ollama. Momentum works fully without it. (The AI features themselves arrive
   in later phases; see [docs/ROADMAP.md](docs/ROADMAP.md).)
@@ -100,6 +105,22 @@ they change; add your provider's price per million tokens to see an estimate.
 
 **Backups** leave API keys out unless you turn on **Include API keys**.
 
+## Tasks
+
+Type a task the way you'd say it; what Momentum understood shows underneath:
+
+| Type                                                         | Gets                       |
+| ------------------------------------------------------------ | -------------------------- |
+| `today`, `tomorrow`, `fri`, `next fri`                       | A due date                 |
+| `in 3 days`, `next week`, `12 Oct`                           | A due date                 |
+| `5pm`, `at 9:30am`, `17:00`                                  | A time                     |
+| `#calculus`, `#digital-logic`                                | A subject                  |
+| `!`, `!!`, `!!!` (or `!high`)                                | Low, medium, high priority |
+| `every mon and thu`, `daily`, `every 2 weeks`, `fortnightly` | A repeat                   |
+
+Put words in "quotes" to keep them as they are. Tap a task to edit it; switch
+to **Board** to drag tasks between To do, Doing and Done.
+
 ## Focus timer
 
 Pick a subject on the dashboard and press **Start focus** (or F). Pause, resume,
@@ -115,6 +136,7 @@ minutes.
 | ⌘K / Ctrl K | Command palette              |
 | C           | Check in for today           |
 | F           | Start / pause / resume focus |
+| N           | Add a task                   |
 | L           | Write today's log line       |
 | M           | View the climb               |
 | S           | Share streak card            |
@@ -146,8 +168,8 @@ Anthropic and OpenAI SDKs (loaded on demand) · Web Audio · Workbox (vite-plugi
 ```
 src/
 ├── app/          App shell: routes, sidebar, tab bar, header, commands
-├── pages/        Pages composed from features (dashboard, log, settings)
-├── features/     streak · focus · subjects · log · calendar · motivation
+├── pages/        Pages composed from features (dashboard, tasks, log, settings)
+├── features/     streak · focus · subjects · tasks · log · calendar · motivation
 │                 appearance · climb · share · ambience · reminder · pwa
 │                 backup · ai
 ├── components/   Shared UI (glass card, sheet, settings card, icons…)

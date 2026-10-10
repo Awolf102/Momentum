@@ -342,6 +342,52 @@ export function AlertIcon(props: IconProps) {
   )
 }
 
+export function ChecklistIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 6.5l1.5 1.5L8.5 5M4 13.5L5.5 15l3-3M11.5 6.75H20M11.5 13.75H20M11.5 19.75H20M5 19.5h2" />
+    </Icon>
+  )
+}
+
+export function RepeatIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M17 2.5l3 3-3 3M4 11.5v-1a5 5 0 015-5h11M7 21.5l-3-3 3-3M20 12.5v1a5 5 0 01-5 5H4" />
+    </Icon>
+  )
+}
+
+export function ColumnsIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3.5" y="4" width="5" height="16" rx="1.5" />
+      <rect x="9.75" y="4" width="5" height="11" rx="1.5" />
+      <rect x="16" y="4" width="4.5" height="7" rx="1.5" />
+    </Icon>
+  )
+}
+
+export function ListIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M8.5 6.5H20M8.5 12H20M8.5 17.5H20" />
+      <circle cx="4.5" cy="6.5" r="0.75" fill="currentColor" />
+      <circle cx="4.5" cy="12" r="0.75" fill="currentColor" />
+      <circle cx="4.5" cy="17.5" r="0.75" fill="currentColor" />
+    </Icon>
+  )
+}
+
+export function CalendarIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="3" />
+      <path d="M3.5 10h17M8 3v4M16 3v4" />
+    </Icon>
+  )
+}
+
 export function BookIcon(props: IconProps) {
   return (
     <Icon {...props}>

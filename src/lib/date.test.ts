@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   addDays,
+  addMonths,
   dayOfWeek,
   daysBetween,
+  daysInMonth,
   formatDateKey,
   isDateKey,
+  makeDateKey,
+  monthsBetween,
   msUntilNextDay,
   startOfWeek,
   toDateKey,
@@ -66,6 +70,25 @@ describe('weeks', () => {
     expect(startOfWeek('2026-10-10', 1)).toBe('2026-10-05') // Monday
     expect(startOfWeek('2026-10-10', 0)).toBe('2026-10-04') // Sunday
     expect(startOfWeek('2026-10-05', 1)).toBe('2026-10-05')
+  })
+})
+
+describe('months', () => {
+  it('keeps the day, or the last day of shorter months', () => {
+    expect(addMonths('2026-01-31', 1)).toBe('2026-02-28')
+    expect(addMonths('2028-01-31', 1)).toBe('2028-02-29')
+    expect(addMonths('2026-10-15', 3)).toBe('2027-01-15')
+    expect(addMonths('2026-03-31', -1)).toBe('2026-02-28')
+    // A day carried from the start of a series.
+    expect(addMonths('2026-02-28', 1, 31)).toBe('2026-03-31')
+  })
+
+  it('counts months between days and knows month lengths', () => {
+    expect(monthsBetween('2026-10-31', '2027-01-01')).toBe(3)
+    expect(daysInMonth(2026, 2)).toBe(28)
+    expect(daysInMonth(2028, 2)).toBe(29)
+    expect(makeDateKey(2026, 2, 30)).toBeNull()
+    expect(makeDateKey(2026, 10, 12)).toBe('2026-10-12')
   })
 })
 

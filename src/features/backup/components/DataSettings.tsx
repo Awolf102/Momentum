@@ -16,6 +16,7 @@ import { SettingsCard } from '@/components/SettingsCard'
 import { Switch } from '@/components/Switch'
 import { focusSessions, resetTimer } from '@/features/focus'
 import { logEntries } from '@/features/log'
+import { tasks } from '@/features/tasks'
 import { resetStreak } from '@/features/streak'
 import { cn } from '@/lib/cn'
 import { requestPersistentStorage } from '@/lib/storage'
@@ -32,6 +33,7 @@ type Message = { tone: 'ok' | 'error'; text: string } | null
 const RECORD_NAMES: Record<string, [one: string, many: string]> = {
   focusSessions: ['focus session', 'focus sessions'],
   logEntries: ['log line', 'log lines'],
+  tasks: ['task', 'tasks'],
 }
 
 export function DataSettings() {
@@ -183,7 +185,7 @@ function BackupCard() {
   return (
     <SettingsCard
       title="Backup"
-      description="One file with your streak, log, focus sessions, settings, photos and AI usage. Importing adds to what's here rather than replacing it."
+      description="One file with your streak, tasks, log, focus sessions, settings, photos and AI usage. Importing adds to what's here rather than replacing it."
     >
       <div className="space-y-2">
         {/* Chosen before exporting or importing, so it's never a surprise. */}
@@ -248,6 +250,14 @@ function ResetCard() {
           onReset={() => {
             resetStreak()
             setDone('Your streak history was cleared.')
+          }}
+        />
+        <ResetRow
+          label="Reset tasks"
+          confirm="Tap again to erase every task"
+          onReset={() => {
+            void tasks.clear()
+            setDone('Your tasks were cleared.')
           }}
         />
         <ResetRow

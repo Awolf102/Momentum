@@ -20,6 +20,7 @@ describe('database schema', () => {
       'meta',
       'photos',
       'secrets',
+      'tasks',
     ])
   })
 
@@ -98,6 +99,15 @@ describe('database schema', () => {
       day: '2026-10-10',
       text: 'Lab done',
     })
+    await db.put('tasks', {
+      id: 't1',
+      due: '2026-10-12',
+      status: 'todo',
+      subjectId: null,
+    })
+    expect(
+      await db.getAllFromIndex('tasks', 'by-due', '2026-10-12'),
+    ).toHaveLength(1)
     expect(await db.get('logEntries', '2026-10-10')).toMatchObject({
       text: 'Lab done',
     })

@@ -3,6 +3,9 @@ import type { Command } from '@/lib/commands'
 import {
   BellIcon,
   BookIcon,
+  ChecklistIcon,
+  ColumnsIcon,
+  ListIcon,
   CheckIcon,
   DatabaseIcon,
   DownloadIcon,
@@ -16,6 +19,7 @@ import {
   PauseIcon,
   PlayIcon,
   PencilIcon,
+  PlusIcon,
   ShareIcon,
   SkipIcon,
   SlidersIcon,
@@ -51,6 +55,7 @@ import {
   toggleFocus,
 } from '@/features/focus'
 import { writeLine } from '@/features/log'
+import { openQuickAdd, setTasksView, tasksViewStore } from '@/features/tasks'
 import { installStore, promptInstall } from '@/features/pwa'
 import { reminderStore } from '@/features/reminder'
 import { openShare } from '@/features/share'
@@ -94,6 +99,7 @@ export function useAppCommands(): Command[] {
   const reminder = useStore(reminderStore)
   const { phase } = useStore(focusTimerStore)
   const subjects = useStore(subjectsStore)
+  const { view: tasksView } = useStore(tasksViewStore)
 
   return useMemo(() => {
     const backgrounds = listBackgrounds(photos).filter((background) =>
@@ -161,6 +167,29 @@ export function useAppCommands(): Command[] {
           }))
         : []),
       {
+        id: 'task-add',
+        title: 'Add a task',
+        section: 'Tasks',
+        icon: <PlusIcon />,
+        keywords: ['todo', 'new', 'quick add', 'create', 'reminder'],
+        hotkey: { key: 'n' },
+        run: openQuickAdd,
+      },
+      {
+        id: 'tasks-view',
+        title:
+          tasksView === 'board'
+            ? 'Show tasks as a list'
+            : 'Show tasks as a board',
+        section: 'Tasks',
+        icon: tasksView === 'board' ? <ListIcon /> : <ColumnsIcon />,
+        keywords: ['kanban', 'columns', 'board', 'list', 'view'],
+        run: () => {
+          setTasksView(tasksView === 'board' ? 'list' : 'board')
+          navigate(paths.tasks)
+        },
+      },
+      {
         id: 'log-today',
         title: "Write today's line",
         section: 'Log',
@@ -202,6 +231,14 @@ export function useAppCommands(): Command[] {
         icon: <HomeIcon />,
         keywords: ['dashboard', 'today', 'streak'],
         run: () => navigate(paths.home),
+      },
+      {
+        id: 'go-tasks',
+        title: 'Go to Tasks',
+        section: 'Go to',
+        icon: <ChecklistIcon />,
+        keywords: ['todo', 'list', 'board', 'kanban', 'due'],
+        run: () => navigate(paths.tasks),
       },
       {
         id: 'go-log',
@@ -366,5 +403,6 @@ export function useAppCommands(): Command[] {
     reminder,
     phase,
     subjects,
+    tasksView,
   ])
 }

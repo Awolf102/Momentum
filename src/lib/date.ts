@@ -74,6 +74,46 @@ export function dayOfMonth(key: DateKey): number {
   return Number(key.slice(8, 10))
 }
 
+/** Days in a month (`month` 1–12). */
+export function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate()
+}
+
+/** A calendar day from its parts, or `null` if there's no such day. */
+export function makeDateKey(
+  year: number,
+  month: number,
+  day: number,
+): DateKey | null {
+  const key = `${pad(year, 4)}-${pad(month)}-${pad(day)}`
+  return isDateKey(key) ? key : null
+}
+
+/**
+ * Moves by whole months, keeping the day of the month where it exists and
+ * using the month's last day where it doesn't (31 Jan + 1 month = 28 Feb).
+ * `day` overrides the day kept (a monthly date that started on the 31st
+ * stays on the 31st in months that have one).
+ */
+export function addMonths(
+  key: DateKey,
+  amount: number,
+  day: number = dayOfMonth(key),
+): DateKey {
+  const [year, month] = key.split('-').map(Number)
+  const index = year * 12 + (month - 1) + amount
+  const targetYear = Math.floor(index / 12)
+  const targetMonth = (index % 12) + 1
+  return `${pad(targetYear, 4)}-${pad(targetMonth)}-${pad(Math.min(day, daysInMonth(targetYear, targetMonth)))}`
+}
+
+/** Whole months from `from`'s month to `to`'s month. */
+export function monthsBetween(from: DateKey, to: DateKey): number {
+  const [fromYear, fromMonth] = from.split('-').map(Number)
+  const [toYear, toMonth] = to.split('-').map(Number)
+  return (toYear - fromYear) * 12 + (toMonth - fromMonth)
+}
+
 const formatters = new Map<string, Intl.DateTimeFormat>()
 
 /** Formats a calendar day with `Intl`, independent of the user's time zone. */
