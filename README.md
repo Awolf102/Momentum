@@ -24,10 +24,19 @@ day, keep the flame lit, and watch your streak grow.
   your classes: drag tasks onto it, move and stretch blocks a quarter hour at a
   time, and import your timetable (.ics) so classes show up. A focus block
   that's on now starts the timer.
+- **Plan my day** (optional): AI drafts the day from your tasks, deadlines,
+  goals and calendar, around what's already on. The suggestions show on the
+  day for you to keep, change or leave out, and nothing goes on the plan
+  until you add it.
 - **Goals:** something bigger, like a distinction in a subject or a 10 km run,
   with the milestones on the way and the tasks and habits that get you there.
   A bar fills as you tick off steps, and with a day to reach it by, it says
   whether you're ahead, on track or behind.
+- **Your week:** on Sundays the dashboard sums up the week (and last week's
+  on Mondays): focus time by day and subject, check-ins, habits, tasks done
+  and still open, milestones and your log. AI can write it up (what went
+  well, what slipped, an idea for next week) if you ask, sending only the
+  parts you tick.
 - **More habits:** reading, exercise, practice — each with its own streak, on
   every day or just the days you choose (days off never break it), with the
   last week at a glance and its own calendar.
@@ -244,6 +253,18 @@ time now, and the focus sessions you've done down the left.
 - **Focus:** a focus block that's on now has ▶ to start the timer on its subject.
 - **← →** go to the day before and after.
 
+### Plan my day
+
+With a chat model set up (see Using AI), **Plan my day** drafts the rest of
+the day (or another day) around your classes and blocks: the tasks overdue
+and due soon, steps towards your goals and the habits still to do. Before
+anything is sent you see what goes — calendar events, blocks already
+planned, tasks, goals, habits — and can leave any out (events and blocks
+then go only as busy times, so nothing is planned over them). The
+suggestions show dashed on the day with the reason for each: untick the
+ones you don't want, change a time or a title, then **Add** (Undo takes them
+off again) or **Discard**.
+
 ### Calendars
 
 Import your timetable or any calendar as an **.ics** file with **Import a
@@ -274,6 +295,19 @@ one a line.
 - **Reach it, or put it away:** both keep the goal, with a way to reopen it.
   The dashboard shows your first three goals on the go; reorder them on the
   Goals page.
+
+## Your week
+
+On Sundays the dashboard shows the week so far, and on Mondays the week just
+gone; **See the week** (or ⌘K → **Review my week**) opens it in full: focus
+time against the week before, by day and by subject, check-ins, habits on
+their days, tasks done and those due that are still open, milestones
+reached and each day's log line. ← → page through earlier weeks. Settings →
+App turns the Sunday card off.
+
+With a chat model set up, **Write it up** asks AI for what went well, what
+slipped and an idea for next week. You choose which parts are sent (your log
+can stay out), and the write-up is kept with its week.
 
 ## Notes
 
@@ -448,10 +482,10 @@ cards, and the Anthropic and OpenAI SDKs (all loaded on demand) · Web Audio · 
 src/
 ├── app/          App shell: routes, sidebar, tab bar, header, commands
 ├── pages/        Pages composed from features (dashboard, tasks, plan, goals,
-│                 notes, photo and voice notes, library, cards, quizzes, ask,
-│                 inbox, log, settings)
+│                 your week, notes, photo and voice notes, library, cards,
+│                 quizzes, ask, inbox, log, settings)
 ├── features/     streak · habits · routines · focus · subjects · tasks · planner
-│                 goals · notes · capture · library · search · embeddings
+│                 goals · review · notes · capture · library · search · embeddings
 │                 flashcards · quizzes
 │                 assistant · inbox · log · calendar
 │                 motivation · appearance · climb · share · ambience

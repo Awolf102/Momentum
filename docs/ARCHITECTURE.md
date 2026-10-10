@@ -59,6 +59,8 @@ src/
 │   ├── DashboardPage.tsx     Home: composes features into the dashboard
 │   ├── TasksPage.tsx         Tasks as a list or a board (lazy)
 │   ├── PlanPage.tsx          The plan: a day's timeline (lazy)
+│   ├── GoalsPage.tsx         Goals, or one goal's page (lazy)
+│   ├── ReviewPage.tsx        A week in review (lazy)
 │   ├── InboxPage.tsx         Captured things to sort; receives shares (lazy)
 │   ├── NotesPage.tsx         Notes: the list and the open note (lazy)
 │   ├── LibraryPage.tsx       The library's shelf, or a document open (lazy)
@@ -156,6 +158,8 @@ src/
 │   │   ├── lib/recurrence.ts The days a repeating event falls on (tested)
 │   │   ├── lib/day.ts        A day's events in this device's time (tested)
 │   │   ├── lib/layout.ts     Overlapping things side by side (tested)
+│   │   ├── lib/draft.ts      Plan my day: the time, the request, reading the reply (tested)
+│   │   ├── planMyDay.ts      What's sent, the draft, adding it with Undo (tested)
 │   │   ├── blocks.ts, calendars.ts   The collections (tested)
 │   │   ├── components/       The timeline, the block sheet, tasks waiting, calendars
 │   │   └── page.ts           The Plan page (only the lazy page loads it)
@@ -163,7 +167,15 @@ src/
 │   │   ├── lib/progress.ts   Steps, pace against the target, tasks by series (tested)
 │   │   ├── goals.ts, actions.ts   The collection; milestones, links, status (tested)
 │   │   ├── components/       The list, a goal's page, its sheets, the dashboard card
+│   │   ├── data.ts           The collection alone, for lazy code that only reads it
 │   │   └── page.ts           The Goals page (only the lazy page loads it)
+│   ├── review/               The weekly review: a week in numbers, an AI write-up
+│   │   ├── lib/week.ts       A week's focus, check-ins, habits, tasks, log (pure, tested)
+│   │   ├── lib/weeks.ts      Which week, and when the dashboard shows it (tested)
+│   │   ├── lib/writeUp.ts    What's sent for a write-up; reading the reply (tested)
+│   │   ├── store.ts, write.ts   The setting and the write-ups kept (tested)
+│   │   ├── settings.ts       The setting and the store, for the lazy settings pages
+│   │   └── page.ts           The Review page (only the lazy page loads it)
 │   ├── log/                  The daily log: one line per day, editable in place
 │   │   ├── entries.ts        The logEntries collection; setLine (tested)
 │   │   ├── lib/timeline.ts   Days with a line, check-in or focus (pure, tested)
@@ -224,7 +236,9 @@ src/
   card: search and Settings import goals from `features/goals/data.ts`.
   Through the index, the card's habits and tasks were tied into those
   chunks, and the bundler split the first load into three more files that
-  compressed 5 kB worse.
+  compressed 5 kB worse. The weekly review's setting is likewise in
+  `features/review/settings.ts`, and its dashboard card loads its body
+  (`WeekGlance`, with the week's numbers) only on the days it shows.
 - **No cycles between features.** Focus uses the streak (to check in), subjects
   and ambience through their `index.ts`; none of them knows focus exists. The
   hero hears about check-ins through `onCheckIn`, whoever made them. Lower-level
@@ -480,6 +494,7 @@ Everything persisted, and where:
 | `calendars`                            | Calendars imported from .ics files, with their events (below)          |
 | `goals`                                | Goals, with their milestones and the tasks and habits linked (below)   |
 | `kv` › `momentum.tasks`                | List or board                                                          |
+| `kv` › `momentum.review`               | Whether the week shows on Sundays, and the AI write-ups kept by week   |
 | `photos`                               | Uploaded photos as Blobs (2560 px + 360 px thumbnail)                  |
 | `secrets`                              | API keys: `anthropic`, `openai`, `compatible`                          |
 | `meta`                                 | Housekeeping, e.g. when localStorage data was migrated                 |
@@ -1093,10 +1108,48 @@ day**), around calendars imported from .ics files.
 - **Elsewhere**: Today's plan on the dashboard (what's on now and next, from
   blocks and calendars, with Start for a focus block that's on now); Settings
   → Data clears the plan or removes the calendars; backups include both.
-- **Size**: the Plan page is 38 kB (13 kB compressed), loaded when it's
-  opened, with the parser and the zone names. The dashboard card and what it
-  reads (both collections, repeats, a day's events, times) add 12 kB (4 kB
-  compressed) to the first load.
+- **Size**: the Plan page is 56 kB (19 kB compressed), loaded when it's
+  opened, with the parser, the zone names and "Plan my day" (18 kB, 6 kB
+  compressed, of it). The dashboard card and what it reads (both
+  collections, repeats, a day's events, times) add 12 kB (4 kB compressed)
+  to the first load.
+
+### Plan my day
+
+AI drafts a day's plan, to keep, change or put aside (the Plan page's **Plan
+my day**, ⌘K **Plan my day with AI**). Nothing goes on the plan until you
+add it, and nothing is sent until you press Send.
+
+- **The time to plan** (`lib/draft.ts`, `planWindow`): another day from 8:00
+  until 22:00; today from the next quarter hour (five minutes on) until
+  22:00, or an hour on late at night, up to midnight. A day that's over, or
+  less than half an hour left, can't be planned.
+- **What's sent** (`planMyDay.ts`, `gatherPlanContext`), each part shown in
+  the preview and each can be left out: calendar events and blocks already
+  on the plan (their times always go, so nothing is planned over them; their
+  titles only if ticked), open tasks not on that day's plan yet (overdue,
+  due within two weeks or undated, most pressing first, at most 40, with
+  their due day and time, priority, subject and the goal they're a step
+  towards), goals on the go with their next milestone, and the habits due
+  that day not done yet. The focus session length and the subjects' names
+  always go. The request is plain text with 24-hour times and tasks
+  numbered T1, T2…; the system prompt says the lists are the student's
+  data, not instructions.
+- **Reading the reply** (`readPlan`): one JSON object of blocks (start, end,
+  kind, task number or subject, title, why) and a note. Times are moved to
+  the nearest quarter hour and cut to the time to plan; a block shorter than
+  a quarter hour, over something busy or over an earlier suggestion is left
+  out, as is one it can't read, and the draft says how many were. A task
+  block takes the task's own title and subject; at most 20 blocks.
+- **The draft** (`planDraftStore`, in memory, one at a time): the
+  suggestions show on the day dashed, each with a box to keep it (ticked to
+  begin with), and in a list beside it (a sheet on a phone) with their
+  reasons, where a title or times can be changed (moving the start keeps the
+  length). **Add** puts the kept ones on the plan as ordinary blocks, with
+  Undo; **Discard** puts the draft aside. Stop cancels the request; a busy
+  provider's retries are shown.
+- **Off the page**: `/plan?draft=1` opens the plan with Plan my day ready to
+  send, which is where ⌘K goes.
 
 ## Goals
 
@@ -1143,6 +1196,47 @@ the way and the tasks and habits that get you there.
 - **Size**: the Goals page is 35 kB (9 kB compressed), loaded when it's
   opened. The dashboard card, the collection and progress add 8.5 kB
   (2.4 kB compressed) to the first load.
+
+## The weekly review
+
+`features/review` shows a week in numbers (`/review`, ⌘K **Review my
+week**), and the week at a glance on the dashboard on Sundays.
+
+- **A week** (`lib/week.ts`, `summarizeWeek`; pure, worked out from what's
+  on this device, nothing stored): Monday to Sunday. Focus time and
+  sessions, against the week before, by day and by subject; the days
+  checked in; each habit's scheduled days done, of those due so far (as its
+  own rate counts them, from the day it was made); tasks finished that week
+  (by the local day they were finished); tasks due that week, up to today,
+  still open; milestones reached; and the log's lines. Days still to come
+  aren't counted.
+- **The page** (`components/WeekReview.tsx`): tiles for focus, check-ins,
+  habits and tasks done; focus by day as bars and by subject; then habits,
+  tasks, milestones and the log. ← and → page through the weeks (the
+  address keeps the week, `?week=<Monday>`), **This week** comes back. A
+  week with nothing in it says so.
+- **On the dashboard** (`components/WeekCard.tsx`): on Sundays this week,
+  and on Mondays the week just gone (`lib/weeks.ts`, `reviewWeekToShow`):
+  focus, check-ins, habits and tasks done, and a way into the page. Settings
+  → App turns it off. The card's body (`WeekGlance.tsx`) and the week's
+  numbers are loaded only on those days, so they aren't part of the first
+  load.
+- **Written up by AI**, on asking (`lib/writeUp.ts`, `write.ts`): what went
+  well, what slipped and an idea for next week, as one JSON object. The
+  preview lists the parts that can go (focus and check-ins as numbers and
+  subject names; habits by name with days done; tasks finished and still
+  open by title; milestones with their goals; the log word for word), each
+  can be left out, and only the ticked parts are in the request. The
+  write-up is kept for its week (`momentum.review`), shown on the page with
+  when it was written, and can be written again; Stop keeps nothing.
+- **Elsewhere**: Settings → Data deletes the write-ups (the weeks are
+  worked out again, so nothing else goes); backups include the write-ups and
+  the setting (a restore keeps this device's setting and the later of two
+  write-ups).
+- **Size**: the Review page is 16 kB (5.5 kB compressed), loaded when it's
+  opened. The dashboard's check (the setting and which week) adds under
+  1 kB compressed to the first load; the glance and the week's numbers are
+  4 kB (2 kB compressed), loaded on Sundays and Mondays.
 
 ## Habits
 
@@ -1769,7 +1863,8 @@ quiz (1–4 to choose, 1–3 to mark, G for AI's mark, Enter to move on) and the
 plan (← → for the day before and after; on a block, ↑ ↓ to move it, with
 Shift to change its length, Enter to open it, Delete to take it off). P opens
 the plan from anywhere. Goals have no key of their own (G is the quiz's AI
-mark): New goal and Go to Goals are in the palette.
+mark): New goal and Go to Goals are in the palette. So are Plan my day with
+AI (the plan with Plan my day ready to send) and Review my week.
 
 ## Offline, install and reminders
 
@@ -1870,7 +1965,19 @@ and put back where they were, and the most a goal can have; tasks linked by
 series, a repeating one followed from one time to the next, tasks added
 with the goal's subject, habits linked once; steps, overdue milestones, pace
 against the time gone, past the day, no day or no steps, the habits'
-average), the local day of a timestamp, the
+average), Plan my day (the time to plan today, another day, late at night
+and a day that's over; the request with events and blocks by name or only
+their times, tasks numbered with their goals, goals, habits and subjects;
+reading a reply: quarter hours, the time to plan, over something busy or
+another suggestion, tasks by number, subjects by name, unreadable blocks
+counted; what's gathered with each part left out; a draft through the
+stand-in provider; adding the kept blocks and Undo), the weekly review (the
+week a day is in and when the dashboard shows it; focus against the week
+before, by day and subject; check-ins and habits on their scheduled days,
+so far; tasks finished and still open; milestones and the log; an empty
+week; the request with only the ticked parts; reading a reply; keeping a
+write-up, merging and damaged ones; a reply with none), the local day of a
+timestamp, the
 assistant (keyword ranking and fusion, joining neighbouring passages, the request and
 its history, citations, the plans snapshot and its parts, keeping to one
 document, answers saved with what was sent, failures, Ask again, Stop
@@ -1921,5 +2028,14 @@ repeating one moving on and keeping count; unlinking and Undo; a habit made,
 linked and ticked; editing; behind past the day; reordering; the dashboard
 card; ⌘K search; reaching, putting away, reopening and Undo; every step
 done; deleting and Undo; a reload; a backup restored in a fresh browser;
-deleting them all) — are checked in a headless browser at desktop and phone
-sizes.
+deleting them all), Plan my day (Settings → AI first without a chat model;
+the preview's parts and nothing sent before Send; events and goals left
+out, sending only their times and no goals; the suggestions, and one over
+an event left out; keeping and leaving out from the day and the list;
+changing a start; adding with Undo; Discard; Stop; ⌘K), and the weekly
+review (with the page's clock moved to a Sunday, a Monday and a Wednesday:
+the week's numbers against synthetic data, paging through weeks, the
+dashboard card and its setting, the write-up with the log left out and
+only the ticked parts sent, kept after a reload, written again, Stop,
+⌘K, deleting the write-ups) — are checked in a headless browser at desktop
+and phone sizes.
