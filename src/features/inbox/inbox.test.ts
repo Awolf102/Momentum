@@ -1,8 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { notes } from '@/features/notes'
+import { makeNote } from './actions'
 import { capture, dismiss, inboxItems } from './items'
 import { displayUrl, findUrl, fromShare, safeUrl } from './lib/share'
 
-afterEach(() => inboxItems.clear())
+afterEach(async () => {
+  await inboxItems.clear()
+  await notes.clear()
+})
 
 const share = (params: Record<string, string>) =>
   fromShare(new URLSearchParams(params))
@@ -57,6 +62,17 @@ describe('the inbox', () => {
     })
     expect(await capture('   ')).toBeNull()
     await dismiss(item!.id)
+    expect(inboxItems.get()).toHaveLength(0)
+  })
+
+  it('makes an item a note, keeping its link', async () => {
+    const item = await capture('Read about Gray code https://example.com/gray')
+    const note = await makeNote(item!)
+    expect(note).toMatchObject({
+      title: 'Read about Gray code',
+      body: 'https://example.com/gray',
+    })
+    expect(notes.get()).toHaveLength(1)
     expect(inboxItems.get()).toHaveLength(0)
   })
 })

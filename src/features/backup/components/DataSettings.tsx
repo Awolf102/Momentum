@@ -19,6 +19,7 @@ import { focusSessions, resetTimer } from '@/features/focus'
 import { habitCheckIns, habitsStore } from '@/features/habits'
 import { inboxItems } from '@/features/inbox'
 import { logEntries } from '@/features/log'
+import { notes } from '@/features/notes'
 import { routineRuns, routinesStore } from '@/features/routines'
 import { tasks } from '@/features/tasks'
 import { resetStreak } from '@/features/streak'
@@ -42,6 +43,7 @@ const RECORD_NAMES: Record<string, [one: string, many: string]> = {
   habitCheckIns: ['habit day', 'habit days'],
   routineRuns: ['routine day', 'routine days'],
   inboxItems: ['inbox item', 'inbox items'],
+  notes: ['note', 'notes'],
 }
 
 export function DataSettings() {
@@ -451,6 +453,14 @@ function ResetCard() {
           onReset={() => {
             void tasks.clear()
             setDone('Your tasks were cleared.')
+          }}
+        />
+        <ResetRow
+          label="Delete all notes"
+          confirm="Tap again to delete every note"
+          onReset={() => {
+            void notes.clear()
+            setDone('Your notes were deleted.')
           }}
         />
         <ResetRow

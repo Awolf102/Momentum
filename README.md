@@ -23,9 +23,13 @@ day, keep the flame lit, and watch your streak grow.
 - **More habits:** reading, exercise, practice — each with its own streak, on
   every day or just the days you choose (days off never break it), with the
   last week at a glance and its own calendar.
+- **Notes** in markdown, made for study: maths ($e^{i\pi}+1=0$, rendered with
+  KaTeX), highlighted code (Verilog and VHDL included), checklists you can tick
+  while reading, and `[[links]]` between notes — or to tasks — with each note
+  listing the notes that link to it. Renaming a note keeps its links working.
 - **Inbox:** catch a thought or a link in a second (I, or share to Momentum
-  from another app on Android), then make it a task, add it to today's log,
-  or let it go.
+  from another app on Android), then make it a task or a note, add it to
+  today's log, or let it go.
 - **Routines:** short checklists for the morning, a study session or the
   evening, fresh each day — the one for now first on the dashboard, with
   ready-made ones to start from.
@@ -50,8 +54,8 @@ day, keep the flame lit, and watch your streak grow.
 - **Your own photographs as backgrounds**, behind frosted-glass cards, dark mode
   by default with a light theme.
 - **Local-first:** everything is saved in your browser's database (IndexedDB),
-  with one-file backups of all of it: habits, routines, tasks, the inbox,
-  focus sessions and the log included.
+  with one-file backups of all of it: notes, habits, routines, tasks, the
+  inbox, focus sessions and the log included.
 - **Optional AI, with your own key:** Anthropic, OpenAI, or a server such as
   Ollama. Momentum works fully without it. (The AI features themselves arrive
   in later phases; see [docs/ROADMAP.md](docs/ROADMAP.md).)
@@ -134,6 +138,24 @@ Type a task the way you'd say it; what Momentum understood shows underneath:
 Put words in "quotes" to keep them as they are. Tap a task to edit it; switch
 to **Board** to drag tasks between To do, Doing and Done.
 
+## Notes
+
+Open **Notes** (or ⌘K → New note). A note opens to read; **Write** (or E)
+edits it, and it saves as you type. Escape goes back to reading.
+
+| Write                                 | Gets                                |
+| ------------------------------------- | ----------------------------------- |
+| `# Heading`, `**bold**`, `- item`     | Markdown, including tables          |
+| `- [ ] Revise chapter 4`              | A checklist, tickable while reading |
+| `$e^{i\pi}+1=0$`, `$$ … $$`           | Maths, inline or on its own line    |
+| ` ```verilog ` … ` ``` `              | Highlighted code                    |
+| `[[Karnaugh maps]]`, `[[Note\|text]]` | A link to a note (it can be new)    |
+| `[[task:Lab report]]`                 | A link to a task                    |
+
+Type `[[` to pick from your notes. Pin a note to keep it at the top; give it a
+subject to filter by. Nothing written in a note runs as code: HTML shows as
+text and unsafe links are removed.
+
 ## Focus timer
 
 Pick a subject on the dashboard and press **Start focus** (or F). Pause, resume,
@@ -152,6 +174,7 @@ minutes.
 | N           | Add a task                   |
 | I           | Capture to inbox             |
 | L           | Write today's log line       |
+| E           | Write (on a note)            |
 | M           | View the climb               |
 | S           | Share streak card            |
 | A           | Play / pause ambient sound   |
@@ -175,17 +198,18 @@ itself.
 ## Tech stack
 
 React 19 · TypeScript · Vite · Tailwind CSS v4 · Motion · wouter · IndexedDB (idb) ·
-Anthropic and OpenAI SDKs (loaded on demand) · Web Audio · Workbox (vite-plugin-pwa) · Vitest
+marked, DOMPurify, KaTeX and highlight.js for notes, and the Anthropic and OpenAI SDKs (all
+loaded on demand) · Web Audio · Workbox (vite-plugin-pwa) · Vitest
 
 ## Project structure
 
 ```
 src/
 ├── app/          App shell: routes, sidebar, tab bar, header, commands
-├── pages/        Pages composed from features (dashboard, tasks, inbox, log,
-│                 settings)
-├── features/     streak · habits · routines · focus · subjects · tasks · inbox
-│                 log · calendar · motivation
+├── pages/        Pages composed from features (dashboard, tasks, notes, inbox,
+│                 log, settings)
+├── features/     streak · habits · routines · focus · subjects · tasks · notes
+│                 inbox · log · calendar · motivation
 │                 appearance · climb · share · ambience · reminder · pwa
 │                 backup · ai
 ├── components/   Shared UI (glass card, sheet, settings card, icons…)

@@ -6,7 +6,7 @@ import type { DBSchema, IDBPDatabase } from 'idb'
  * browser on any older version is brought up to date.
  */
 export const DB_NAME = 'momentum'
-export const DB_VERSION = 8
+export const DB_VERSION = 9
 
 /** Object stores that hold collections (see `lib/collection.ts`). */
 export const COLLECTION_STORES = [
@@ -16,6 +16,7 @@ export const COLLECTION_STORES = [
   'habitCheckIns',
   'routineRuns',
   'inboxItems',
+  'notes',
 ] as const
 export type CollectionStoreName = (typeof COLLECTION_STORES)[number]
 
@@ -83,6 +84,17 @@ export interface MomentumDB extends DBSchema {
     key: string
     value: { id: string; text: string; [field: string]: unknown }
   }
+  /** Notes in markdown (see `features/notes`). */
+  notes: {
+    key: string
+    value: {
+      id: string
+      title: string
+      subjectId: string | null
+      [field: string]: unknown
+    }
+    indexes: { 'by-subject': string }
+  }
 }
 
 export function upgrade(
@@ -129,4 +141,9 @@ export function upgrade(
   }
   // v8: the quick-capture inbox.
   if (oldVersion < 8) db.createObjectStore('inboxItems', { keyPath: 'id' })
+  // v9: notes.
+  if (oldVersion < 9) {
+    const notes = db.createObjectStore('notes', { keyPath: 'id' })
+    notes.createIndex('by-subject', 'subjectId')
+  }
 }

@@ -4,6 +4,7 @@ import {
   ChecklistIcon,
   HomeIcon,
   InboxIcon,
+  NoteIcon,
   SlidersIcon,
 } from '@/components/icons'
 import { InboxBadge } from '@/features/inbox'
@@ -35,6 +36,12 @@ export const NAV_ITEMS: readonly NavItem[] = [
     isActive: (location) => location.startsWith(paths.tasks),
   },
   {
+    href: paths.notes,
+    label: 'Notes',
+    icon: <NoteIcon />,
+    isActive: (location) => location.startsWith(paths.notes),
+  },
+  {
     href: paths.inbox,
     label: 'Inbox',
     icon: <InboxIcon />,
@@ -47,6 +54,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Log',
     icon: <BookIcon />,
     isActive: (location) => location.startsWith(paths.log),
+    tabBar: false,
   },
   {
     href: paths.settings(),

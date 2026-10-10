@@ -1,4 +1,5 @@
 import { lineFor, setLine } from '@/features/log'
+import { createNote, noteFromText, type Note } from '@/features/notes'
 import { liveSubjects, subjectsStore } from '@/features/subjects'
 import { addTask, parseQuickAdd, type Task } from '@/features/tasks'
 import { toDateKey } from '@/lib/date'
@@ -32,4 +33,11 @@ export async function addToLog(item: InboxItem): Promise<void> {
   const line = lineFor(today)
   await setLine(today, line ? `${line} · ${item.text}` : item.text)
   await dismiss(item.id)
+}
+
+/** Turns an item into a note: a short first line becomes its title. */
+export async function makeNote(item: InboxItem): Promise<Note> {
+  const note = await createNote(noteFromText(item.text, item.url))
+  await dismiss(item.id)
+  return note
 }

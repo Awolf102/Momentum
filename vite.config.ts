@@ -66,6 +66,8 @@ export default defineConfig({
           // AI SDKs download the first time an AI feature is used (then the
           // service worker keeps them), not on install.
           '**/assets/ai/**',
+          // So do the maths fonts, the first time a note shows maths.
+          '**/KaTeX_*',
         ],
         // Bundled background photos can be large.
         maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,

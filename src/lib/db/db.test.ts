@@ -20,6 +20,7 @@ describe('database schema', () => {
       'kv',
       'logEntries',
       'meta',
+      'notes',
       'photos',
       'routineRuns',
       'secrets',

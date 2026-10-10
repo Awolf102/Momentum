@@ -160,7 +160,8 @@ export class CollectionRegistry {
 
   /**
    * Merges records from a backup: new ones are added and newer versions
-   * replace older ones, so restoring never undoes later changes.
+   * replace older ones, so restoring never undoes later changes. Returns
+   * how many records it added or updated, leaving out deletions.
    */
   async importRecords(
     name: string,
@@ -177,7 +178,8 @@ export class CollectionRegistry {
         continue
       await backend.put(name, record)
       ids.push(record.id)
-      changed++
+      // Deletions are carried over too, but only what you can see is counted.
+      if (!record.deletedAt) changed++
     }
     const collection = this.collections.get(name)
     if (collection) await this.load(collection, backend)

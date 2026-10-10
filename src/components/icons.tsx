@@ -439,3 +439,39 @@ export function SkipIcon(props: IconProps) {
     </Icon>
   )
 }
+
+export function NoteIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M6.5 3.5h8l4 4v13h-12z" />
+      <path d="M14.5 3.5v4h4M9.5 12h5M9.5 15.5h5" />
+    </Icon>
+  )
+}
+
+export function PinIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M9 3.5h6l-1 5.5 3 3V13H7v-1l3-3z" />
+      <path d="M12 13v7.5" />
+    </Icon>
+  )
+}
+
+export function EyeIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12z" />
+      <circle cx="12" cy="12" r="2.75" />
+    </Icon>
+  )
+}
+
+export function LinkIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1" />
+      <path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" />
+    </Icon>
+  )
+}

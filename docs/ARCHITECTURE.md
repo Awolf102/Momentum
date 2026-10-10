@@ -59,6 +59,7 @@ src/
 │   ├── DashboardPage.tsx     Home: composes features into the dashboard
 │   ├── TasksPage.tsx         Tasks as a list or a board (lazy)
 │   ├── InboxPage.tsx         Captured things to sort; receives shares (lazy)
+│   ├── NotesPage.tsx         Notes: the list and the open note (lazy)
 │   ├── LogPage.tsx           The log: each day's line, check-in and focus (lazy)
 │   └── SettingsPage.tsx      Settings sections (lazy-loaded)
 ├── features/
@@ -79,6 +80,12 @@ src/
 │   ├── subjects/             Labels for sessions: Calculus, Reading… (editable)
 │   ├── inbox/                Capture now, sort later; the PWA share target
 │   │   └── lib/share.ts      What other apps share, safe links (tested)
+│   ├── notes/                Markdown notes with maths, code and [[links]]
+│   │   ├── notes.ts          The notes collection; save, rename-aware links (tested)
+│   │   ├── lib/links.ts      [[links]], backlinks, renaming (pure, tested)
+│   │   ├── lib/suggest.ts, lib/checkboxes.ts   [[ suggestions, ticking boxes (tested)
+│   │   ├── markdown/         Renderer, sanitiser, KaTeX, highlight.js (lazy, tested)
+│   │   └── page.ts           The editor and list (only the lazy page loads them)
 │   ├── routines/             Checklists for a part of the day, fresh each day
 │   │   ├── lib/day.ts        Part of the day, today's order, progress (tested)
 │   │   └── runs.ts           The routineRuns collection; ticking steps (tested)
@@ -230,6 +237,17 @@ A routine is a definition too — name, part of the day, steps, weekdays — in
 `routineRuns` (id `<routine>:<day>`) listing the steps ticked, with
 `completedAt` set once they all are.
 
+A note is a record with its markdown text; links to other notes are written
+in the text as `[[Title]]`, so there's no link table to keep in step:
+
+```ts
+// object store "notes", indexed by-subject
+{ "id": "…", "title": "Karnaugh maps",
+  "body": "## Grouping\nSee [[Boolean algebra]] and [[task:Lab report]].",
+  "subjectId": "digital-logic", "pinned": false,
+  "createdAt": "…", "updatedAt": "…" }   // deletedAt when deleted
+```
+
 A log line is a record whose id is its day, so "one line per day" holds in the
 store itself, and two devices writing the same day merge to the later edit:
 
@@ -262,6 +280,7 @@ Everything persisted, and where:
 | `kv` › `momentum.routines`    | Routines: name, part of the day, steps, weekdays                       |
 | `routineRuns`                 | Each day's ticked steps per routine                                    |
 | `inboxItems`                  | Captured things not yet sorted (text, an optional link)                |
+| `notes`                       | Notes: title, markdown, subject, pinned (above)                        |
 | `kv` › `momentum.tasks`       | List or board                                                          |
 | `photos`                      | Uploaded photos as Blobs (2560 px + 360 px thumbnail)                  |
 | `secrets`                     | API keys: `anthropic`, `openai`, `compatible`                          |
@@ -269,14 +288,15 @@ Everything persisted, and where:
 | IndexedDB `momentum-reminder` | What the service worker needs for reminders (a mirror)                 |
 | localStorage `momentum.theme` | A copy of the theme, read before the first paint to avoid a flash      |
 
-These are object stores in the `momentum` database (version 8). Its schema
+These are object stores in the `momentum` database (version 9). Its schema
 lives in `lib/db/schema.ts` as one `upgrade` function with a step per version,
 so a browser on any older version upgrades in order: version 1 (photos only,
 from v2 of the app) gains `kv`, `secrets` and `meta`; version 2 (Phase 1) gains
 `focusSessions` and its indexes; version 3 (the timer) gains `logEntries`;
 version 4 (the log) gains `tasks` and its indexes; version 5 (tasks) gains
 `habitCheckIns`; version 6 (habits) gains `routineRuns` — both indexed by
-their habit or routine and by day; version 7 (routines) gains `inboxItems`.
+their habit or routine and by day; version 7 (routines) gains `inboxItems`;
+version 8 (the inbox) gains `notes`, indexed by subject.
 Existing streaks, sessions, settings, keys and photos are untouched — each path
 is tested against `fake-indexeddb`.
 
@@ -371,7 +391,8 @@ database version.
 ## Routing and the shell
 
 `wouter` (about 2 KB) maps paths to pages: `/` is the dashboard, and
-`/tasks` the tasks, `/inbox` the inbox, `/log` the daily log, and
+`/tasks` the tasks, `/notes` and `/notes/:id` the notes, `/inbox` the inbox,
+`/log` the daily log, and
 `/settings/:section` the settings (appearance,
 focus, app, AI, data). Pages other than
 the dashboard load on first visit, behind an error boundary that explains a
@@ -382,12 +403,12 @@ offline; a static host needs the usual single-page-app fallback to `index.html`.
 The shell keeps the existing look:
 
 - **Wide screens (≥ 1024 px):** a glass sidebar with the logo, search (⌘K), the
-  pages (Home, Tasks, Inbox with a count, Log, Settings), today's date and
-  the sound control.
+  pages (Home, Tasks, Notes, Inbox with a count, Log, Settings), today's date
+  and the sound control.
 - **Phones and tablets:** the header stays, and a floating glass tab bar (Home,
-  Tasks, Log, Search, Settings) sits within thumb reach; the inbox is reached
-  from the dashboard notice, ⌘K or a home-screen shortcut. Toasts move above
-  it.
+  Tasks, Notes, Search, Settings) sits within thumb reach; the inbox is reached
+  from the dashboard notice, ⌘K or a home-screen shortcut, and the Log from
+  Search (⌘K). Toasts move above it.
 - The climb view still clears everything away. The fade is applied to each
   layer separately, because a `filter` on a shared wrapper would re-anchor the
   fixed sidebar and tab bar mid-transition.
@@ -478,7 +499,8 @@ than 100 000 or more than 10 000 000 iterations are rejected as damaged. A
 backup that includes API keys can't be made without a password; the password
 is never stored, so a forgotten one can't be recovered.
 
-Settings → Data can reset the streak history, tasks, the log and the focus history separately;
+Settings → Data can reset the streak history, habits, routines, tasks, notes,
+the inbox, the log and the focus history separately;
 resetting focus clears the sessions and the timer but keeps settings and
 subjects.
 
@@ -803,9 +825,58 @@ streak doesn't need.
   as `javascript:`) stays text.
 - **Sorting.** Each item can become a task — read like quick add, so "Email
   tutor fri #calculus" gets its date and subject, and a link is kept in the
-  title — be added to today's log line, or be let go.
+  title — become a note (a short first line is its title; a link moves to the
+  body), be added to today's log line, or be let go.
 - A notice on the dashboard says how many things are waiting, and the sidebar
   shows the count.
+
+## Notes
+
+`features/notes` keeps notes in markdown, for study: maths, code and links
+between notes.
+
+- **Rendering** (`markdown/`) is a pipeline loaded on first use: `marked`
+  (GitHub-flavoured markdown) with extensions for `[[links]]`, `$maths$` and
+  `$$display maths$$`, then **DOMPurify**. KaTeX loads only for a note with
+  maths and highlight.js (core plus the languages a student is likely to write,
+  Verilog and VHDL included) only for a note with code; `needs()` decides, by
+  the same rules the renderer uses, so "$5 and $10" isn't maths. If either
+  can't load (offline before it was cached), the note shows without it. None of
+  this is in the dashboard's bundle; the maths fonts aren't precached but kept
+  by the service worker once fetched.
+- **Nothing in a note runs.** Raw HTML in a note is shown as text, not markup.
+  The sanitiser then has the last word on the result: scripts, event handlers
+  and unsafe links (`javascript:`, `data:`) are removed. KaTeX
+  runs with `trust: false`, so `\href` and friends render as mistakes, not
+  links. Web links open in a new tab with `noopener`.
+- **Links.** `[[Title]]` links a note by title (case and spacing don't
+  matter; if two notes share one, the latest wins, and the editor says so),
+  `[[Title|text]]` shows other text, and `[[task:Title]]` links a task, opening
+  it in the task sheet. A link to a note that doesn't exist yet offers to
+  create it, so notes can be written top-down. Under each note, **Linked from**
+  lists the notes that link to it with the line that does (`backlinks`, pure).
+  Renaming a note rewrites links to it in other notes (`renameLinks`, which
+  keeps the shown text and leaves code alone), so a rename never breaks one.
+  Nothing inside code counts as a link anywhere.
+- **Writing.** A note opens to read if it has text, to write if it's new
+  (title first; Enter moves to the text). The body saves 400 ms after typing
+  stops and whenever you leave — another page, another note, or the tab
+  (`visibilitychange`/`pagehide`); the title saves when you finish it, so a
+  rename rewrites links once, not on every keystroke. A change made elsewhere
+  (another tab, a rename) is taken in unless you've changed that part since.
+  Typing `[[` suggests note titles (or open tasks after `task:`), placed at the
+  caret by measuring a hidden copy of the text; choosing one types it in, so
+  ⌘Z undoes it. Escape switches to Read, E back to Write.
+- **Checklists tick while reading.** Each rendered checkbox is numbered, and
+  `checkboxPositions` finds the same boxes in the text (outside code); they're
+  only clickable when the two counts agree, so a tick can't land on the wrong
+  line.
+- **Tidiness.** Notes left empty are deleted once you move on (only ones this
+  tab started, or untouched for a day — another tab may still be writing one)
+  and aren't listed meanwhile. Deleting a note offers Undo.
+- On wide screens the list stays beside the open note; on phones the list and
+  the note are separate screens with a way back. The list filters by words in
+  titles and text, and by subject once notes have more than one.
 
 ## Routines
 
@@ -865,7 +936,8 @@ created on the first play, which always follows a click or key press.
 hotkey). The ⌘K / Ctrl K palette searches it; the same list drives the keyboard
 shortcuts and the shortcuts sheet. Single-key shortcuts (C, F, N, I, L, M, S,
 A, T, `,`, `?`) are ignored while typing or while a dialog (`aria-modal`) is
-open. N adds a task and I captures to the inbox, from anywhere. F starts,
+open. N adds a task and I captures to the inbox, from anywhere; New note and
+Go to Notes are in the palette, and on a note E starts writing. F starts,
 pauses or resumes the focus timer; the palette also offers "Start focus on
 <subject>" for each subject, skip break and cancel, as they apply.
 
@@ -874,7 +946,8 @@ pauses or resumes the focus timer; the palette also offers "Start focus on
 - `vite-plugin-pwa` (injectManifest) builds `src/sw.ts`, which precaches the app
   shell, pages, fonts and icons (Latin subsets only) and serves `index.html` for
   every navigation, so the app — including check-ins — works offline. The AI
-  SDKs are the exception (see AI).
+  SDKs and the maths fonts are the exceptions: they're fetched the first time
+  they're needed and kept from then on.
 - Updates are offered with a toast rather than applied silently.
 - **Chunks.** React and Motion are a `vendor` chunk, which rarely changes, so an
   update re-downloads only Momentum's own code. Code the bundler splits out
@@ -919,7 +992,10 @@ check-in once per day, two wake-ups at once, daily totals and levels),
 habits (streaks over chosen weekdays, days off, the last week, the four-week
 rate, ticking on and off, merging), routines (part of the day, today's order,
 editing steps, completing and reopening a day), the inbox (what apps share,
-safe links, capturing), the daily log (one line per day, edits, deletion, tidying, the timeline), tasks
+safe links, capturing, making notes), notes (links, backlinks, renaming
+links, previews, ticking boxes, `[[` suggestions, tidying empty notes; rendering:
+maths but not money, Verilog highlighting, raw HTML as text, TeX that can't
+link, clean MathML), the daily log (one line per day, edits, deletion, tidying, the timeline), tasks
 (quick add across dates, times, subjects, priorities, repeats and the words it
 must leave alone; repeating schedules through short months and missed dates;
 finishing, reopening, board moves, grouping), the AI

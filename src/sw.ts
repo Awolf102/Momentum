@@ -41,6 +41,19 @@ registerRoute(
   }),
 )
 
+// Likewise the maths fonts, fetched the first time a note shows maths.
+registerRoute(
+  ({ url }) =>
+    url.origin === self.location.origin &&
+    url.pathname.startsWith('/assets/KaTeX_'),
+  new CacheFirst({
+    cacheName: 'momentum-maths-fonts',
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 40, purgeOnQuotaError: true }),
+    ],
+  }),
+)
+
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') void self.skipWaiting()
 })
