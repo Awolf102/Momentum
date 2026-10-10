@@ -39,6 +39,11 @@ day, keep the flame lit, and watch your streak grow.
   pages — with a small model that runs on your device (a one-time 38 MB
   download; nothing is sent), or your OpenAI or compatible server. Each note
   lists the notes and pages related to it.
+- **Cards** for spaced repetition: write a question and its answer (maths
+  and code too), put them in a note as `question :: answer`, or have AI
+  suggest some from a note or a PDF page. Each comes back just before you'd
+  forget it (FSRS), so a few minutes a day keep it all fresh: R to study, 1–4
+  to say how well you remembered.
 - **Ask** (optional): ask about your notes and PDFs and get answers that cite
   them — each number opens the note, or the PDF at that page. Before you
   send, you see exactly which passages go with your question, and can take
@@ -72,7 +77,8 @@ day, keep the flame lit, and watch your streak grow.
   by default with a light theme.
 - **Local-first:** everything is saved in your browser's database (IndexedDB),
   with one-file backups of all of it: notes, your library, habits, routines,
-  tasks, the inbox, conversations, focus sessions and the log included.
+  tasks, cards, the inbox, conversations, focus sessions and the log
+  included.
 - **Optional AI, with your own key:** Anthropic, OpenAI, or a server such as
   Ollama — or, for search by meaning, nothing but this device. Momentum works
   fully without it. Before anything is sent, you see exactly what goes and
@@ -235,6 +241,27 @@ margin. Tap a highlight to change it. The highlights panel lists them in
 order; **Make a note of these** turns them into a note with each quote and its
 page. Backups include your PDFs unless you turn off **Include documents**.
 
+## Cards
+
+Open **Cards** in the sidebar (or ⌘K → **New card**).
+
+- **Write a card**: a question on the front, the answer on the back, in
+  markdown with maths between $ signs. **Add and write another** keeps going.
+- **From a note**: write lines like `Gray code :: neighbouring cells differ in
+one bit`, then **Make cards from this note** (the cards icon on the note).
+  You choose which lines become cards.
+- **With AI** (with a chat model set up): from a note, or a PDF's
+  **Document details** → **Make cards from this PDF**, choose one page or the
+  whole PDF and **Suggest cards…**. You see what will be sent first; the
+  suggestions come back as drafts to tick and edit.
+- **Study** with **Study now**, R from anywhere, or a subject's **Study**:
+  Space shows the answer, then 1–4 for Again, Hard, Good or Easy (each
+  button shows when you'll see the card again). Z undoes, E edits.
+
+New cards start at 20 a day; in **Options** you can change that, aim to
+remember more or less (90% suits most people), and **Count cards as a
+habit**, ticked once the day's cards are done.
+
 ## Focus timer
 
 Pick a subject on the dashboard and press **Start focus** (or F). Pause, resume,
@@ -253,6 +280,9 @@ minutes.
 | N           | Add a task                   |
 | I           | Capture to inbox             |
 | L           | Write today's log line       |
+| R           | Study cards                  |
+| Space, 1–4  | Show the answer, rate it     |
+| Z           | Undo the last rating (cards) |
 | ← →         | Previous / next page (PDF)   |
 | + − 0       | Zoom in / out / fit (PDF)    |
 | H           | Highlights (PDF)             |
@@ -281,8 +311,8 @@ itself.
 
 React 19 · TypeScript · Vite · Tailwind CSS v4 · Motion · wouter · IndexedDB (idb) ·
 marked, DOMPurify, KaTeX and highlight.js for notes, pdf.js for the library, ONNX
-Runtime Web and Hugging Face's tokenizer for search by meaning, and the
-Anthropic and OpenAI SDKs (all loaded on demand) · Web Audio · Workbox (vite-plugin-pwa) · Vitest
+Runtime Web and Hugging Face's tokenizer for search by meaning, ts-fsrs for
+cards, and the Anthropic and OpenAI SDKs (all loaded on demand) · Web Audio · Workbox (vite-plugin-pwa) · Vitest
 
 ## Project structure
 
@@ -290,9 +320,10 @@ Anthropic and OpenAI SDKs (all loaded on demand) · Web Audio · Workbox (vite-p
 src/
 ├── app/          App shell: routes, sidebar, tab bar, header, commands
 ├── pages/        Pages composed from features (dashboard, tasks, notes,
-│                 library, ask, inbox, log, settings)
+│                 library, cards, ask, inbox, log, settings)
 ├── features/     streak · habits · routines · focus · subjects · tasks · notes
-│                 library · search · embeddings · assistant · inbox · log · calendar
+│                 library · search · embeddings · flashcards · assistant · inbox
+│                 log · calendar
 │                 motivation · appearance · climb · share · ambience
 │                 reminder · pwa · backup · ai
 ├── components/   Shared UI (glass card, sheet, settings card, icons…)

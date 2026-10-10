@@ -3,6 +3,7 @@ import type { Command } from '@/lib/commands'
 import {
   BellIcon,
   BookIcon,
+  CardsIcon,
   ChatIcon,
   ChecklistIcon,
   ColumnsIcon,
@@ -66,6 +67,7 @@ import {
   toggleHabit,
 } from '@/features/habits'
 import { openCapture } from '@/features/inbox'
+import { newCardWith } from '@/features/flashcards'
 import { writeLine } from '@/features/log'
 import { startNote } from '@/features/notes'
 import { choosePdfs } from '@/features/library'
@@ -283,6 +285,41 @@ export function useAppCommands(): Command[] {
           'book',
         ],
         run: choosePdfs,
+      },
+      {
+        id: 'cards-study',
+        title: 'Study cards',
+        section: 'Cards',
+        icon: <CardsIcon />,
+        keywords: [
+          'flashcards',
+          'review',
+          'revise',
+          'memorise',
+          'anki',
+          'spaced repetition',
+        ],
+        hotkey: { key: 'r' },
+        run: () => navigate(paths.study()),
+      },
+      {
+        id: 'cards-new',
+        title: 'New card',
+        section: 'Cards',
+        icon: <PlusIcon />,
+        keywords: ['flashcard', 'question', 'answer', 'write'],
+        run: () => {
+          newCardWith()
+          navigate(paths.cards)
+        },
+      },
+      {
+        id: 'cards-make',
+        title: 'Make cards from a note or PDF',
+        section: 'Cards',
+        icon: <SparkleIcon />,
+        keywords: ['flashcards', 'ai', 'generate', 'suggest', 'from notes'],
+        run: () => navigate(paths.makeCards()),
       },
       {
         id: 'ask',

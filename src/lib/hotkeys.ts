@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 
 export interface Hotkey {
   /** `KeyboardEvent.key`, compared case-insensitively (e.g. "c", "k", "?", ","). */
@@ -45,9 +45,11 @@ export function matchesHotkey(
 export function useHotkeys(
   bindings: ReadonlyArray<Hotkey & { run: () => void }>,
 ): void {
-  // Read the latest bindings without re-attaching the listener on every render.
+  // Read the latest bindings without re-attaching the listener on every
+  // render. Updated before paint, so a key pressed as soon as something new
+  // shows reaches the handlers that go with it.
   const latest = useRef(bindings)
-  useEffect(() => {
+  useLayoutEffect(() => {
     latest.current = bindings
   })
 

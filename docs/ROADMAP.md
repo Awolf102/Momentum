@@ -179,7 +179,8 @@ versions and the flame stages could go in earlier.
 | 2     | In review | Focus timer, subjects and collections (`feature/focus-timer`); daily log (`feature/daily-log`); tasks with quick add, repeats and the board (`feature/tasks`); password-protected backups (`feature/encrypted-backup`); more habits (`feature/habits`); routines (`feature/routines`); the inbox (`feature/inbox`). Each its own PR, stacked in that order |
 | 3     | In review | Notes with maths, code and links (`feature/notes`, PR #10); search in ⌘K (`feature/search`), stacked on notes                                                                                                                                                                                                                                              |
 | 4     | In review | Document library and PDF viewer with highlights (`feature/library`), stacked on search; search by meaning (`feature/embeddings`), stacked on the library; chat with documents and the assistant (`feature/assistant`), stacked on search by meaning                                                                                                        |
-| 5–7   | Planned   |                                                                                                                                                                                                                                                                                                                                                            |
+| 5     | Building  | Flashcards with FSRS (`feature/flashcards`), stacked on the assistant                                                                                                                                                                                                                                                                                      |
+| 6–7   | Planned   |                                                                                                                                                                                                                                                                                                                                                            |
 
 ### What Phase 1 changed in the plan
 
@@ -336,3 +337,21 @@ versions and the flame stages could go in earlier.
   stream quietly; the Phase 1 adapters now report it as cancelled.
 - **Next:** Phase 5, learning: flashcards with FSRS and a review queue,
   practice quizzes, image to notes, voice notes.
+
+### What flashcards changed in the plan
+
+- **Subjects are the decks.** Cards have a subject, like tasks, notes and
+  documents, so there's no second way of grouping things to keep in step.
+  Study all of them or one subject's.
+- **FSRS from `ts-fsrs`, not our own.** It's the reference implementation
+  (MIT, no dependencies, 8 kB compressed); reproducing the formulas would
+  risk subtle errors. 5.4.2, the stable release (6.0 is in beta).
+- **The review log is kept from the first rating,** in a store read by day,
+  so fitting FSRS's parameters to you (its optimizer) can come later with
+  the history already there.
+- **Cards from notes need no AI:** `question :: answer` lines. AI
+  suggestions go through the send preview and come back as drafts to keep
+  or not.
+- **Due cards as a habit is a switch:** it makes a "Study cards" habit,
+  ticked once the day's cards are done.
+- **Next:** practice quizzes, then image to notes and voice notes.

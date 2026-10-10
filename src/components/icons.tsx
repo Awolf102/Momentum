@@ -545,3 +545,21 @@ export function SendIcon(props: IconProps) {
     </Icon>
   )
 }
+
+export function CardsIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3.5" y="8" width="13" height="11.5" rx="2" />
+      <path d="M7.5 8V6a2 2 0 012-2h9a2 2 0 012 2v7.5a2 2 0 01-2 2h-2" />
+    </Icon>
+  )
+}
+
+export function RefreshIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M19.5 12a7.5 7.5 0 11-2.2-5.3" />
+      <path d="M19.5 4.5v4h-4" />
+    </Icon>
+  )
+}

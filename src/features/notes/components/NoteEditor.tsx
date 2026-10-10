@@ -10,6 +10,7 @@ import {
 import { GlassCard } from '@/components/GlassCard'
 import {
   AlertIcon,
+  CardsIcon,
   EyeIcon,
   PencilIcon,
   PinIcon,
@@ -245,6 +246,18 @@ export function NoteEditor({ note }: { note: Note }) {
             />
           </div>
           <div className="flex items-center gap-1">
+            <button
+              type="button"
+              title="Make cards from this note"
+              aria-label="Make cards from this note"
+              onClick={() => {
+                draft.flush()
+                navigate(paths.makeCards({ note: note.id }))
+              }}
+              className="inline-flex size-10 items-center justify-center rounded-full text-lg text-fg-subtle transition hover:bg-tint hover:text-fg"
+            >
+              <CardsIcon />
+            </button>
             <button
               type="button"
               aria-pressed={note.pinned}
