@@ -6,10 +6,10 @@ import type { DBSchema, IDBPDatabase } from 'idb'
  * browser on any older version is brought up to date.
  */
 export const DB_NAME = 'momentum'
-export const DB_VERSION = 3
+export const DB_VERSION = 4
 
 /** Object stores that hold collections (see `lib/collection.ts`). */
-export const COLLECTION_STORES = ['focusSessions'] as const
+export const COLLECTION_STORES = ['focusSessions', 'logEntries'] as const
 export type CollectionStoreName = (typeof COLLECTION_STORES)[number]
 
 export interface MomentumDB extends DBSchema {
@@ -32,6 +32,11 @@ export interface MomentumDB extends DBSchema {
     }
     indexes: { 'by-day': string; 'by-subject': string }
   }
+  /** One line per day, keyed by the day (see `features/log`). */
+  logEntries: {
+    key: string
+    value: { id: string; day: string; text: string; [field: string]: unknown }
+  }
 }
 
 export function upgrade(
@@ -53,4 +58,7 @@ export function upgrade(
     sessions.createIndex('by-day', 'day')
     sessions.createIndex('by-subject', 'subjectId')
   }
+  // v4: the daily log. A record's id is its day, so one line per day is
+  // guaranteed by the store itself.
+  if (oldVersion < 4) db.createObjectStore('logEntries', { keyPath: 'id' })
 }

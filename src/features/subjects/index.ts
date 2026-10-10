@@ -1,3 +1,4 @@
+export { SubjectDot } from './components/SubjectDot'
 export { SubjectPicker } from './components/SubjectPicker'
 export {
   addSubject,

@@ -16,6 +16,7 @@ export function isSettingsSection(value: string): value is SettingsSection {
 /** Every screen's address, so links don't repeat path strings. */
 export const paths = {
   home: '/',
+  log: '/log',
   settings: (section?: SettingsSection) =>
     section ? `/settings/${section}` : '/settings',
 }

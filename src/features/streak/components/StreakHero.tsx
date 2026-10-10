@@ -18,10 +18,13 @@ import { WeekStrip } from './WeekStrip'
 export function StreakHero({
   streak,
   corner,
+  footer,
 }: {
   streak: StreakState
   /** Optional control in the card's top-right corner (e.g. share). */
   corner?: ReactNode
+  /** Shown under the day's message once checked in (e.g. today's log line). */
+  footer?: ReactNode
 }) {
   const reduceMotion = useReducedMotion()
   const [burst, setBurst] = useState<{ id: number; embers: Ember[] } | null>(
@@ -114,6 +117,9 @@ export function StreakHero({
                 “{getMotivation({ streak: streak.current, date: streak.today })}
                 ”
               </p>
+              {footer && (
+                <div className="flex w-full justify-center">{footer}</div>
+              )}
             </motion.div>
           ) : (
             <motion.button

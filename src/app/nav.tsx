@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { HomeIcon, SlidersIcon } from '@/components/icons'
+import { BookIcon, HomeIcon, SlidersIcon } from '@/components/icons'
 import { paths } from '@/lib/routes'
 
 export interface NavItem {
@@ -16,6 +16,12 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Home',
     icon: <HomeIcon />,
     isActive: (location) => location === paths.home,
+  },
+  {
+    href: paths.log,
+    label: 'Log',
+    icon: <BookIcon />,
+    isActive: (location) => location.startsWith(paths.log),
   },
   {
     href: paths.settings(),
