@@ -15,6 +15,7 @@ describe('database schema', () => {
     expect(db.version).toBe(DB_VERSION)
     expect([...db.objectStoreNames].sort()).toEqual([
       'focusSessions',
+      'habitCheckIns',
       'kv',
       'logEntries',
       'meta',

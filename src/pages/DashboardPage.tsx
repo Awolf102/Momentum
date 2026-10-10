@@ -7,6 +7,7 @@ import {
   FocusTodayTile,
   useFocusCalendarView,
 } from '@/features/focus'
+import { HabitsCard, useHabitsCalendarView } from '@/features/habits'
 import { TodayLine } from '@/features/log'
 import { openShare } from '@/features/share'
 import { TasksTodayCard, useTasksCalendarView } from '@/features/tasks'
@@ -24,6 +25,7 @@ export function DashboardPage() {
   const checkInView = useStreakCalendarView(streak)
   const focusView = useFocusCalendarView(streak.today)
   const tasksView = useTasksCalendarView(streak.today)
+  const habitsView = useHabitsCalendarView(streak.today)
   return (
     <div className="flex flex-col items-center gap-4 pt-4 pb-6 sm:gap-5 sm:pt-8">
       <StreakHero
@@ -46,11 +48,12 @@ export function DashboardPage() {
           <FocusTodayTile className="col-span-2 sm:col-span-1" />
         </div>
         <TasksTodayCard />
+        <HabitsCard />
         <ClimbCard />
         <CalendarCard
           today={streak.today}
           weekStartsOn={weekStartsOn}
-          views={[checkInView, focusView, tasksView]}
+          views={[checkInView, habitsView, focusView, tasksView]}
         />
       </div>
     </div>

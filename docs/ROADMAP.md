@@ -173,11 +173,11 @@ versions and the flame stages could go in earlier.
 
 ## Progress
 
-| Phase | Status      | Notes                                                                                                                                                                                                                                                                     |
-| ----- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | In review   | Branch `claude/v3-phase-1-foundations` (PR #2), stacked on the v2 branch (PR #1)                                                                                                                                                                                          |
-| 2     | In progress | In review: focus timer, subjects and collections (`feature/focus-timer`); daily log (`feature/daily-log`); tasks with quick add, repeats and the board (`feature/tasks`); password-protected backups (`feature/encrypted-backup`). Habits, routines and the inbox to come |
-| 3–7   | Planned     |                                                                                                                                                                                                                                                                           |
+| Phase | Status      | Notes                                                                                                                                                                                                                                                                                             |
+| ----- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | In review   | Branch `claude/v3-phase-1-foundations` (PR #2), stacked on the v2 branch (PR #1)                                                                                                                                                                                                                  |
+| 2     | In progress | In review: focus timer, subjects and collections (`feature/focus-timer`); daily log (`feature/daily-log`); tasks with quick add, repeats and the board (`feature/tasks`); password-protected backups (`feature/encrypted-backup`); more habits (`feature/habits`). Routines and the inbox to come |
+| 3–7   | Planned     |                                                                                                                                                                                                                                                                                                   |
 
 ### What Phase 1 changed in the plan
 
@@ -218,3 +218,15 @@ versions and the flame stages could go in earlier.
 - **The calendar takes views.** Each feature with days to show gives the
   calendar a `CalendarView`; multiple habits (Phase 2) will add one per habit
   without touching the calendar.
+
+### What habits changed in the plan
+
+- **The daily check-in wasn't moved into a habits map.** The plan was to
+  migrate the streak's history into `habits.default`. Rewards, the climb, the
+  share card, reminders and the timer's auto check-in all read the main
+  streak, so habits were added beside it instead: their own definitions and a
+  `habitCheckIns` collection. Nothing about the main streak changed. If a
+  habit should ever become the headline, that's a view choice, not a
+  migration.
+- **Habits can be due on chosen weekdays,** so their streaks have their own
+  (tested) logic: days off neither break nor extend a run.
