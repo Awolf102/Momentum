@@ -281,8 +281,8 @@ export function Timeline({
       if (moved && done) {
         if (done.start !== block.start || done.end !== block.end)
           onChange(block, done.start, done.end)
-      } else if (active) {
-        // A tap without a drag opens it, from its edge too.
+      } else {
+        // A tap (or a hold) without a drag opens it, from its edge too.
         onOpen(block)
       }
     }

@@ -21,7 +21,8 @@ import {
   parseClock,
   snap,
 } from './lib/time'
-import { resolveZone, zonedMoment, zoneOffset } from './lib/zones'
+import { resolveZone } from './lib/tzid'
+import { zonedMoment, zoneOffset } from './lib/zones'
 import type { Calendar, CalendarEvent, RecurrenceRule } from './types'
 
 // Tests run in Australia/Sydney: daylight saving starts on 4 October 2026.

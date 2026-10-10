@@ -15,7 +15,8 @@ import type {
   RecurrenceRule,
 } from '../types'
 import { MAX_EVENTS, MAX_TEXT } from './limits'
-import { resolveZone, zonedMoment } from './zones'
+import { resolveZone } from './tzid'
+import { zonedMoment } from './zones'
 
 export class IcsError extends Error {}
 
