@@ -19,6 +19,8 @@ export const paths = {
   log: '/log',
   tasks: '/tasks',
   inbox: '/inbox',
+  notes: '/notes',
+  note: (id: string) => `/notes/${encodeURIComponent(id)}`,
   settings: (section?: SettingsSection) =>
     section ? `/settings/${section}` : '/settings',
 }

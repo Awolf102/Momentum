@@ -94,8 +94,13 @@ describe('collections', () => {
     const changed = await registry.importRecords('notes', [
       note('a', 'backup, older', '2026-10-10T08:00:00.000Z'),
       note('b', 'only in backup'),
+      {
+        ...note('c', 'deleted in backup'),
+        deletedAt: '2026-10-10T09:00:00.000Z',
+      },
       { nonsense: true },
     ])
+    // The deletion is merged, but not counted as restored.
     expect(changed).toBe(1)
     expect(
       notes

@@ -177,7 +177,8 @@ versions and the flame stages could go in earlier.
 | ----- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1     | In review | Branch `claude/v3-phase-1-foundations` (PR #2), stacked on the v2 branch (PR #1)                                                                                                                                                                                                                                                                           |
 | 2     | In review | Focus timer, subjects and collections (`feature/focus-timer`); daily log (`feature/daily-log`); tasks with quick add, repeats and the board (`feature/tasks`); password-protected backups (`feature/encrypted-backup`); more habits (`feature/habits`); routines (`feature/routines`); the inbox (`feature/inbox`). Each its own PR, stacked in that order |
-| 3–7   | Planned   |                                                                                                                                                                                                                                                                                                                                                            |
+| 3     | Building  | Notes with maths, code and links (`feature/notes`), stacked on the inbox; global search next                                                                                                                                                                                                                                                               |
+| 4–7   | Planned   |                                                                                                                                                                                                                                                                                                                                                            |
 
 ### What Phase 1 changed in the plan
 
@@ -238,3 +239,17 @@ versions and the flame stages could go in earlier.
 - **Sharing works on Android.** The share target is part of the web app
   manifest; iOS doesn't offer installed web apps in its share sheet, so there
   capture is by I, the dashboard or the home-screen shortcut.
+
+### What notes changed in the plan
+
+- **The markdown renderer lives in `features/notes/markdown`** and loads in
+  pieces: markdown and the sanitiser on first use, KaTeX only for a note with
+  maths and highlight.js only for one with code. Chat answers and
+  image-to-notes (Phases 4–5) can call the same `loadRenderer`.
+- **There's no backlinks index.** Links stay in the note text as `[[Title]]`
+  and backlinks are worked out when a note is shown; for a student's notes
+  (hundreds, not hundreds of thousands) that's instant, and it can't drift out
+  of step. The search index (next) is where an index earns its keep.
+- **"Make it a note" joined the inbox**, as planned.
+- **Notes took the Log's place in the phone tab bar** (it holds five). The Log
+  is still in the sidebar on wide screens, and on phones in Search (⌘K).

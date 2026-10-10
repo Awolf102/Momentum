@@ -16,6 +16,7 @@ import {
   KeyboardIcon,
   MoonIcon,
   MountainIcon,
+  NoteIcon,
   PaletteIcon,
   PauseIcon,
   PlayIcon,
@@ -64,6 +65,7 @@ import {
 } from '@/features/habits'
 import { openCapture } from '@/features/inbox'
 import { writeLine } from '@/features/log'
+import { startNote } from '@/features/notes'
 import { newRoutine } from '@/features/routines'
 import { openQuickAdd, setTasksView, tasksViewStore } from '@/features/tasks'
 import { installStore, promptInstall } from '@/features/pwa'
@@ -256,6 +258,14 @@ export function useAppCommands(): Command[] {
         },
       },
       {
+        id: 'note-new',
+        title: 'New note',
+        section: 'Notes',
+        icon: <PlusIcon />,
+        keywords: ['note', 'write', 'markdown', 'page', 'document', 'create'],
+        run: () => void startNote(),
+      },
+      {
         id: 'log-today',
         title: "Write today's line",
         section: 'Log',
@@ -305,6 +315,14 @@ export function useAppCommands(): Command[] {
         icon: <ChecklistIcon />,
         keywords: ['todo', 'list', 'board', 'kanban', 'due'],
         run: () => navigate(paths.tasks),
+      },
+      {
+        id: 'go-notes',
+        title: 'Go to Notes',
+        section: 'Go to',
+        icon: <NoteIcon />,
+        keywords: ['notes', 'markdown', 'wiki', 'pages', 'study'],
+        run: () => navigate(paths.notes),
       },
       {
         id: 'go-inbox',

@@ -3,11 +3,13 @@ import {
   BookIcon,
   ChecklistIcon,
   ExternalIcon,
+  NoteIcon,
   TrashIcon,
 } from '@/components/icons'
 import { GlassCard } from '@/components/GlassCard'
+import { navigate, paths } from '@/lib/routes'
 import { toast } from '@/lib/toast'
-import { addToLog, makeTask } from '../actions'
+import { addToLog, makeNote, makeTask } from '../actions'
 import { dismiss } from '../items'
 import { displayUrl } from '../lib/share'
 import type { InboxItem } from '../types'
@@ -79,6 +81,25 @@ export function InboxList({ items }: { items: readonly InboxItem[] }) {
                 className="inline-flex items-center gap-1.5 rounded-full bg-tint px-3 py-1.5 text-xs font-semibold text-fg-muted transition hover:text-fg"
               >
                 <ChecklistIcon /> Make it a task
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const note = await makeNote(item)
+                  toast({
+                    id: 'inbox-note',
+                    icon: <NoteIcon className="text-orange-300" />,
+                    title: 'Saved as a note',
+                    description: note.title || undefined,
+                    action: {
+                      label: 'Open',
+                      run: () => navigate(paths.note(note.id)),
+                    },
+                  })
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full bg-tint px-3 py-1.5 text-xs font-semibold text-fg-muted transition hover:text-fg"
+              >
+                <NoteIcon /> Make it a note
               </button>
               <button
                 type="button"

@@ -23,7 +23,8 @@ function TabContent({ icon, label }: { icon: ReactNode; label: string }) {
 /** Navigation on phones and tablets: a floating bar within thumb reach. */
 export function TabBar({ hidden }: { hidden: boolean }) {
   const [location] = useLocation()
-  // Pages, then search, with settings at the end: Home · Log · Search · Settings.
+  // Pages, then search, with settings at the end:
+  // Home · Tasks · Notes · Search · Settings.
   const pages = NAV_ITEMS.slice(0, -1).filter((item) => item.tabBar !== false)
   const settings = NAV_ITEMS.at(-1)!
   const link = (item: NavItem) => (

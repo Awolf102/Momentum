@@ -47,7 +47,7 @@ export default function InboxPage() {
       <p className="mt-3 text-[15px] text-fg-muted text-shadow-soft">
         {items.length === 0
           ? 'Capture now, sort later.'
-          : `${items.length} to sort. Make each a task, add it to today's log, or let it go.`}
+          : `${items.length} to sort. Make each a task or a note, add it to today's log, or let it go.`}
       </p>
       <div className="mt-6 flex flex-col gap-4">
         <div className="rounded-[28px] glass p-2">
