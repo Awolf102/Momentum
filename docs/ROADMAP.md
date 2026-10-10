@@ -177,7 +177,7 @@ versions and the flame stages could go in earlier.
 | ----- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1     | In review | Branch `claude/v3-phase-1-foundations` (PR #2), stacked on the v2 branch (PR #1)                                                                                                                                                                                                                                                                           |
 | 2     | In review | Focus timer, subjects and collections (`feature/focus-timer`); daily log (`feature/daily-log`); tasks with quick add, repeats and the board (`feature/tasks`); password-protected backups (`feature/encrypted-backup`); more habits (`feature/habits`); routines (`feature/routines`); the inbox (`feature/inbox`). Each its own PR, stacked in that order |
-| 3     | Building  | Notes with maths, code and links (`feature/notes`), stacked on the inbox; global search next                                                                                                                                                                                                                                                               |
+| 3     | In review | Notes with maths, code and links (`feature/notes`, PR #10); search in ⌘K (`feature/search`), stacked on notes                                                                                                                                                                                                                                              |
 | 4–7   | Planned   |                                                                                                                                                                                                                                                                                                                                                            |
 
 ### What Phase 1 changed in the plan
@@ -253,3 +253,17 @@ versions and the flame stages could go in earlier.
 - **"Make it a note" joined the inbox**, as planned.
 - **Notes took the Log's place in the phone tab bar** (it holds five). The Log
   is still in the sidebar on wide screens, and on phones in Search (⌘K).
+
+### What search changed in the plan
+
+- **The keyword index lives in memory and builds itself as you search.**
+  Each record's words are worked out the first time it's searched and kept
+  until it changes, so there's nothing to store, migrate or keep in step, and
+  nothing runs until the palette opens. At a student's scale (hundreds of
+  notes, thousands of tasks) a search takes milliseconds. A stored index can
+  come later if libraries of PDFs need one.
+- **Semantic results (Phase 4) slot in beside it.** The palette takes
+  results in groups, so "related" matches from embeddings can be one more
+  group, without the palette knowing where they came from.
+- **The palette is search.** It was already behind the phone tab bar's
+  Search; it now finds things as well as commands.

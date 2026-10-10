@@ -12,6 +12,27 @@ export interface Command {
   run: () => void
 }
 
+/** A run of text, marked if it matched the search. */
+export interface MarkedText {
+  text: string
+  match: boolean
+}
+
+/** Something found by searching (a note, a task…), shown under the commands. */
+export interface PaletteResult {
+  id: string
+  /** The group it's listed under, e.g. "Notes". */
+  section: string
+  icon?: ReactNode
+  /** Its name, with the matched words marked. */
+  title: readonly MarkedText[]
+  /** A line of context from its text, with the matches marked. */
+  snippet?: readonly MarkedText[]
+  /** A detail on the right, e.g. a due date. */
+  detail?: string
+  run: () => void
+}
+
 /** Every query word must appear somewhere; titles starting with the query rank first. */
 export function filterCommands(
   commands: readonly Command[],

@@ -24,6 +24,7 @@ import { Header } from './Header'
 import { ShortcutsSheet } from './ShortcutsSheet'
 import { Sidebar } from './Sidebar'
 import { TabBar } from './TabBar'
+import { useSearch } from './useSearch'
 
 /**
  * The frame every page lives in: the background, navigation (a sidebar on
@@ -63,6 +64,7 @@ function Chrome({ children }: { children: ReactNode }) {
   // In the climb view everything steps aside so the mountain can be seen.
   const climbing = useStore(climbViewStore) !== 'off'
   const commands = useAppCommands()
+  const search = useSearch(paletteOpen)
   const [location] = useLocation()
   useUnlockCelebrations()
   useHotkeys([
@@ -119,6 +121,7 @@ function Chrome({ children }: { children: ReactNode }) {
         open={paletteOpen}
         onClose={closePalette}
         commands={commands}
+        search={search}
       />
       <Toaster />
     </>

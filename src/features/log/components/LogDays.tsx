@@ -41,7 +41,14 @@ export function LogToday({ day }: { day: TimelineDay }) {
 }
 
 /** One month of the log, newest day first. */
-export function LogMonth({ month, days }: TimelineMonth) {
+export function LogMonth({
+  month,
+  days,
+  found,
+}: TimelineMonth & {
+  /** A day to point out (opened from search). */
+  found?: string | null
+}) {
   return (
     <GlassCard className="w-full px-5 py-4 sm:px-6">
       <h2 className="pt-1 text-xs font-semibold tracking-[0.2em] text-fg-muted uppercase">
@@ -49,7 +56,7 @@ export function LogMonth({ month, days }: TimelineMonth) {
       </h2>
       <ol className="mt-1 divide-y divide-line">
         {days.map((day) => (
-          <LogDayRow key={day.day} day={day} />
+          <LogDayRow key={day.day} day={day} found={day.day === found} />
         ))}
       </ol>
     </GlassCard>
@@ -60,11 +67,15 @@ export function LogMonth({ month, days }: TimelineMonth) {
  * A past day. With a line, the line leads; without one, what happened that
  * day does, with a quiet way to add a line (most past days won't have one).
  */
-function LogDayRow({ day }: { day: TimelineDay }) {
+function LogDayRow({ day, found }: { day: TimelineDay; found: boolean }) {
   const { editing, open, close } = useLineEditing(day.day)
   const hasLine = Boolean(day.line) || editing
   return (
-    <li className="flex gap-4 py-3.5">
+    <li
+      id={`log-${day.day}`}
+      data-found={found || undefined}
+      className="flex scroll-mt-24 gap-4 rounded-xl py-3.5 data-found:animate-found"
+    >
       <time dateTime={day.day} className="w-10 shrink-0 pt-0.5 text-center">
         <span className="block text-[11px] font-medium tracking-wider text-fg-subtle uppercase">
           {formatDateKey(day.day, { weekday: 'short' })}

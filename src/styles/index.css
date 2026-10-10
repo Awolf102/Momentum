@@ -11,6 +11,18 @@
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
   --animate-flicker: flicker 3.6s ease-in-out infinite;
+  --animate-found: found 2.6s ease-out;
+
+  /* A brief glow on something just found (a log day opened from search). */
+  @keyframes found {
+    0%,
+    35% {
+      background-color: oklch(0.8 0.15 65 / 0.16);
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
 
   @keyframes flicker {
     0%,

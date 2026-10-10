@@ -17,6 +17,8 @@ export function isSettingsSection(value: string): value is SettingsSection {
 export const paths = {
   home: '/',
   log: '/log',
+  /** The log, scrolled to a day. */
+  logDay: (day: string) => `/log?day=${day}`,
   tasks: '/tasks',
   inbox: '/inbox',
   notes: '/notes',

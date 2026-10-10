@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { excerpt } from './excerpt'
+import { excerpt, plainLines } from './excerpt'
 import { backlinks, extractLinks, renameLinks, withoutCode } from './links'
 
 describe('links between notes', () => {
@@ -66,6 +66,17 @@ describe('excerpts', () => {
       ),
     ).toBe('Near a: e^x = 1 + x + x^2/2! + …, so A · π.')
     expect(excerpt('It cost $5 and $10.')).toBe('It cost $5 and $10.')
+  })
+
+  it('keeps code for search when asked', () => {
+    const note =
+      'Mux:\n```verilog\nassign y = sel ? b : a;\n```\nuse `always_ff` here'
+    expect(plainLines(note)).toEqual(['Mux:', 'use here'])
+    expect(plainLines(note, { code: 'keep' })).toEqual([
+      'Mux:',
+      'assign y = sel ? b : a;',
+      'use always_ff here',
+    ])
     expect(
       excerpt('| Law | AND |\n|---|:---:|\n| Identity | $A \\cdot 1 = A$ |'),
     ).toBe('Law · AND · Identity · A · 1 = A')

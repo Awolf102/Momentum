@@ -27,6 +27,9 @@ day, keep the flame lit, and watch your streak grow.
   KaTeX), highlighted code (Verilog and VHDL included), checklists you can tick
   while reading, and `[[links]]` between notes — or to tasks — with each note
   listing the notes that link to it. Renaming a note keeps its links working.
+- **Search everything** from ⌘K (Search on phones): notes, tasks, habits,
+  routines, the log and the inbox, as you type, with the matching words
+  marked and a line of context.
 - **Inbox:** catch a thought or a link in a second (I, or share to Momentum
   from another app on Android), then make it a task or a note, add it to
   today's log, or let it go.
@@ -168,7 +171,7 @@ minutes.
 
 | Keys        | Action                       |
 | ----------- | ---------------------------- |
-| ⌘K / Ctrl K | Command palette              |
+| ⌘K / Ctrl K | Search, and every command    |
 | C           | Check in for today           |
 | F           | Start / pause / resume focus |
 | N           | Add a task                   |
@@ -209,7 +212,7 @@ src/
 ├── pages/        Pages composed from features (dashboard, tasks, notes, inbox,
 │                 log, settings)
 ├── features/     streak · habits · routines · focus · subjects · tasks · notes
-│                 inbox · log · calendar · motivation
+│                 search · inbox · log · calendar · motivation
 │                 appearance · climb · share · ambience · reminder · pwa
 │                 backup · ai
 ├── components/   Shared UI (glass card, sheet, settings card, icons…)
