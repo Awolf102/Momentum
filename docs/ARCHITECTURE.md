@@ -84,7 +84,7 @@ src/
 │   │   ├── lib/crypto.ts     Keys from the password; sealing records (tested)
 │   │   ├── lib/client.ts     The server's API (tested)
 │   │   ├── lib/engine.ts     A round: pull, apply, push what's newer (tested)
-│   │   ├── manager.ts        Signing in, the session, when to sync
+│   │   ├── manager.ts        Signing in, the session, when to sync (tested)
 │   │   └── settings.ts       Settings → Sync (only the lazy settings page loads it)
 │   ├── streak/               Check-ins, streak rules, hero card, stats, flame
 │   ├── focus/                Focus timer: Pomodoro sessions, auto check-in
@@ -2030,7 +2030,8 @@ if it uses AI. The focus timer is the worked example.
 Vitest covers the parts where bugs hide: date arithmetic (month, year, leap-day
 and DST boundaries — tests run in `Australia/Sydney`), streak rules, calendar
 layout, message selection, the store registry (hydration, localStorage
-migration, corruption, write-through, lazy stores, restore and merge),
+migration, corruption, write-through, lazy stores, restore and merge, either
+way round or replacing, snapshots without stores at their defaults),
 collections (atomic add, soft delete, merge), the database upgrade paths
 (every older version to the current one, data kept), backups (round trip,
 opt-in keys, sessions, v1 and v2 files; encryption: round trip, wrong
@@ -2110,8 +2111,12 @@ label, the server address as typed; two devices through the real server:
 data and settings both ways, sealed on the way, edits, deletions and the
 later edit winning, records from before signing in or a restored backup,
 paging, a record too large, a clock far ahead, another password's records,
-a wrong password and an ended session; backups leaving out sync's
-secrets), the sync server (the schema, secrets hashed, invites used once,
+a wrong password and an ended session; settings settling on one version
+though each side's merge favours itself, a change or a deletion on one
+device reaching the other as it is, changes on both combined, settings at
+their defaults left on the device; on the device, a change made during a
+round sent straight after and signing out mid-round leaving no trace;
+backups leaving out sync's secrets), the sync server (the schema, secrets hashed, invites used once,
 open sign-up, names, sessions ending and expiring, tries limited; pushing
 and pulling, accounts apart, the later edit winning, paging, a clock far
 ahead, bad records, batches, sizes and quotas; over HTTP: health and CORS,
