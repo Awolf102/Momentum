@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react'
 import { GlassCard } from '@/components/GlassCard'
 import { useFocusTotals, type DayTotal } from '@/features/focus'
+import { useLogLines } from '@/features/log'
 import {
   buildTimeline,
   groupByMonth,
   LogMonth,
   LogToday,
-  useLogLines,
   type DayFocus,
-} from '@/features/log'
+} from '@/features/log/page'
 import {
   SUBJECT_COLORS,
   subjectsStore,

@@ -75,7 +75,8 @@ src/
 │   ├── subjects/             Labels for sessions: Calculus, Reading… (editable)
 │   ├── log/                  The daily log: one line per day, editable in place
 │   │   ├── entries.ts        The logEntries collection; setLine (tested)
-│   │   └── lib/timeline.ts   Days with a line, check-in or focus (pure, tested)
+│   │   ├── lib/timeline.ts   Days with a line, check-in or focus (pure, tested)
+│   │   └── page.ts           The Log page's pieces (only the lazy page loads them)
 │   ├── calendar/             Generic GitHub-style activity grid, with views
 │   ├── motivation/           Daily and milestone messages
 │   ├── appearance/           Theme, light, backgrounds, rewards, user photos
@@ -657,7 +658,9 @@ time it was first written, and soft-deletes a line saved empty.
   line show what happened with a quiet "Add a line"; any day's line can be
   written or changed later. The page composes three features — the log, the
   streak's check-ins and focus totals — with `buildTimeline` (pure, tested)
-  doing the joining, so none of them depends on the others.
+  doing the joining, so none of them depends on the others. The page's own
+  pieces come from `features/log/page.ts` rather than `index.ts`, so the
+  dashboard doesn't preload them.
 - **L** writes today's line: in place if it's on screen (the dashboard after
   checking in), otherwise on the Log page with the field focused.
   `lineRequestStore` carries the request to whichever editor is showing that
