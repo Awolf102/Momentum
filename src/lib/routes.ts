@@ -25,6 +25,10 @@ export const paths = {
   planDay: (day: string) => `/plan?day=${day}`,
   /** The plan with its calendars open, to import one. */
   planCalendars: '/plan?calendars=1',
+  goals: '/goals',
+  goal: (id: string) => `/goals/${encodeURIComponent(id)}`,
+  /** The goals, with a new one being written. */
+  newGoal: '/goals?new=1',
   inbox: '/inbox',
   notes: '/notes',
   library: '/library',

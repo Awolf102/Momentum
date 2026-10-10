@@ -638,3 +638,28 @@ export function PlanIcon(props: IconProps) {
     </Icon>
   )
 }
+
+export function GoalIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5.5 21V3.5" />
+      <path d="M5.5 4.5h11.6a.6.6 0 01.5.92L15.5 8.75l2.1 3.33a.6.6 0 01-.5.92H5.5" />
+    </Icon>
+  )
+}
+
+export function ChevronUpIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M6 14.5l6-6 6 6" />
+    </Icon>
+  )
+}
+
+export function ChevronDownIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M6 9.5l6 6 6-6" />
+    </Icon>
+  )
+}

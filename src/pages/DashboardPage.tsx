@@ -8,6 +8,7 @@ import {
   useFocusCalendarView,
 } from '@/features/focus'
 import { CardsDueCard } from '@/features/flashcards'
+import { GoalsCard } from '@/features/goals'
 import { HabitsCard, useHabitsCalendarView } from '@/features/habits'
 import { InboxNotice } from '@/features/inbox'
 import { ContinueReading } from '@/features/library'
@@ -59,6 +60,7 @@ export function DashboardPage() {
         <CardsDueCard />
         <HabitsCard />
         <RoutinesCard />
+        <GoalsCard />
         <ClimbCard />
         <CalendarCard
           today={streak.today}

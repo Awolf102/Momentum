@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { CalendarView } from '@/features/calendar'
-import { addDays, formatDateKey, type DateKey } from '@/lib/date'
+import { addDays, formatDateKey, localDay, type DateKey } from '@/lib/date'
 import { isScheduled } from '../lib/summary'
 import { useHabitDays, useHabits } from './useHabits'
 
@@ -17,7 +17,7 @@ export function useHabitsCalendarView(today: DateKey): CalendarView {
     const yearAgo = addDays(today, -364)
     let total = 0
     for (const habit of habits) {
-      const since = habit.createdAt.slice(0, 10)
+      const since = localDay(habit.createdAt)
       for (const day of days.get(habit.id) ?? []) {
         if (day > today) continue
         const count = counts.get(day) ?? { done: 0, due: 0 }

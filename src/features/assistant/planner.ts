@@ -24,6 +24,7 @@ import {
   addDays,
   dayOfWeek,
   getLocaleWeekStart,
+  localDay,
   toDateKey,
   type DateKey,
   type Weekday,
@@ -54,7 +55,7 @@ export function gatherSnapshotData(now: Date = new Date()): SnapshotData {
       checkIns.get(habit.id) ?? new Set(),
       today,
       habit.weekdays,
-      habit.createdAt.slice(0, 10),
+      localDay(habit.createdAt),
     )
     return {
       name: habit.name,

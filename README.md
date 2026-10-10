@@ -24,6 +24,10 @@ day, keep the flame lit, and watch your streak grow.
   your classes: drag tasks onto it, move and stretch blocks a quarter hour at a
   time, and import your timetable (.ics) so classes show up. A focus block
   that's on now starts the timer.
+- **Goals:** something bigger, like a distinction in a subject or a 10 km run,
+  with the milestones on the way and the tasks and habits that get you there.
+  A bar fills as you tick off steps, and with a day to reach it by, it says
+  whether you're ahead, on track or behind.
 - **More habits:** reading, exercise, practice — each with its own streak, on
   every day or just the days you choose (days off never break it), with the
   last week at a glance and its own calendar.
@@ -41,8 +45,8 @@ day, keep the flame lit, and watch your streak grow.
   here: highlight in four colours with a note in the margin, pick up where you
   left off, and turn your highlights into a note. Search finds the words
   inside them.
-- **Search everything** from ⌘K (Search on phones): notes, documents, tasks,
-  habits, routines, the log and the inbox, as you type, with the matching
+- **Search everything** from ⌘K (Search on phones): notes, documents, cards,
+  goals, tasks, habits, routines, the log and the inbox, as you type, with the matching
   words marked and a line of context.
 - **Search by meaning** (optional): find notes and PDF pages by what they're
   about — "how do I make a boolean function smaller" finds the Karnaugh-map
@@ -250,6 +254,27 @@ to update it. Repeating classes, cancelled and moved times, all-day events and
 time zones (Outlook's names included) come through; a repeat Momentum can't
 follow yet is shown once, and the import says so.
 
+## Goals
+
+Open **Goals** in the sidebar (or ⌘K → **New goal**). Give a goal a name, why
+it matters, a subject and a day to reach it by, and list the first milestones,
+one a line.
+
+- **Milestones** are the big steps: tick them off, tap one to change its title
+  or day, move it up or down, or remove it (Undo).
+- **Tasks** linked to a goal are steps too. Add one with the same quick add as
+  Tasks ("Past paper fri" takes the goal's subject), or link tasks you have.
+  A repeating task stays linked as it moves on and shows how often it's been
+  done, rather than counting as a step.
+- **Habits** linked to a goal show their streaks and the last four weeks; make
+  one from the goal and it's linked at once.
+- **Progress:** the bar fills as steps are done. With a day to reach it by, a
+  mark on the bar shows how much of the time has gone, and the goal says
+  whether you're ahead, on track or behind.
+- **Reach it, or put it away:** both keep the goal, with a way to reopen it.
+  The dashboard shows your first three goals on the go; reorder them on the
+  Goals page.
+
 ## Notes
 
 Open **Notes** (or ⌘K → New note). A note opens to read; **Write** (or E)
@@ -422,11 +447,12 @@ cards, and the Anthropic and OpenAI SDKs (all loaded on demand) · Web Audio · 
 ```
 src/
 ├── app/          App shell: routes, sidebar, tab bar, header, commands
-├── pages/        Pages composed from features (dashboard, tasks, plan,
+├── pages/        Pages composed from features (dashboard, tasks, plan, goals,
 │                 notes, photo and voice notes, library, cards, quizzes, ask,
 │                 inbox, log, settings)
 ├── features/     streak · habits · routines · focus · subjects · tasks · planner
-│                 notes · capture · library · search · embeddings · flashcards · quizzes
+│                 goals · notes · capture · library · search · embeddings
+│                 flashcards · quizzes
 │                 assistant · inbox · log · calendar
 │                 motivation · appearance · climb · share · ambience
 │                 reminder · pwa · backup · ai

@@ -23,6 +23,15 @@ export function toDateKey(date: Date): DateKey {
   return `${pad(date.getFullYear(), 4)}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
+/**
+ * The local calendar day a moment (an ISO timestamp, as records keep) falls
+ * on. Not the timestamp's first ten characters: those are the day in UTC,
+ * which in Sydney is yesterday until 10 or 11 in the morning.
+ */
+export function localDay(timestamp: string): DateKey {
+  return toDateKey(new Date(timestamp))
+}
+
 export function isDateKey(value: unknown): value is DateKey {
   if (typeof value !== 'string') return false
   const match = DATE_KEY_PATTERN.exec(value)

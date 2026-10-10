@@ -180,7 +180,7 @@ versions and the flame stages could go in earlier.
 | 3     | In review | Notes with maths, code and links (`feature/notes`, PR #10); search in ⌘K (`feature/search`), stacked on notes                                                                                                                                                                                                                                              |
 | 4     | In review | Document library and PDF viewer with highlights (`feature/library`), stacked on search; search by meaning (`feature/embeddings`), stacked on the library; chat with documents and the assistant (`feature/assistant`), stacked on search by meaning                                                                                                        |
 | 5     | In review | Flashcards with FSRS (`feature/flashcards`, PR #15), stacked on the assistant; practice quizzes (`feature/quizzes`, PR #16), stacked on flashcards; image to notes (`feature/image-notes`, PR #17), stacked on quizzes; voice notes (`feature/voice-notes`, PR #18), stacked on image to notes                                                             |
-| 6     | Building  | Time blocking with .ics import (`feature/time-blocking`), stacked on voice notes                                                                                                                                                                                                                                                                           |
+| 6     | Building  | Time blocking with .ics import (`feature/time-blocking`, PR #19), stacked on voice notes; goals with milestones, linked tasks and habits (`feature/goals`), stacked on time blocking                                                                                                                                                                       |
 | 7     | Planned   |                                                                                                                                                                                                                                                                                                                                                            |
 
 ### What Phase 1 changed in the plan
@@ -439,3 +439,29 @@ versions and the flame stages could go in earlier.
 - **Next:** goals (long-term, with milestones, linked to tasks and habits),
   then the AI planner and weekly review, which can draft blocks onto this
   timeline, then analytics.
+
+### What goals changed in the plan
+
+- **Steps are milestones and one-off tasks.** The bar is the share of them
+  done. Repeating tasks and habits never finish, so they show how steadily
+  they're done instead (times done, streaks, four weeks) and aren't steps.
+- **Tasks are linked by series,** so a repeating task stays linked as it
+  moves on to its next time; a deleted task or habit drops out and comes
+  back with Undo.
+- **Pace is steps against time.** With a day to reach it by, the bar marks
+  the share of time gone since the goal was made; within ten points either
+  way is on track. It's a nudge, not a forecast.
+- **Links live on the goal.** Tasks and habits don't know their goals, so
+  the task sheet doesn't show one yet; the AI planner can read goals when it
+  drafts a day.
+- **No key of its own:** G is the quiz's AI mark, so goals are in the
+  sidebar, ⌘K and the dashboard.
+- **Two older bugs, found while building it:** adding a subject from inside
+  a form (the card sheet, the plan's block sheet) reloaded the page and lost
+  what was being written, fixed on the flashcards branch and merged forward
+  through the stack; and the day something was made was read as the day in
+  UTC (a habit made at 9am in Sydney showed yesterday as missed), fixed here
+  for habits, routines, the task sheet and the assistant's plans.
+- **Next:** the AI planner and weekly review (drafting a day from tasks,
+  deadlines, goals and the calendar, onto the plan's timeline), then
+  analytics.

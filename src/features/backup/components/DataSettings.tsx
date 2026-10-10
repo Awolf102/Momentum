@@ -29,6 +29,7 @@ import {
 } from '@/features/library'
 import { logEntries } from '@/features/log'
 import { notes } from '@/features/notes'
+import { goals } from '@/features/goals/data'
 import { blocks, calendars } from '@/features/planner'
 import { quizzes } from '@/features/quizzes'
 import { routineRuns, routinesStore } from '@/features/routines'
@@ -503,6 +504,14 @@ function ResetCard() {
           onReset={() => {
             void calendars.clear()
             setDone('Your imported calendars were removed.')
+          }}
+        />
+        <ResetRow
+          label="Delete all goals"
+          confirm="Tap again to delete every goal and its milestones"
+          onReset={() => {
+            void goals.clear()
+            setDone('Your goals were deleted. Their tasks and habits are kept.')
           }}
         />
         <ResetRow

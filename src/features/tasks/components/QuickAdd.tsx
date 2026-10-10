@@ -3,13 +3,17 @@ import { PlusIcon } from '@/components/icons'
 import { cn } from '@/lib/cn'
 import { useQuickAddOptions } from '../hooks/useTasks'
 import { parseQuickAdd } from '../lib/quickAdd'
-import { addTask } from '../tasks'
+import { addTask, type NewTask } from '../tasks'
 import type { Task } from '../types'
 import { TaskMeta } from './TaskMeta'
 
 interface QuickAddProps {
   autoFocus?: boolean
   onAdded?: (task: Task) => void
+  /** How the task is added (e.g. linked to a goal); `addTask` by default. */
+  add?: (input: NewTask) => Promise<Task | null>
+  placeholder?: string
+  label?: string
   className?: string
 }
 
@@ -17,7 +21,14 @@ interface QuickAddProps {
  * One line in, one task out: "Lab report fri 5pm #calculus !high". What it
  * understood shows underneath before you press Enter.
  */
-export function QuickAdd({ autoFocus, onAdded, className }: QuickAddProps) {
+export function QuickAdd({
+  autoFocus,
+  onAdded,
+  add = addTask,
+  placeholder = 'Add a task… e.g. Lab report fri',
+  label = 'New task',
+  className,
+}: QuickAddProps) {
   const [text, setText] = useState('')
   const options = useQuickAddOptions()
   const previewId = useId()
@@ -32,7 +43,7 @@ export function QuickAdd({ autoFocus, onAdded, className }: QuickAddProps) {
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (!parsed) return
-    const task = await addTask(parsed)
+    const task = await add(parsed)
     if (!task) return
     setText('')
     onAdded?.(task)
@@ -52,8 +63,8 @@ export function QuickAdd({ autoFocus, onAdded, className }: QuickAddProps) {
           value={text}
           onChange={(event) => setText(event.target.value)}
           autoFocus={autoFocus}
-          placeholder="Add a task… e.g. Lab report fri"
-          aria-label="New task"
+          placeholder={placeholder}
+          aria-label={label}
           aria-describedby={understood ? previewId : undefined}
           enterKeyHint="done"
           maxLength={400}

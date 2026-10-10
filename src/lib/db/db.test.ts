@@ -25,6 +25,7 @@ describe('database schema', () => {
       'embeddingSources',
       'embeddingVectors',
       'focusSessions',
+      'goals',
       'habitCheckIns',
       'highlights',
       'inboxItems',

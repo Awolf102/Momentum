@@ -6,7 +6,7 @@ import type { DBSchema, IDBPDatabase } from 'idb'
  * browser on any older version is brought up to date.
  */
 export const DB_NAME = 'momentum'
-export const DB_VERSION = 15
+export const DB_VERSION = 16
 
 /** Object stores that hold collections (see `lib/collection.ts`). */
 export const COLLECTION_STORES = [
@@ -25,6 +25,7 @@ export const COLLECTION_STORES = [
   'quizzes',
   'blocks',
   'calendars',
+  'goals',
 ] as const
 export type CollectionStoreName = (typeof COLLECTION_STORES)[number]
 
@@ -183,6 +184,11 @@ export interface MomentumDB extends DBSchema {
     key: string
     value: { id: string; [field: string]: unknown }
   }
+  /** Long-term goals, with their milestones and links (see `features/goals`). */
+  goals: {
+    key: string
+    value: { id: string; [field: string]: unknown }
+  }
 }
 
 export function upgrade(
@@ -268,4 +274,6 @@ export function upgrade(
     planned.createIndex('by-day', 'day')
     db.createObjectStore('calendars', { keyPath: 'id' })
   }
+  // v16: goals.
+  if (oldVersion < 16) db.createObjectStore('goals', { keyPath: 'id' })
 }

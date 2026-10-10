@@ -1,9 +1,15 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { GlassCard } from '@/components/GlassCard'
 import { PlusIcon, RepeatIcon } from '@/components/icons'
+import { localDay } from '@/lib/date'
 import { useToday } from '@/lib/useToday'
 import { useHabitDays, useHabits } from '../hooks/useHabits'
-import { describeSchedule, lastWeek, summarizeHabit } from '../lib/summary'
+import {
+  describeRun,
+  describeSchedule,
+  lastWeek,
+  summarizeHabit,
+} from '../lib/summary'
 import { addHabit, editHabit, MAX_NAME_LENGTH } from '../store'
 import { HabitCheck, WeekDots } from './HabitParts'
 
@@ -21,7 +27,7 @@ export function HabitsCard() {
     () =>
       habits.map((habit) => {
         const done = days.get(habit.id) ?? EMPTY
-        const since = habit.createdAt.slice(0, 10)
+        const since = localDay(habit.createdAt)
         return {
           habit,
           summary: summarizeHabit(done, today, habit.weekdays, since),
@@ -86,13 +92,7 @@ export function HabitsCard() {
                   {habit.name}
                 </span>
                 <span className="block text-xs text-fg-subtle">
-                  {summary.current > 0
-                    ? habit.weekdays.length
-                      ? `${summary.current} in a row`
-                      : `${summary.current} ${summary.current === 1 ? 'day' : 'days'} in a row`
-                    : summary.dueToday
-                      ? 'Start today'
-                      : 'A day off'}
+                  {describeRun(summary, habit.weekdays)}
                   {' · '}
                   {describeSchedule(habit.weekdays)}
                 </span>
