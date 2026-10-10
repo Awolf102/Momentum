@@ -41,6 +41,21 @@ registerRoute(
   }),
 )
 
+// Likewise pdf.js, and the files it reads for some PDFs, fetched the first
+// time a PDF is added or opened.
+registerRoute(
+  ({ url }) =>
+    url.origin === self.location.origin &&
+    (url.pathname.startsWith('/assets/pdf/') ||
+      url.pathname.startsWith('/pdfjs/')),
+  new CacheFirst({
+    cacheName: 'momentum-pdf',
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 120, purgeOnQuotaError: true }),
+    ],
+  }),
+)
+
 // Likewise the maths fonts, fetched the first time a note shows maths.
 registerRoute(
   ({ url }) =>

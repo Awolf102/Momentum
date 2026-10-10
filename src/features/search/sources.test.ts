@@ -1,6 +1,9 @@
+import 'fake-indexeddb/auto'
 import { afterEach, describe, expect, it } from 'vitest'
 import { addHabit, habitsStore } from '@/features/habits'
 import { capture, inboxItems } from '@/features/inbox'
+import { documents, loadDocumentTexts } from '@/features/library'
+import { saveDocumentText } from '@/features/library/files'
 import { logEntries, setLine } from '@/features/log'
 import { createNote, notes, saveNote } from '@/features/notes'
 import { addRoutine, routinesStore } from '@/features/routines'
@@ -14,6 +17,7 @@ afterEach(async () => {
     tasks.clear(),
     logEntries.clear(),
     inboxItems.clear(),
+    documents.clear(),
   ])
   habitsStore.reset()
   routinesStore.reset()
@@ -95,5 +99,33 @@ describe('searching everything', () => {
   it('lists at most five of a kind', async () => {
     for (let i = 0; i < 8; i++) await createNote({ title: `Revision ${i}` })
     expect(searchEverything('revision')).toHaveLength(5)
+  })
+
+  it('finds words inside documents, on their page', async () => {
+    const now = new Date().toISOString()
+    await documents.add({
+      id: 'slides',
+      title: 'Lecture 5 slides',
+      fileName: 'lecture5.pdf',
+      size: 1000,
+      pages: 3,
+      subjectId: null,
+      lastPage: 1,
+      lastOpenedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+    })
+    await saveDocumentText('slides', [
+      'Intro',
+      'Gray code counts in one-bit steps',
+      'Summary',
+    ])
+    await loadDocumentTexts()
+    const [result] = searchEverything('gray code')
+    expect(result.section).toBe('Documents')
+    expect(result.detail).toBe('p. 2')
+    expect(text(result.snippet)).toBe('[Gray] [code] counts in one-bit steps')
+    expect(searchEverything('lecture')[0].detail).toBe('3 pages')
   })
 })

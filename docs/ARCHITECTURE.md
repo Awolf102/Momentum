@@ -60,6 +60,7 @@ src/
 │   ├── TasksPage.tsx         Tasks as a list or a board (lazy)
 │   ├── InboxPage.tsx         Captured things to sort; receives shares (lazy)
 │   ├── NotesPage.tsx         Notes: the list and the open note (lazy)
+│   ├── LibraryPage.tsx       The library's shelf, or a document open (lazy)
 │   ├── LogPage.tsx           The log: each day's line, check-in and focus (lazy)
 │   └── SettingsPage.tsx      Settings sections (lazy-loaded)
 ├── features/
@@ -80,6 +81,12 @@ src/
 │   ├── subjects/             Labels for sessions: Calculus, Reading… (editable)
 │   ├── inbox/                Capture now, sort later; the PWA share target
 │   │   └── lib/share.ts      What other apps share, safe links (tested)
+│   ├── library/              PDFs: reading, highlights, margin notes
+│   │   ├── documents.ts, highlights.ts   The collections (tested)
+│   │   ├── files.ts          Files, first-page pictures and text, kept apart (tested)
+│   │   ├── lib/              Selection rectangles, page text, highlights → note (tested)
+│   │   ├── pdf/              pdf.js, set up, and reading a new document (lazy)
+│   │   └── page.ts           The shelf and the viewer (only the lazy page loads them)
 │   ├── search/               Search everything from ⌘K (loaded when it opens)
 │   │   ├── lib/engine.ts     Folding, word-start matching, ranking, snippets (tested)
 │   │   └── sources.tsx       Every kind of record as something to find (tested)
@@ -251,6 +258,25 @@ in the text as `[[Title]]`, so there's no link table to keep in step:
   "createdAt": "…", "updatedAt": "…" }   // deletedAt when deleted
 ```
 
+A document in the library is a small record; its file, a picture of its
+first page and its text (one string per page) are kept in their own stores,
+keyed by the document's id, so the records stay small enough to hold in
+memory. A highlight is a record of its own, with its place on the page as
+fractions of the page's size, so it fits the page at any zoom:
+
+```ts
+// object store "documents", indexed by-subject
+{ "id": "…", "title": "Lecture 5", "fileName": "lecture5.pdf",
+  "size": 44182, "pages": 6, "subjectId": "digital-logic",
+  "lastPage": 3, "lastOpenedAt": "…", "createdAt": "…", "updatedAt": "…" }
+
+// object store "highlights", indexed by-document
+{ "id": "…", "documentId": "…", "page": 1,
+  "rects": [{ "x": 0.1, "y": 0.42, "w": 0.43, "h": 0.03 }],
+  "quote": "Group ones in rectangles…", "color": "yellow",
+  "note": "Powers of two only.", "createdAt": "…", "updatedAt": "…" }
+```
+
 A log line is a record whose id is its day, so "one line per day" holds in the
 store itself, and two devices writing the same day merge to the later edit:
 
@@ -284,6 +310,9 @@ Everything persisted, and where:
 | `routineRuns`                 | Each day's ticked steps per routine                                    |
 | `inboxItems`                  | Captured things not yet sorted (text, an optional link)                |
 | `notes`                       | Notes: title, markdown, subject, pinned (above)                        |
+| `documents`, `highlights`     | The library's documents, and highlights with margin notes (above)      |
+| `documentFiles`               | Each document's PDF (`<id>`) and first-page picture (`<id>:thumb`)     |
+| `documentTexts`               | Each document's text, one string per page, for search                  |
 | `kv` › `momentum.tasks`       | List or board                                                          |
 | `photos`                      | Uploaded photos as Blobs (2560 px + 360 px thumbnail)                  |
 | `secrets`                     | API keys: `anthropic`, `openai`, `compatible`                          |
@@ -291,7 +320,7 @@ Everything persisted, and where:
 | IndexedDB `momentum-reminder` | What the service worker needs for reminders (a mirror)                 |
 | localStorage `momentum.theme` | A copy of the theme, read before the first paint to avoid a flash      |
 
-These are object stores in the `momentum` database (version 9). Its schema
+These are object stores in the `momentum` database (version 10). Its schema
 lives in `lib/db/schema.ts` as one `upgrade` function with a step per version,
 so a browser on any older version upgrades in order: version 1 (photos only,
 from v2 of the app) gains `kv`, `secrets` and `meta`; version 2 (Phase 1) gains
@@ -299,7 +328,9 @@ from v2 of the app) gains `kv`, `secrets` and `meta`; version 2 (Phase 1) gains
 version 4 (the log) gains `tasks` and its indexes; version 5 (tasks) gains
 `habitCheckIns`; version 6 (habits) gains `routineRuns` — both indexed by
 their habit or routine and by day; version 7 (routines) gains `inboxItems`;
-version 8 (the inbox) gains `notes`, indexed by subject.
+version 8 (the inbox) gains `notes`, indexed by subject; version 9 (notes)
+gains the library's `documents`, `highlights`, `documentFiles` and
+`documentTexts`.
 Existing streaks, sessions, settings, keys and photos are untouched — each path
 is tested against `fake-indexeddb`.
 
@@ -488,7 +519,9 @@ combine by id, so a restore never erases progress; the timer keeps whatever is
 on this device's clock. Collections merge record by record. Data for stores
 this version doesn't know is saved for when it does; data from a newer version
 of a store is left alone. v1 (streak only) and v2 (no collections) backups
-still import.
+still import. The library's files come along too (base64, like photos)
+unless **Include documents** is off; their text isn't included, since it's
+read again from the files.
 
 **Password protection** (`lib/crypto.ts`) encrypts the whole backup on the
 device with the WebCrypto API: AES-GCM (256-bit, random 12-byte IV) under a
@@ -502,8 +535,8 @@ than 100 000 or more than 10 000 000 iterations are rejected as damaged. A
 backup that includes API keys can't be made without a password; the password
 is never stored, so a forgotten one can't be recovered.
 
-Settings → Data can reset the streak history, habits, routines, tasks, notes,
-the inbox, the log and the focus history separately;
+Settings → Data can reset the streak history, habits, routines, tasks,
+documents, notes, the inbox, the log and the focus history separately;
 resetting focus clears the sessions and the timer but keeps settings and
 subjects.
 
@@ -881,10 +914,54 @@ between notes.
   the note are separate screens with a way back. The list filters by words in
   titles and text, and by subject once notes have more than one.
 
+## Library
+
+`features/library` keeps PDFs to read, highlight and write in the margin.
+
+- **Adding** (the button, a drop anywhere on the page, or the palette) checks
+  that a file is a PDF (by its first bytes) and at most 100 MB, stores the
+  file, then the record, and reads it in the background: the page count, a
+  picture of the first page for the shelf, and each page's text for search
+  (runs of text joined into words, words split across lines rejoined).
+  Documents restored without these details are read when the library opens.
+- **pdf.js** loads only when a PDF is added or opened, and parses in its own
+  worker. It's the library's "legacy" build: the modern one relies on
+  JavaScript only the newest browsers have (`Map.prototype.getOrInsertComputed`)
+  and fails on many phones; the legacy one brings standard polyfills. The files
+  some PDFs need — fonts not embedded in them, character maps for CJK text,
+  image decoders, colour profiles — are copied into the build at `/pdfjs/` (a
+  small Vite plugin; served from `node_modules` in development) and read only
+  when needed. None of it is precached: the service worker keeps pdf.js and
+  those files once fetched. Scripts in PDFs never run.
+- **The viewer** draws pages near the screen (an IntersectionObserver, a
+  screen and a half either way) and clears far ones to save memory. Each page
+  is drawn on a fresh canvas that's swapped in when done, so zooming never
+  blanks it, with pdf.js's text layer on top so text can be selected. Every
+  page is laid out at the first page's shape until it's read. A document
+  opens where you left off, once the pages have their sizes; the page under
+  the reading line is remembered as you go. ← → turn pages, + − 0 zoom, H
+  shows the highlights; the page number can be typed over to jump.
+- **Highlights:** a selection's rectangles (`Range.getClientRects()`) become
+  fractions of the page, one per line (`toPageRects`, pure), so they fit at
+  any zoom. Tapping a highlight finds it by those rectangles (`hits`) and
+  opens its colour and note; a note is saved as the menu closes, however it
+  closes. Deleting offers Undo. **Make a note of these** turns a document's
+  highlights into a markdown note: each quote with its page, its note
+  beneath.
+- **Search** finds documents by title and by the words inside, and opens one at
+  the page the match is on (`/library/:id?page=…`).
+- **Deleting** a document keeps its file a day, for Undo; after that (or once
+  its record is gone) the file, picture and text are freed when the library
+  next opens. A record whose file is missing (a backup made without
+  documents) asks for the file. Password-protected PDFs ask for theirs.
+- On the dashboard, **Continue reading** shows the document you opened in the
+  last two weeks and haven't finished.
+
 ## Search
 
 The ⌘K palette (Search in the phone tab bar) finds things as well as
-commands: notes, tasks, habits, routines, log lines and inbox items.
+commands: notes, documents, tasks, habits, routines, log lines and inbox
+items.
 
 - **Matching** (`search/lib/engine.ts`, pure): text is folded — lowercase,
   accents removed, so "godel" finds "Gödel" — and split into words. Each query
@@ -906,6 +983,8 @@ commands: notes, tasks, habits, routines, log lines and inbox items.
   takes about 120 ms and each keystroke after it about 25 ms.
 - **What's searched:** a note's title and its text as plain lines — markdown
   marks gone, maths as readable text, code included — and its subject; a
+  document's title, subject and text (one line per page, so the matching line
+  is the page; the text loads when the palette first opens); a
   task's title and subject; a habit's name; a routine's name and steps; a log
   line and its date; an inbox item's text and link. Empty notes are left out.
 - **Results** are grouped by kind (at most five each, thirty in all), the kind
@@ -989,8 +1068,8 @@ pauses or resumes the focus timer; the palette also offers "Start focus on
 - `vite-plugin-pwa` (injectManifest) builds `src/sw.ts`, which precaches the app
   shell, pages, fonts and icons (Latin subsets only) and serves `index.html` for
   every navigation, so the app — including check-ins — works offline. The AI
-  SDKs and the maths fonts are the exceptions: they're fetched the first time
-  they're needed and kept from then on.
+  SDKs, pdf.js and the maths fonts are the exceptions: they're fetched the
+  first time they're needed and kept from then on.
 - Updates are offered with a toast rather than applied silently.
 - **Chunks.** React and Motion are a `vendor` chunk, which rarely changes, so an
   update re-downloads only Momentum's own code. Code the bundler splits out
@@ -1035,7 +1114,9 @@ check-in once per day, two wake-ups at once, daily totals and levels),
 habits (streaks over chosen weekdays, days off, the last week, the four-week
 rate, ticking on and off, merging), routines (part of the day, today's order,
 editing steps, completing and reopening a day), the inbox (what apps share,
-safe links, capturing, making notes), search (folding accents, word starts,
+safe links, capturing, making notes), the library (selection rectangles,
+page text, highlights as a note, adding files and refusing others, Undo and
+freeing deleted files, damaged records), search (folding accents, word starts,
 every word, single letters, ranking and ties, snippets, every kind of record,
 finished tasks, edits, the per-kind limit), notes (links, backlinks, renaming
 links, previews, ticking boxes, `[[` suggestions, tidying empty notes; rendering:

@@ -18,6 +18,13 @@ import { Switch } from '@/components/Switch'
 import { focusSessions, resetTimer } from '@/features/focus'
 import { habitCheckIns, habitsStore } from '@/features/habits'
 import { inboxItems } from '@/features/inbox'
+import {
+  clearFiles,
+  documents,
+  formatSize,
+  highlights,
+  useDocuments,
+} from '@/features/library'
 import { logEntries } from '@/features/log'
 import { notes } from '@/features/notes'
 import { routineRuns, routinesStore } from '@/features/routines'
@@ -44,6 +51,8 @@ const RECORD_NAMES: Record<string, [one: string, many: string]> = {
   routineRuns: ['routine day', 'routine days'],
   inboxItems: ['inbox item', 'inbox items'],
   notes: ['note', 'notes'],
+  documents: ['document', 'documents'],
+  highlights: ['highlight', 'highlights'],
 }
 
 export function DataSettings() {
@@ -130,6 +139,12 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 function BackupCard() {
   const fileInput = useRef<HTMLInputElement>(null)
   const [includeKeys, setIncludeKeys] = useState(false)
+  const [includeFiles, setIncludeFiles] = useState(true)
+  const library = useDocuments()
+  const librarySize = library.reduce(
+    (total, document) => total + document.size,
+    0,
+  )
   const [protect, setProtect] = useState(false)
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -155,6 +170,7 @@ function BackupCard() {
     try {
       await downloadBackup({
         includeSecrets: includeKeys,
+        includeFiles,
         password: protecting ? password : undefined,
       })
       setPassword('')
@@ -191,6 +207,8 @@ function BackupCard() {
         parts.push(
           `${report.photos} ${report.photos === 1 ? 'photo' : 'photos'}`,
         )
+      if (report.files)
+        parts.push(`${report.files} ${report.files === 1 ? 'PDF' : 'PDFs'}`)
       for (const [name, count] of Object.entries(report.records)) {
         const [one, many] = RECORD_NAMES[name] ?? ['record', 'records']
         parts.push(`${count} ${count === 1 ? one : many}`)
@@ -230,7 +248,7 @@ function BackupCard() {
   return (
     <SettingsCard
       title="Backup"
-      description="One file with your streak, habits, routines, tasks, inbox, log, focus sessions, settings, photos and AI usage. Importing adds to what's here rather than replacing it."
+      description="One file with your streak, habits, routines, tasks, notes, library, inbox, log, focus sessions, settings, photos and AI usage. Importing adds to what's here rather than replacing it."
     >
       <div className="space-y-2">
         {/* Chosen before exporting or importing, so it's never a surprise. */}
@@ -240,6 +258,14 @@ function BackupCard() {
           checked={includeKeys}
           onChange={setIncludeKeys}
         />
+        {library.length > 0 && (
+          <SwitchRow
+            label="Include documents"
+            hint={`The PDFs in your library (${formatSize(librarySize)}). Without them, their highlights and notes still come along.`}
+            checked={includeFiles}
+            onChange={setIncludeFiles}
+          />
+        )}
         <SwitchRow
           label="Protect with a password"
           hint={
@@ -453,6 +479,16 @@ function ResetCard() {
           onReset={() => {
             void tasks.clear()
             setDone('Your tasks were cleared.')
+          }}
+        />
+        <ResetRow
+          label="Delete all documents"
+          confirm="Tap again to delete every PDF and its highlights"
+          onReset={() => {
+            void documents.clear()
+            void highlights.clear()
+            void clearFiles()
+            setDone('Your library is empty.')
           }}
         />
         <ResetRow

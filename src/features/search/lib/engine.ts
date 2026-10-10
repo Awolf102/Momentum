@@ -190,6 +190,16 @@ export function highlight(text: string, query: string): Segment[] {
   )
 }
 
+/** Which line of the text has the first match, or null if none does. */
+export function matchingLine(text: string, query: string): number | null {
+  const words = queryWords(query)
+  if (words.length === 0) return null
+  const lines = text.split('\n')
+  for (let index = 0; index < lines.length; index++)
+    if (matchesIn(fold(lines[index]), words).length > 0) return index
+  return null
+}
+
 /**
  * The first line of the text with a match, cut to about `length`
  * characters around it, with the matches marked. Null if nothing in the

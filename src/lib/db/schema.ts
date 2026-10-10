@@ -6,7 +6,7 @@ import type { DBSchema, IDBPDatabase } from 'idb'
  * browser on any older version is brought up to date.
  */
 export const DB_NAME = 'momentum'
-export const DB_VERSION = 9
+export const DB_VERSION = 10
 
 /** Object stores that hold collections (see `lib/collection.ts`). */
 export const COLLECTION_STORES = [
@@ -17,6 +17,8 @@ export const COLLECTION_STORES = [
   'routineRuns',
   'inboxItems',
   'notes',
+  'documents',
+  'highlights',
 ] as const
 export type CollectionStoreName = (typeof COLLECTION_STORES)[number]
 
@@ -95,6 +97,27 @@ export interface MomentumDB extends DBSchema {
     }
     indexes: { 'by-subject': string }
   }
+  /** PDFs in the library (see `features/library`); files are kept apart. */
+  documents: {
+    key: string
+    value: {
+      id: string
+      title: string
+      subjectId: string | null
+      [field: string]: unknown
+    }
+    indexes: { 'by-subject': string }
+  }
+  /** Highlights and margin notes in documents. */
+  highlights: {
+    key: string
+    value: { id: string; documentId: string; [field: string]: unknown }
+    indexes: { 'by-document': string }
+  }
+  /** Each document's file, keyed by the document's id. */
+  documentFiles: { key: string; value: Blob }
+  /** Each document's text, one string per page, for search. */
+  documentTexts: { key: string; value: string[] }
 }
 
 export function upgrade(
@@ -145,5 +168,15 @@ export function upgrade(
   if (oldVersion < 9) {
     const notes = db.createObjectStore('notes', { keyPath: 'id' })
     notes.createIndex('by-subject', 'subjectId')
+  }
+  // v10: the document library. Records (documents, highlights) are
+  // collections; files and their text are kept apart, out of memory.
+  if (oldVersion < 10) {
+    const documents = db.createObjectStore('documents', { keyPath: 'id' })
+    documents.createIndex('by-subject', 'subjectId')
+    const highlights = db.createObjectStore('highlights', { keyPath: 'id' })
+    highlights.createIndex('by-document', 'documentId')
+    db.createObjectStore('documentFiles')
+    db.createObjectStore('documentTexts')
   }
 }

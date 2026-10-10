@@ -475,3 +475,48 @@ export function LinkIcon(props: IconProps) {
     </Icon>
   )
 }
+
+export function LibraryIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4.5 4.5h3.5v15H4.5zM10 4.5h3.5v15H10z" />
+      <path d="m15.4 5.6 3.3-.9 3.1 14-3.3.8z" />
+    </Icon>
+  )
+}
+
+export function MinusIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 12h14" />
+    </Icon>
+  )
+}
+
+export function HighlighterIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m14.5 4 5.5 5.5-8 8-5.5-5.5z" />
+      <path d="M6.5 12 4 18.5l1.5 1.5L12 17.5M13 20.5h7" />
+    </Icon>
+  )
+}
+
+export function MoreIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="6" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="18" cy="12" r="1.4" fill="currentColor" stroke="none" />
+    </Icon>
+  )
+}
+
+export function FitWidthIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 5v14M20 5v14M8 12h8" />
+      <path d="M10.5 9.5 8 12l2.5 2.5M13.5 9.5 16 12l-2.5 2.5" />
+    </Icon>
+  )
+}

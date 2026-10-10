@@ -23,6 +23,11 @@ export interface Backup {
   exportedAt: string
   stores: Record<string, StoredEnvelope>
   photos: BackupPhoto[]
+  /**
+   * Library files (PDFs and their first-page pictures), unless left out.
+   * Optional: older backups have none.
+   */
+  files: BackupPhoto[]
   /** Collections (e.g. focus sessions), every record. Since version 3. */
   collections: Record<string, CollectionRecord[]>
   /** Only present when the user chose to include API keys. */
@@ -34,6 +39,8 @@ export interface BackupSources {
   registry: StoreRegistry
   listPhotos(): Promise<Array<{ key: string; blob: Blob }>>
   putPhoto(key: string, blob: Blob): Promise<void>
+  listFiles(): Promise<Array<{ key: string; blob: Blob }>>
+  putFile(key: string, blob: Blob): Promise<void>
   exportCollections(): Promise<Record<string, CollectionRecord[]>>
   /** Merges records in; returns how many were new or newer. */
   importCollection(name: string, records: readonly unknown[]): Promise<number>
@@ -59,23 +66,34 @@ export function base64ToBlob(data: string, type: string): Blob {
 }
 
 /** Everything Momentum stores on this device, as one object. */
+const encode =
+  (fallbackType: string) =>
+  async ({ key, blob }: { key: string; blob: Blob }): Promise<BackupPhoto> => ({
+    key,
+    type: blob.type || fallbackType,
+    data: await blobToBase64(blob),
+  })
+
 export async function createBackup(
   sources: BackupSources,
-  options: { includeSecrets: boolean },
+  options: { includeSecrets: boolean; includeFiles?: boolean },
 ): Promise<Backup> {
   const photos = await Promise.all(
-    (await sources.listPhotos()).map(async ({ key, blob }) => ({
-      key,
-      type: blob.type || 'image/jpeg',
-      data: await blobToBase64(blob),
-    })),
+    (await sources.listPhotos()).map(encode('image/jpeg')),
   )
+  const files =
+    options.includeFiles === false
+      ? []
+      : await Promise.all(
+          (await sources.listFiles()).map(encode('application/pdf')),
+        )
   return {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
     stores: await sources.registry.snapshotAll(),
     photos,
+    files,
     collections: await sources.exportCollections(),
     ...(options.includeSecrets ? { secrets: await sources.getSecrets() } : {}),
   }
@@ -105,6 +123,7 @@ export function parseBackup(text: string): Backup {
       exportedAt,
       stores: { 'momentum.streak': parsed.streak },
       photos: [],
+      files: [],
       collections: {},
     }
   }
@@ -117,15 +136,18 @@ export function parseBackup(text: string): Backup {
       if (isEnvelope(envelope)) stores[key] = envelope
     }
   }
-  const photos = Array.isArray(parsed.photos)
-    ? parsed.photos.filter(
-        (photo): photo is BackupPhoto =>
-          isRecord(photo) &&
-          typeof photo.key === 'string' &&
-          typeof photo.type === 'string' &&
-          typeof photo.data === 'string',
-      )
-    : []
+  const blobs = (value: unknown) =>
+    Array.isArray(value)
+      ? value.filter(
+          (item): item is BackupPhoto =>
+            isRecord(item) &&
+            typeof item.key === 'string' &&
+            typeof item.type === 'string' &&
+            typeof item.data === 'string',
+        )
+      : []
+  const photos = blobs(parsed.photos)
+  const files = blobs(parsed.files)
   // Records are checked one by one when restored.
   const collections: Record<string, CollectionRecord[]> = {}
   if (isRecord(parsed.collections)) {
@@ -147,6 +169,7 @@ export function parseBackup(text: string): Backup {
     exportedAt,
     stores,
     photos,
+    files,
     collections,
     secrets,
   }
@@ -156,6 +179,8 @@ export interface RestoreReport {
   restored: string[]
   skipped: string[]
   photos: number
+  /** Library files (PDFs; not counting their pictures). */
+  files: number
   /** Per collection: records that were new or newer than what's here. */
   records: Record<string, number>
   secrets: number
@@ -177,6 +202,7 @@ export async function restoreBackup(
     restored: [],
     skipped: [],
     photos: 0,
+    files: 0,
     records: {},
     secrets: 0,
   }
@@ -187,6 +213,10 @@ export async function restoreBackup(
   for (const photo of backup.photos) {
     await sources.putPhoto(photo.key, base64ToBlob(photo.data, photo.type))
     report.photos++
+  }
+  for (const file of backup.files) {
+    await sources.putFile(file.key, base64ToBlob(file.data, file.type))
+    if (!file.key.endsWith(':thumb')) report.files++
   }
   for (const [name, records] of Object.entries(backup.collections)) {
     const count = await sources.importCollection(name, records)

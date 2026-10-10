@@ -1,0 +1,109 @@
+/* A page of a PDF: the drawn page, highlights over it, then the invisible
+   text that makes it selectable (pdf.js's text layer). */
+.pdf-page {
+  position: relative;
+  margin-inline: auto;
+  overflow: hidden;
+  border-radius: 6px;
+  background: white;
+  box-shadow: 0 10px 30px -14px rgb(0 0 0 / 0.55);
+  scroll-margin-top: 5.5rem;
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
+}
+.pdf-page canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.pdf-highlight {
+  position: absolute;
+  border-radius: 2px;
+  mix-blend-mode: multiply;
+}
+.pdf-highlight-yellow {
+  background: rgb(253 224 71 / 0.55);
+}
+.pdf-highlight-green {
+  background: rgb(134 239 172 / 0.6);
+}
+.pdf-highlight-blue {
+  background: rgb(125 211 252 / 0.6);
+}
+.pdf-highlight-pink {
+  background: rgb(249 168 212 / 0.6);
+}
+.pdf-highlight-flash {
+  animation: pdf-flash 1.4s ease-out;
+}
+@keyframes pdf-flash {
+  0%,
+  40% {
+    outline: 3px solid rgb(249 115 22 / 0.9);
+    outline-offset: 1px;
+  }
+  100% {
+    outline: 3px solid rgb(249 115 22 / 0);
+    outline-offset: 1px;
+  }
+}
+
+/* pdf.js's text layer (from its viewer's stylesheet, trimmed). */
+.pdf-page .textLayer {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  text-align: initial;
+  opacity: 1;
+  line-height: 1;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: CanvasText;
+  z-index: 2;
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+.pdf-page .textLayer :is(span, br) {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  user-select: text;
+}
+.pdf-page .textLayer > :not(.markedContent),
+.pdf-page .textLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x))
+    scale(var(--min-font-size-inv));
+}
+.pdf-page .textLayer .markedContent {
+  display: contents;
+}
+.pdf-page .textLayer ::selection {
+  background: rgb(249 115 22 / 0.3);
+  color: transparent;
+}
+.pdf-page .textLayer br::selection {
+  background: transparent;
+}
+.pdf-page .textLayer .endOfContent {
+  position: absolute;
+  inset: 100% 0 0;
+  display: block;
+  z-index: 0;
+  cursor: default;
+  user-select: none;
+}
+.pdf-page .textLayer.selecting .endOfContent {
+  top: 0;
+}

@@ -3,6 +3,7 @@ import {
   fold,
   highlight,
   indexDoc,
+  matchingLine,
   search,
   snippet,
   type SearchDoc,
@@ -90,5 +91,7 @@ describe('showing matches', () => {
     expect(marked(snippet('Short line with Gödel.', 'godel'))).toBe(
       'Short line with [Gödel].',
     )
+    expect(matchingLine('one\ntwo karnaugh\nthree karnaugh', 'karn')).toBe(1)
+    expect(matchingLine('nothing here', 'karn')).toBeNull()
   })
 })

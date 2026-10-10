@@ -178,7 +178,8 @@ versions and the flame stages could go in earlier.
 | 1     | In review | Branch `claude/v3-phase-1-foundations` (PR #2), stacked on the v2 branch (PR #1)                                                                                                                                                                                                                                                                           |
 | 2     | In review | Focus timer, subjects and collections (`feature/focus-timer`); daily log (`feature/daily-log`); tasks with quick add, repeats and the board (`feature/tasks`); password-protected backups (`feature/encrypted-backup`); more habits (`feature/habits`); routines (`feature/routines`); the inbox (`feature/inbox`). Each its own PR, stacked in that order |
 | 3     | In review | Notes with maths, code and links (`feature/notes`, PR #10); search in ⌘K (`feature/search`), stacked on notes                                                                                                                                                                                                                                              |
-| 4–7   | Planned   |                                                                                                                                                                                                                                                                                                                                                            |
+| 4     | Building  | Document library and PDF viewer with highlights (`feature/library`), stacked on search                                                                                                                                                                                                                                                                     |
+| 5–7   | Planned   |                                                                                                                                                                                                                                                                                                                                                            |
 
 ### What Phase 1 changed in the plan
 
@@ -267,3 +268,17 @@ versions and the flame stages could go in earlier.
   group, without the palette knowing where they came from.
 - **The palette is search.** It was already behind the phone tab bar's
   Search; it now finds things as well as commands.
+
+### What the library changed in the plan
+
+- **No PDF worker of our own.** pdf.js already parses in its own worker, so
+  `workers/pdf.worker.ts` isn't needed; the embeddings worker (next) is the
+  first of our own.
+- **pdf.js's legacy build.** The modern build needs JavaScript features only
+  the newest browsers have, and failed in testing; the legacy build adds
+  standard polyfills and works on the phones students carry.
+- **Text is read when a PDF is added,** one string per page. Search uses it
+  now (with the page to open at), and chunking for embeddings will start from
+  it rather than parsing PDFs again.
+- **Highlights are fractions of the page,** so they survive zooming, other
+  screen sizes and (later) sync between devices.

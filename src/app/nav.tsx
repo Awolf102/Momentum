@@ -4,6 +4,7 @@ import {
   ChecklistIcon,
   HomeIcon,
   InboxIcon,
+  LibraryIcon,
   NoteIcon,
   SlidersIcon,
 } from '@/components/icons'
@@ -40,6 +41,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Notes',
     icon: <NoteIcon />,
     isActive: (location) => location.startsWith(paths.notes),
+  },
+  {
+    href: paths.library,
+    label: 'Library',
+    icon: <LibraryIcon />,
+    isActive: (location) => location.startsWith(paths.library),
+    tabBar: false,
   },
   {
     href: paths.inbox,

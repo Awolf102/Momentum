@@ -22,6 +22,10 @@ export const paths = {
   tasks: '/tasks',
   inbox: '/inbox',
   notes: '/notes',
+  library: '/library',
+  /** A document, optionally at a page. */
+  document: (id: string, page?: number) =>
+    `/library/${encodeURIComponent(id)}${page ? `?page=${page}` : ''}`,
   note: (id: string) => `/notes/${encodeURIComponent(id)}`,
   settings: (section?: SettingsSection) =>
     section ? `/settings/${section}` : '/settings',
