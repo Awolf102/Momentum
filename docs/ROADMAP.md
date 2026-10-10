@@ -183,7 +183,7 @@ versions and the flame stages could go in earlier.
 | 4     | In review | Document library and PDF viewer with highlights (`feature/library`), stacked on search; search by meaning (`feature/embeddings`), stacked on the library; chat with documents and the assistant (`feature/assistant`), stacked on search by meaning                                                                                                        |
 | 5     | In review | Flashcards with FSRS (`feature/flashcards`, PR #15), stacked on the assistant; practice quizzes (`feature/quizzes`, PR #16), stacked on flashcards; image to notes (`feature/image-notes`, PR #17), stacked on quizzes; voice notes (`feature/voice-notes`, PR #18), stacked on image to notes                                                             |
 | 6     | In review | Time blocking with .ics import (`feature/time-blocking`, PR #19), stacked on voice notes; goals with milestones, linked tasks and habits (`feature/goals`, PR #20), stacked on time blocking; the AI planner and weekly review (`feature/ai-planner`, PR #21), stacked on goals; analytics (`feature/analytics`, PR #22), stacked on the AI planner        |
-| 7     | In review | The sync server and sync in the app, encrypted on the device (`feature/sync`), stacked on analytics                                                                                                                                                                                                                                                        |
+| 7     | In review | The sync server and sync in the app, encrypted on the device (`feature/sync`, PR #23), stacked on analytics                                                                                                                                                                                                                                                |
 
 ### What Phase 1 changed in the plan
 
@@ -543,7 +543,7 @@ Phase 7, the optional sync server.
 
 ### Phase 7, done
 
-The sync server and sync in the app are built, in one PR stacked on
+The sync server and sync in the app are built, in one PR (#23) stacked on
 analytics. What didn't fit is noted in the PR: files don't sync, a password
 can't be changed or recovered, clearing everything stays on the device, and
 times come from each device's clock. That's the last phase in this plan.
