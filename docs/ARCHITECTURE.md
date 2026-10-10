@@ -9,7 +9,8 @@ routed app shell, IndexedDB storage with migrations, full backups, and an
 optional bring-your-own-key AI layer. Phase 2 starts with a focus timer:
 Pomodoro sessions with subjects, which check you in when the day's first one
 finishes, a daily log (one line a day about what you did), and tasks with
-quick add, repeats and a kanban board.
+quick add, repeats and a kanban board, more habits beside the daily check-in,
+and password-protected backups.
 
 ## Guiding principles
 
@@ -75,6 +76,9 @@ src/
 │   │   ├── components/       FocusCard, TimerDial, FocusTodayTile, FocusPill
 │   │   └── settings.ts       Settings → Focus (its own entry point, lazy-loaded)
 │   ├── subjects/             Labels for sessions: Calculus, Reading… (editable)
+│   ├── habits/               More habits, each with its own days and streak
+│   │   ├── lib/summary.ts    Streaks over chosen weekdays, the week, rates (tested)
+│   │   └── checkIns.ts       The habitCheckIns collection; tick on and off (tested)
 │   ├── tasks/                Tasks: quick add, repeats, list and board
 │   │   ├── lib/quickAdd.ts   "Lab report fri 5pm #calculus !high" → a task (tested)
 │   │   ├── lib/recurrence.ts Repeating schedules and the next date (tested)
@@ -210,6 +214,11 @@ history:
   "createdAt": "…", "updatedAt": "…" }
 ```
 
+A habit is a small definition — name, colour, the weekdays it's due (none
+means every day) — in the `momentum.habits` store, and each day it was done is
+a record in `habitCheckIns` with the id `<habit>:<day>`, so a day counts once
+and unticking it is a soft delete that merges correctly between devices.
+
 A log line is a record whose id is its day, so "one line per day" holds in the
 store itself, and two devices writing the same day merge to the later edit:
 
@@ -237,6 +246,8 @@ Everything persisted, and where:
 | `focusSessions`               | Finished focus sessions (above)                                        |
 | `logEntries`                  | The daily log, one line per day (above)                                |
 | `tasks`                       | Tasks (above)                                                          |
+| `kv` › `momentum.habits`      | Habits: name, colour, weekdays                                         |
+| `habitCheckIns`               | The days each habit was done                                           |
 | `kv` › `momentum.tasks`       | List or board                                                          |
 | `photos`                      | Uploaded photos as Blobs (2560 px + 360 px thumbnail)                  |
 | `secrets`                     | API keys: `anthropic`, `openai`, `compatible`                          |
@@ -244,12 +255,13 @@ Everything persisted, and where:
 | IndexedDB `momentum-reminder` | What the service worker needs for reminders (a mirror)                 |
 | localStorage `momentum.theme` | A copy of the theme, read before the first paint to avoid a flash      |
 
-These are object stores in the `momentum` database (version 5). Its schema
+These are object stores in the `momentum` database (version 6). Its schema
 lives in `lib/db/schema.ts` as one `upgrade` function with a step per version,
 so a browser on any older version upgrades in order: version 1 (photos only,
 from v2 of the app) gains `kv`, `secrets` and `meta`; version 2 (Phase 1) gains
 `focusSessions` and its indexes; version 3 (the timer) gains `logEntries`;
-version 4 (the log) gains `tasks` and its indexes.
+version 4 (the log) gains `tasks` and its indexes; version 5 (tasks) gains
+`habitCheckIns`, indexed by habit and by day.
 Existing streaks, sessions, settings, keys and photos are untouched — each path
 is tested against `fake-indexeddb`.
 
@@ -727,6 +739,35 @@ the Web Share API where files are supported, otherwise downloaded or copied.
   entry point (`features/tasks/page.ts`); everything the dashboard uses comes
   from `index.ts`.
 
+## Habits
+
+The daily check-in stays the headline streak. `features/habits` adds others —
+reading, exercise, practice — each with its own streak, on the days you
+choose.
+
+- **Streaks count due days.** `summarizeHabit` (pure, tested) walks a habit's
+  days: a due day done extends the run, a due day missed ends it, days off
+  neither break nor extend it, and today stays open until it's done. Days
+  before the habit existed don't count against it. Doing a habit on a day off
+  still counts toward its total.
+- **On the dashboard,** the Habits card lists each with a round check in its
+  colour (dashed on a day off — it can still be ticked), its streak and
+  schedule, and dots for the last seven days: done, missed, still to do, or a
+  day off. A habit is added there by name, or with its days from the sheet.
+- **The sheet** shows the streak, longest run, days done and the share of due
+  days done over four weeks, a day picker, a colour, the habit's own activity
+  calendar, and delete.
+- The activity calendar gains a **Habits** view: brighter the larger the share
+  of each day's due habits you did.
+- ⌘K lists "Done: <habit>" for each habit due today and not yet done, and New
+  habit.
+
+Why not move the daily check-in into the same store: rewards, the climb, the
+share card, reminders and the focus timer's auto check-in all read the main
+streak. Moving it would touch all of them for no visible gain; the habit
+streak logic is separate because it understands weekdays, which the main
+streak doesn't need.
+
 ## Daily log
 
 `features/log` keeps one line per day — what you did, how it went — in the
@@ -815,8 +856,9 @@ opt-in keys, sessions, v1 and v2 files; encryption: round trip, wrong
 passwords, altered files, the same password typed differently, iteration
 bounds), the focus timer (remaining time across pause and resume, resuming
 after a reload, sessions that ended while the app was closed, midnight crossing, auto
-check-in once per day, two wake-ups at once, daily totals and levels), the
-daily log (one line per day, edits, deletion, tidying, the timeline), tasks
+check-in once per day, two wake-ups at once, daily totals and levels),
+habits (streaks over chosen weekdays, days off, the last week, the four-week
+rate, ticking on and off, merging), the daily log (one line per day, edits, deletion, tidying, the timeline), tasks
 (quick add across dates, times, subjects, priorities, repeats and the words it
 must leave alone; repeating schedules through short months and missed dates;
 finishing, reopening, board moves, grouping), the AI

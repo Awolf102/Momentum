@@ -54,6 +54,13 @@ import {
   startFocus,
   toggleFocus,
 } from '@/features/focus'
+import {
+  habitCheckIns,
+  habitsStore,
+  liveHabits,
+  newHabit,
+  toggleHabit,
+} from '@/features/habits'
 import { writeLine } from '@/features/log'
 import { openQuickAdd, setTasksView, tasksViewStore } from '@/features/tasks'
 import { installStore, promptInstall } from '@/features/pwa'
@@ -64,9 +71,10 @@ import { checkIn } from '@/features/streak'
 import { openShortcuts } from '@/lib/overlays'
 import { useProgress } from '@/lib/progress'
 import { navigate, openSettings, paths } from '@/lib/routes'
-import { toDateKey } from '@/lib/date'
+import { dayOfWeek, toDateKey } from '@/lib/date'
 import { useStore } from '@/lib/store'
 import { toast } from '@/lib/toast'
+import { useToday } from '@/lib/useToday'
 
 function checkInFromShortcut() {
   // Check in on the dashboard, where the celebration plays.
@@ -100,8 +108,17 @@ export function useAppCommands(): Command[] {
   const { phase } = useStore(focusTimerStore)
   const subjects = useStore(subjectsStore)
   const { view: tasksView } = useStore(tasksViewStore)
+  const habits = useStore(habitsStore)
+  const habitDays = useStore(habitCheckIns)
+  const today = useToday()
 
   return useMemo(() => {
+    // Habits already done today drop out of the list.
+    const doneToday = new Set(
+      habitDays
+        .filter((record) => record.day === today)
+        .map((record) => record.habitId),
+    )
     const backgrounds = listBackgrounds(photos).filter((background) =>
       isUnlocked(background, longest),
     )
@@ -187,6 +204,32 @@ export function useAppCommands(): Command[] {
         run: () => {
           setTasksView(tasksView === 'board' ? 'list' : 'board')
           navigate(paths.tasks)
+        },
+      },
+      ...liveHabits(habits)
+        .filter(
+          (habit) =>
+            !doneToday.has(habit.id) &&
+            (habit.weekdays.length === 0 ||
+              habit.weekdays.includes(dayOfWeek(today))),
+        )
+        .map((habit) => ({
+          id: `habit-${habit.id}`,
+          title: `Done: ${habit.name}`,
+          section: 'Habits',
+          icon: <CheckIcon />,
+          keywords: ['habit', 'tick', 'check', 'done', 'today'],
+          run: () => void toggleHabit(habit.id),
+        })),
+      {
+        id: 'habit-new',
+        title: 'New habit',
+        section: 'Habits',
+        icon: <PlusIcon />,
+        keywords: ['habit', 'routine', 'track', 'add', 'create'],
+        run: () => {
+          navigate(paths.home)
+          newHabit()
         },
       },
       {
@@ -404,5 +447,8 @@ export function useAppCommands(): Command[] {
     phase,
     subjects,
     tasksView,
+    habits,
+    habitDays,
+    today,
   ])
 }

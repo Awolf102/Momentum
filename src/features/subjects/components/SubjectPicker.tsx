@@ -84,7 +84,7 @@ export function SubjectPicker({
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="ring-dashed inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-fg-subtle ring-1 ring-line transition hover:text-fg"
+          className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-line px-3 py-1.5 text-sm text-fg-subtle transition hover:text-fg"
         >
           <PlusIcon /> Add
         </button>
