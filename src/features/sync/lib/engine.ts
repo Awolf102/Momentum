@@ -1,5 +1,5 @@
 import type { CollectionRecord } from '@/lib/collection'
-import type { StoredEnvelope } from '@/lib/persistentStore'
+import type { RestoreMode, StoredEnvelope } from '@/lib/persistentStore'
 import type { SyncClient, WireRecord } from './client'
 import { fingerprint, open, seal, type RecordLabel } from './crypto'
 
@@ -9,6 +9,12 @@ import { fingerprint, open, seal, type RecordLabel } from './crypto'
  * A record goes up when it's newer than the version this device knows the
  * server has, so data from before signing in, or from a restored backup,
  * goes up too. Everything is sealed before it leaves.
+ *
+ * Settings travel whole, so devices have to settle on one version: pulled
+ * settings replace this device's when it hasn't changed them since it last
+ * synced. When it has, the two are combined by the store's own rule, this
+ * device's side winning where they disagree (the account's side, on a
+ * device's first sync), and the result goes back up for the others to take.
  */
 
 /** Where the engine reads and writes this device's data. */
@@ -22,7 +28,11 @@ export interface SyncSources {
   /** The settings stores that sync (merged on arrival, as backups are). */
   stores: readonly string[]
   snapshotStores(): Promise<Record<string, StoredEnvelope>>
-  restoreStore(key: string, envelope: unknown): Promise<boolean>
+  restoreStore(
+    key: string,
+    envelope: unknown,
+    mode: RestoreMode,
+  ): Promise<boolean>
 }
 
 export interface SyncSession {
@@ -111,8 +121,19 @@ export async function syncOnce(
     }
     for (const [name, list] of records)
       await sources.importCollection(name, list)
+    const here = settings.length ? await sources.snapshotStores() : {}
     for (const [key, envelope] of settings) {
-      await sources.restoreStore(key, envelope)
+      const known = progress.known[SETTINGS_STORE]?.[key]
+      const mine = here[key] ? await fingerprint(here[key]) : undefined
+      await sources.restoreStore(
+        key,
+        envelope,
+        known === undefined
+          ? 'merge-theirs'
+          : mine === known
+            ? 'replace'
+            : 'merge',
+      )
       knownIn(SETTINGS_STORE)[key] = await fingerprint(envelope)
     }
     report.pulled += page.records.length

@@ -170,6 +170,47 @@ describe('persistent stores', () => {
     expect(merging.store.get()).toEqual({ count: 5 })
   })
 
+  it('restores another device’s data merged either way round, or as it is', async () => {
+    // A merge where the order shows: what's here, then what came in.
+    const { registry, store } = setup({
+      merge: (current, incoming) => ({
+        count: current.count * 10 + incoming.count,
+      }),
+    })
+    const incoming = { version: 2, data: { count: 2 } }
+    store.set({ count: 5 })
+    await registry.restore('test', incoming)
+    expect(store.get()).toEqual({ count: 52 })
+    store.set({ count: 5 })
+    await registry.restore('test', incoming, 'merge-theirs')
+    expect(store.get()).toEqual({ count: 25 })
+    store.set({ count: 5 })
+    await registry.restore('test', incoming, 'replace')
+    expect(store.get()).toEqual({ count: 2 })
+  })
+
+  it('can leave stores still at their defaults out of a snapshot', async () => {
+    const { registry, store } = setup()
+    const other = createPersistentStore<Counter>({
+      key: 'untouched',
+      version: 1,
+      defaultValue: { count: 0 },
+      parse,
+      registry,
+    })
+    await registry.hydrate(createMemoryBackend())
+    expect(Object.keys(await registry.snapshotAll())).toEqual([
+      'test',
+      'untouched',
+    ])
+    expect(await registry.snapshotAll({ savedOnly: true })).toEqual({})
+    store.set({ count: 3 })
+    expect(await registry.snapshotAll({ savedOnly: true })).toEqual({
+      test: { version: 2, data: { count: 3 } },
+    })
+    expect(other.get()).toEqual({ count: 0 })
+  })
+
   it('loads stores registered after hydration (lazily loaded pages)', async () => {
     const registry = new StoreRegistry()
     await registry.hydrate(

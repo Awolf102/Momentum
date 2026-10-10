@@ -1,3 +1,12 @@
+// The settings stores that sync. Pulled settings combine by their stores'
+// own rules, so they're registered here, whichever pages have been opened.
+import '@/features/flashcards/settings'
+import '@/features/focus/store'
+import '@/features/habits/store'
+import '@/features/review/store'
+import '@/features/routines/store'
+import '@/features/streak/store'
+import '@/features/subjects/store'
 import { collectionRegistry } from '@/lib/collection'
 import { getDb } from '@/lib/db/db'
 import { COLLECTION_STORES } from '@/lib/db/schema'
@@ -28,9 +37,8 @@ import {
  */
 
 /**
- * Settings that sync: ones about your data, merged on arrival as a backup's
- * are. Appearance, sound, reminders, AI setup and the timer stay on each
- * device.
+ * Settings that sync: ones about your data. Appearance, sound, reminders, AI
+ * setup and the timer stay on each device.
  */
 export const SYNCED_STORES = [
   'momentum.streak',
@@ -75,13 +83,16 @@ const sources: SyncSources = {
   importCollection: (name, records) =>
     collectionRegistry.importRecords(name, records),
   stores: SYNCED_STORES,
+  // Settings still at their defaults stay here, so a new device's don't
+  // override the ones chosen on others.
   async snapshotStores() {
-    const all = await storeRegistry.snapshotAll()
+    const all = await storeRegistry.snapshotAll({ savedOnly: true })
     return Object.fromEntries(
       SYNCED_STORES.flatMap((key) => (all[key] ? [[key, all[key]]] : [])),
     )
   },
-  restoreStore: (key, envelope) => storeRegistry.restore(key, envelope),
+  restoreStore: (key, envelope, mode) =>
+    storeRegistry.restore(key, envelope, mode),
 }
 
 async function readMeta<T>(key: string): Promise<T | undefined> {
@@ -240,6 +251,7 @@ export async function disconnect(): Promise<void> {
 }
 
 async function forget() {
+  epoch += 1
   stopSync()
   await deleteSecret(TOKEN)
   await deleteSecret(KEY)
@@ -261,6 +273,11 @@ export async function deleteServerAccount(password: string): Promise<void> {
 
 let running: Promise<void> | null = null
 let again = false
+/**
+ * Moves on when this device signs out, so a round still running then
+ * changes nothing.
+ */
+let epoch = 0
 
 /** One round now (or right after the one in progress). */
 export function syncNow(): Promise<void> {
@@ -289,16 +306,23 @@ async function withLock(work: () => Promise<void>) {
 }
 
 async function round() {
+  const current = epoch
+  const signedIn = () => epoch === current
   const account = await loadAccount()
   const token = await getSecret(TOKEN)
   const keyText = await getSecret(KEY)
+  if (!signedIn()) return
   if (!account || !token || !keyText) {
     syncStatusStore.set({ state: 'off' })
     return
   }
   setOn(account, { syncing: true })
-  applying = true
+  inRound = true
+  missed = false
+  let synced = false
   try {
+    // Stores registered late load their saved data first.
+    await storeRegistry.settled()
     const { report } = await syncOnce(
       sources,
       {
@@ -309,19 +333,27 @@ async function round() {
       (await readMeta<SyncProgress>(PROGRESS)) ?? EMPTY_PROGRESS,
       {
         limits: account.limits,
-        save: (progress) => writeMeta(PROGRESS, progress),
+        save: async (progress) => {
+          if (signedIn()) await writeMeta(PROGRESS, progress)
+        },
       },
     )
-    setOn(account, {
-      syncing: false,
-      lastSyncedAt: new Date().toISOString(),
-      report,
-      problem: null,
-    })
+    synced = true
+    if (signedIn())
+      setOn(account, {
+        syncing: false,
+        lastSyncedAt: new Date().toISOString(),
+        report,
+        problem: null,
+      })
   } catch (error) {
-    setOn(account, { syncing: false, problem: describeProblem(error) })
+    if (signedIn())
+      setOn(account, { syncing: false, problem: describeProblem(error) })
   } finally {
-    applying = false
+    inRound = false
+    // Something changed here during the round: another goes straight after.
+    // (A failed round leaves it for the next try.)
+    if (missed && synced && started) again = true
   }
 }
 
@@ -329,7 +361,8 @@ async function round() {
 // or online, and a timer.
 const AFTER_CHANGE_MS = 8_000
 const EVERY_MS = 5 * 60_000
-let applying = false
+let inRound = false
+let missed = false
 let started = false
 let changeTimer: ReturnType<typeof setTimeout> | null = null
 let interval: ReturnType<typeof setInterval> | null = null
@@ -344,8 +377,10 @@ function soon(delay: number) {
 }
 
 const onChange = () => {
-  // Changes from what was just pulled don't need sending back.
-  if (!applying) soon(AFTER_CHANGE_MS)
+  // During a round, a change made here can't be told from one that was
+  // pulled: the round after finds out (and sends nothing for the latter).
+  if (inRound) missed = true
+  else soon(AFTER_CHANGE_MS)
 }
 const onVisible = () => {
   if (document.visibilityState === 'visible') soon(500)
@@ -354,7 +389,7 @@ const onOnline = () => soon(500)
 
 /** Starts syncing in the background, if this device is signed in. */
 export function startSync(): void {
-  if (started || typeof window === 'undefined') return
+  if (started) return
   started = true
   unsubscribers.push(
     collectionRegistry.onChange(onChange),
@@ -362,16 +397,18 @@ export function startSync(): void {
       if ((SYNCED_STORES as readonly string[]).includes(key)) onChange()
     }),
   )
-  document.addEventListener('visibilitychange', onVisible)
-  window.addEventListener('online', onOnline)
-  interval = setInterval(() => {
-    if (document.visibilityState === 'visible') void syncNow()
-  }, EVERY_MS)
+  if (typeof window !== 'undefined') {
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', onOnline)
+    interval = setInterval(() => {
+      if (document.visibilityState === 'visible') void syncNow()
+    }, EVERY_MS)
+  }
   void loadAccount().then((account) => {
-    if (account) {
-      setOn(account)
-      void syncNow()
-    }
+    if (!account) return
+    setOn(account)
+    // Signing in syncs straight away by itself.
+    if (!running) void syncNow()
   })
 }
 

@@ -8,7 +8,11 @@ import {
   createMemoryCollectionBackend,
   type CollectionRecord,
 } from '@/lib/collection'
-import { createPersistentStore, StoreRegistry } from '@/lib/persistentStore'
+import {
+  createMemoryBackend,
+  createPersistentStore,
+  StoreRegistry,
+} from '@/lib/persistentStore'
 import { createAccount } from '../../../server/auth.ts'
 import { openDatabase } from '../../../server/db.ts'
 import { createSyncServer } from '../../../server/http.ts'
@@ -34,6 +38,11 @@ const FAST = 1000
 
 interface Note extends CollectionRecord {
   text: string
+}
+/** Like the weekly review's store: a setting, and write-ups by week. */
+interface Review {
+  onSundays: boolean
+  written: Record<string, { text: string }>
 }
 const parseNote = (value: unknown) => {
   const note = value as Note
@@ -67,6 +76,7 @@ async function device() {
   })
   await collections.hydrate(createMemoryCollectionBackend())
   const stores = new StoreRegistry()
+  await stores.hydrate(createMemoryBackend())
   const streak = createPersistentStore<{ days: string[] }>({
     key: 'momentum.streak',
     version: 1,
@@ -82,19 +92,38 @@ async function device() {
     }),
     registry: stores,
   })
+  // Its merge favours this device's side, as the app's own merges do.
+  const review = createPersistentStore<Review>({
+    key: 'momentum.review',
+    version: 1,
+    defaultValue: { onSundays: true, written: {} },
+    parse: (data) => {
+      const value = data as Partial<Review> | null
+      return typeof value?.onSundays === 'boolean' &&
+        typeof value.written === 'object'
+        ? { onSundays: value.onSundays, written: { ...value.written } }
+        : null
+    },
+    merge: (current, incoming) => ({
+      onSundays: current.onSundays,
+      written: { ...incoming.written, ...current.written },
+    }),
+    registry: stores,
+  })
   const sources: SyncSources = {
     collections: ['notes'],
     exportCollections: (names) => collections.exportAll(names),
     importCollection: (name, records) =>
       collections.importRecords(name, records),
-    stores: ['momentum.streak'],
-    snapshotStores: () => stores.snapshotAll(),
-    restoreStore: (key, envelope) => stores.restore(key, envelope),
+    stores: ['momentum.streak', 'momentum.review'],
+    snapshotStores: () => stores.snapshotAll({ savedOnly: true }),
+    restoreStore: (key, envelope, mode) => stores.restore(key, envelope, mode),
   }
   let progress: SyncProgress = EMPTY_PROGRESS
   return {
     notes,
     streak,
+    review,
     sources,
     get progress() {
       return progress
@@ -298,6 +327,7 @@ describe('syncing two devices', () => {
     const laptop = await device()
     for (let index = 0; index < 7; index++)
       await laptop.notes.put(note(`n${index}`, `Note ${index}`, index))
+    laptop.streak.set({ days: ['2026-10-09'] })
     const session = await signIn()
     await laptop.sync(session)
     const phone = await device()
@@ -314,8 +344,7 @@ describe('syncing two devices', () => {
     await laptop.notes.put(note('small', 'Fine', 2))
     const report = await laptop.sync(await signIn())
     expect(report.tooLarge).toEqual(['notes/big'])
-    // The small note, and the settings (a device's first sync sends them).
-    expect(report.pushed).toBe(2)
+    expect(report.pushed).toBe(1)
   })
 
   it('reports changes the server turns back for a clock far ahead, and tries them again', async () => {
@@ -325,8 +354,9 @@ describe('syncing two devices', () => {
         updatedAt: '2099-01-01T00:00:00.000Z',
       }),
     )
+    laptop.streak.set({ days: ['2026-10-09'] })
     const session = await signIn()
-    // Only the settings go; the note is turned back.
+    // The streak goes; the note is turned back.
     expect(await laptop.sync(session)).toMatchObject({
       pushed: 1,
       rejected: 1,
@@ -349,6 +379,17 @@ describe('syncing two devices', () => {
     expect(thief.notes.get()).toEqual([])
   })
 
+  it('leaves settings still at their defaults on the device', async () => {
+    const laptop = await device()
+    laptop.review.set({ onSundays: false, written: {} })
+    const session = await signIn()
+    await laptop.sync(session)
+    // A new phone's untouched settings don't override the laptop's.
+    const phone = await device()
+    expect(await phone.sync(session)).toMatchObject({ pulled: 1, pushed: 0 })
+    expect(phone.review.get().onSundays).toBe(false)
+  })
+
   it('tells a wrong password and an ended session apart', async () => {
     createAccount(db, { username: 'alex', secret: 'a'.repeat(43) }, 'open')
     const client = createClient(base)
@@ -364,5 +405,85 @@ describe('syncing two devices', () => {
     const offline = createClient('http://127.0.0.1:9')
     await expect(offline.health()).rejects.toBeInstanceOf(SyncHttpError)
     await expect(offline.health()).rejects.toMatchObject({ code: 'offline' })
+  })
+})
+
+describe('settings on two devices', () => {
+  const laptopWeek = { text: 'Laptop' }
+  const phoneWeek = { text: 'Phone' }
+
+  it('settle on one version, though each side’s merge favours itself', async () => {
+    const laptop = await device()
+    const phone = await device()
+    laptop.review.set({ onSundays: false, written: { w1: laptopWeek } })
+    phone.review.set({
+      onSundays: true,
+      written: { w2: phoneWeek, w1: phoneWeek },
+    })
+    const session = await signIn()
+    await laptop.sync(session)
+    // The phone's first sync combines the two, the account's side winning
+    // where they differ, and sends the result.
+    expect(await phone.sync(session)).toMatchObject({ pushed: 1 })
+    expect(phone.review.get()).toEqual({
+      onSundays: false,
+      written: { w1: laptopWeek, w2: phoneWeek },
+    })
+    // The laptop, unchanged since it synced, takes it as it is.
+    await laptop.sync(session)
+    expect(laptop.review.get()).toEqual(phone.review.get())
+    for (let round = 0; round < 2; round++) {
+      expect(await phone.sync(session)).toMatchObject({ pulled: 0, pushed: 0 })
+      expect(await laptop.sync(session)).toMatchObject({
+        pulled: 0,
+        pushed: 0,
+      })
+    }
+  })
+
+  it('carry a change made on one device, deletions too, to the others', async () => {
+    const laptop = await device()
+    const phone = await device()
+    laptop.review.set({
+      onSundays: true,
+      written: { w1: laptopWeek, w2: laptopWeek },
+    })
+    const session = await signIn()
+    await laptop.sync(session)
+    await phone.sync(session)
+    phone.review.set((value) => ({
+      onSundays: false,
+      written: { w2: value.written.w2 },
+    }))
+    await phone.sync(session)
+    await laptop.sync(session)
+    expect(laptop.review.get()).toEqual({
+      onSundays: false,
+      written: { w2: laptopWeek },
+    })
+    expect(await laptop.sync(session)).toMatchObject({ pushed: 0 })
+  })
+
+  it('combine changes made on both before they synced, then settle', async () => {
+    const laptop = await device()
+    const phone = await device()
+    laptop.review.set({ onSundays: true, written: {} })
+    const session = await signIn()
+    await laptop.sync(session)
+    await phone.sync(session)
+    // Both write a week up before syncing again.
+    laptop.review.set((value) => ({ ...value, written: { w1: laptopWeek } }))
+    phone.review.set((value) => ({ ...value, written: { w2: phoneWeek } }))
+    await laptop.sync(session)
+    await phone.sync(session)
+    await laptop.sync(session)
+    const both = {
+      onSundays: true,
+      written: { w1: laptopWeek, w2: phoneWeek },
+    }
+    expect(phone.review.get()).toEqual(both)
+    expect(laptop.review.get()).toEqual(both)
+    expect(await phone.sync(session)).toMatchObject({ pulled: 0, pushed: 0 })
+    expect(await laptop.sync(session)).toMatchObject({ pulled: 0, pushed: 0 })
   })
 })
