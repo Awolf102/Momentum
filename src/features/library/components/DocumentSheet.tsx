@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ActionRow } from '@/components/ActionRow'
-import { NoteIcon, TrashIcon } from '@/components/icons'
+import { CardsIcon, NoteIcon, TrashIcon } from '@/components/icons'
 import { Sheet } from '@/components/Sheet'
 import { SubjectPicker } from '@/features/subjects'
 import { formatDateKey, toDateKey } from '@/lib/date'
@@ -15,6 +15,7 @@ export function DocumentSheet({
   highlightCount,
   onClose,
   onMakeNote,
+  onMakeCards,
   onDelete,
 }: {
   document: LibraryDocument
@@ -22,6 +23,7 @@ export function DocumentSheet({
   highlightCount: number
   onClose: () => void
   onMakeNote: () => void
+  onMakeCards: () => void
   onDelete: () => void
 }) {
   return (
@@ -31,6 +33,7 @@ export function DocumentSheet({
         document={document}
         highlightCount={highlightCount}
         onMakeNote={onMakeNote}
+        onMakeCards={onMakeCards}
         onDelete={onDelete}
       />
     </Sheet>
@@ -41,11 +44,13 @@ function Details({
   document,
   highlightCount,
   onMakeNote,
+  onMakeCards,
   onDelete,
 }: {
   document: LibraryDocument
   highlightCount: number
   onMakeNote: () => void
+  onMakeCards: () => void
   onDelete: () => void
 }) {
   const [title, setTitle] = useState(document.title)
@@ -105,6 +110,11 @@ function Details({
             onClick={onMakeNote}
           />
         )}
+        <ActionRow
+          icon={<CardsIcon />}
+          label="Make cards from this PDF"
+          onClick={onMakeCards}
+        />
         <ActionRow
           icon={<TrashIcon />}
           label="Delete document"

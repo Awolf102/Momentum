@@ -7,6 +7,7 @@ import {
   FocusTodayTile,
   useFocusCalendarView,
 } from '@/features/focus'
+import { CardsDueCard } from '@/features/flashcards'
 import { HabitsCard, useHabitsCalendarView } from '@/features/habits'
 import { InboxNotice } from '@/features/inbox'
 import { ContinueReading } from '@/features/library'
@@ -53,6 +54,7 @@ export function DashboardPage() {
         </div>
         <TasksTodayCard />
         <ContinueReading />
+        <CardsDueCard />
         <HabitsCard />
         <RoutinesCard />
         <ClimbCard />

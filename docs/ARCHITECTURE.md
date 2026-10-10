@@ -62,6 +62,7 @@ src/
 │   ├── NotesPage.tsx         Notes: the list and the open note (lazy)
 │   ├── LibraryPage.tsx       The library's shelf, or a document open (lazy)
 │   ├── AssistantPage.tsx     Ask: conversations about your notes or plans (lazy)
+│   ├── CardsPage.tsx         Cards: what's due, studying, making cards (lazy)
 │   ├── LogPage.tsx           The log: each day's line, check-in and focus (lazy)
 │   └── SettingsPage.tsx      Settings sections (lazy-loaded)
 ├── features/
@@ -98,6 +99,14 @@ src/
 │   │   ├── indexer.ts        What's indexed and waiting; updating it (tested)
 │   │   ├── search.ts         Passages nearest a search; related notes (tested)
 │   │   └── palette.tsx       The palette's "By meaning" section (tested)
+│   ├── flashcards/           Cards: spaced repetition with FSRS
+│   │   ├── lib/              The schedule, what's due, intervals, cards in notes (tested)
+│   │   ├── cards.ts          The cards collection (tested)
+│   │   ├── reviews.ts        The review log, read by day (tested)
+│   │   ├── review.ts         Rating, Undo, the habit (tested)
+│   │   ├── scheduler.ts      FSRS (ts-fsrs), with the page (tested)
+│   │   ├── generate.ts       Cards suggested by AI, as drafts
+│   │   └── page.ts           Studying, the editor, making cards (lazy)
 │   ├── assistant/            Ask: answers from your notes and documents, or your plans
 │   │   ├── lib/              Keyword ranking, prompts, citations, plans snapshot (tested)
 │   │   ├── retrieval.ts      A question's passages: by words, and by meaning (tested)
@@ -333,6 +342,29 @@ your plans), and each answer with where it came from and how it ended:
   "createdAt": "…", "updatedAt": "…" }   // deletedAt when deleted
 ```
 
+A flashcard is a record with its two sides and its schedule, as FSRS keeps
+it; every rating goes in a log of its own:
+
+```ts
+// object store "cards", indexed by-subject
+{ "id": "…", "front": "What does a Karnaugh map group?",
+  "back": "Adjacent ones, in rectangles of $2^n$ cells",
+  "subjectId": "digital-logic",
+  "source": { "kind": "document", "id": "…", "page": 1 },  // or a note, or null
+  "schedule": { "state": "review",   // new | learning | review | relearning
+                "due": "2026-10-19T09:52:00.000Z",
+                "stability": 9.2, "difficulty": 4.9, "scheduledDays": 9,
+                "learningSteps": 0, "reps": 3, "lapses": 0,
+                "lastReview": "2026-10-10T09:52:00.000Z" },
+  "introducedOn": "2026-10-10",      // first studied: new cards a day are limited
+  "createdAt": "…", "updatedAt": "…" }   // deletedAt when deleted
+
+// object store "cardReviews", indexed by-card and by-day
+{ "id": "…", "cardId": "…", "rating": 3, "day": "2026-10-10",
+  "reviewedAt": "…", "state": "learning", "elapsedDays": 0.007,
+  "due": "…", "stability": 9.2, "difficulty": 4.9, "durationMs": 4200 }
+```
+
 A log line is a record whose id is its day, so "one line per day" holds in the
 store itself, and two devices writing the same day merge to the later edit:
 
@@ -374,6 +406,9 @@ Everything persisted, and where:
 | Cache Storage `momentum-models`        | The model on this device and its engine, once downloaded               |
 | `conversations`                        | Conversations with the assistant (above)                               |
 | `kv` › `momentum.assistant`            | Which parts of your plans the planning assistant may see               |
+| `cards`                                | Flashcards and their schedules (above)                                 |
+| `cardReviews`                          | Every rating given to a card (above); read by day                      |
+| `kv` › `momentum.cards`                | New cards a day, recall to aim for, the habit cards count towards      |
 | `kv` › `momentum.tasks`                | List or board                                                          |
 | `photos`                               | Uploaded photos as Blobs (2560 px + 360 px thumbnail)                  |
 | `secrets`                              | API keys: `anthropic`, `openai`, `compatible`                          |
@@ -381,7 +416,7 @@ Everything persisted, and where:
 | IndexedDB `momentum-reminder`          | What the service worker needs for reminders (a mirror)                 |
 | localStorage `momentum.theme`          | A copy of the theme, read before the first paint to avoid a flash      |
 
-These are object stores in the `momentum` database (version 12). Its schema
+These are object stores in the `momentum` database (version 13). Its schema
 lives in `lib/db/schema.ts` as one `upgrade` function with a step per version,
 so a browser on any older version upgrades in order: version 1 (photos only,
 from v2 of the app) gains `kv`, `secrets` and `meta`; version 2 (Phase 1) gains
@@ -393,7 +428,8 @@ version 8 (the inbox) gains `notes`, indexed by subject; version 9 (notes)
 gains the library's `documents`, `highlights`, `documentFiles` and
 `documentTexts`; version 10 (the library) gains the search-by-meaning index,
 `embeddingSources` and `embeddingVectors`; version 11 (search by meaning)
-gains `conversations`.
+gains `conversations`; version 12 (the assistant) gains `cards` and
+`cardReviews`.
 Existing streaks, sessions, settings, keys and photos are untouched — each path
 is tested against `fake-indexeddb`.
 
@@ -579,7 +615,8 @@ feature ─► ai.chat / ai.complete / ai.embed
 - **`SendPreview`** is shown before an AI feature sends your text: the provider
   and model, exactly which notes or documents (each can be unticked), about
   how many tokens, and what that costs once a price is set. Nothing goes until
-  **Send**. Search by meaning uses it to build its index.
+  **Send**. Search by meaning uses it to build its index, and flashcards
+  before AI suggests cards from a note or a PDF.
 - **The assistant** says the same for every question, in its composer: the
   provider and model, each passage as a chip you can take out (or, about
   your plans, which parts, with the exact text a click away), and how many
@@ -607,8 +644,8 @@ unless **Include documents** is off; their text isn't included, since it's
 read again from the files. Nor is the search-by-meaning index: it's made from
 the notes and documents, so it's built again after a restore (on this device
 by itself, or with a provider through the send preview). Which notes are kept
-out of it is a setting, and is backed up. Conversations with the assistant are
-records like any other, backed up and merged.
+out of it is a setting, and is backed up. Conversations with the assistant,
+cards and the review log are records like any other, backed up and merged.
 
 **Password protection** (`lib/crypto.ts`) encrypts the whole backup on the
 device with the WebCrypto API: AES-GCM (256-bit, random 12-byte IV) under a
@@ -623,8 +660,8 @@ backup that includes API keys can't be made without a password; the password
 is never stored, so a forgotten one can't be recovered.
 
 Settings → Data can reset the streak history, habits, routines, tasks,
-documents, notes, conversations, the inbox, the log and the focus history
-separately;
+documents, notes, cards (with their reviews), conversations, the inbox, the
+log and the focus history separately;
 resetting focus clears the sessions and the timer but keeps settings and
 subjects.
 
@@ -1241,6 +1278,65 @@ your plans. It reads; it can't change anything.
 - **Size**: the page is 32 kB (12 kB compressed), loaded when it's opened;
   its commands and place in the navigation add 2 kB to the first load.
 
+## Flashcards
+
+`features/flashcards` keeps questions and their answers and brings each back
+just before you'd forget it, scheduled by FSRS (the Free Spaced Repetition
+Scheduler, through `ts-fsrs`, its reference implementation).
+
+- **Cards** (`cards.ts`): a collection. Front and back are markdown (maths
+  and code included); each has a subject, where it came from (a note, or a
+  document and page) and its schedule. Editing a card keeps its schedule;
+  **Start this card again** resets it.
+- **Scheduling** (`scheduler.ts`, `lib/schedule.ts`): FSRS with its default
+  parameters, short steps while learning (1 and 10 minutes; 10 when
+  relearning) and a little spread on long intervals, aiming for the recall
+  you choose (90%, or 80–95%). When the answer shows, each rating's outcome
+  is worked out once, at that moment, and shown on its button; rating
+  applies that outcome, so the interval on the button is the one you get.
+  FSRS comes with the Cards page (8 kB compressed), so studying never waits
+  for it.
+- **What's due** (`lib/queue.ts`, pure): steps of cards being learnt that
+  are due within 20 minutes, then reviews due by the end of today (oldest
+  first), then new cards in the order they were made, up to the day's limit
+  (20 by default, for all subjects together, counted by the day each card
+  was first studied). The card just answered isn't shown twice running
+  while others wait; one brought back by Undo comes first.
+- **Studying** (`components/ReviewSession.tsx`): the question, then the
+  answer (Space or Enter), then a rating: Again, Hard, Good or Easy (1–4),
+  each with its interval. Z takes back the last rating (the card and its log
+  line); E edits the card. What's showing and what's been rated are kept in
+  refs, so a rating pressed straight after Space counts, a key pressed twice
+  rates once, and Undo waits for the rating it takes back to be saved. The
+  session ends with the answers given and when the next card is due.
+- **The review log** (`reviews.ts`): every rating, with the card's state
+  before, the days since its last review, the schedule it led to and how
+  long the answer took. It's an indexed store read by day, not a collection
+  held in memory (it grows by thousands a year), and it's backed up, so
+  FSRS's parameters can be fitted to you later.
+- **Making cards**: by hand (a sheet with a preview; ⌘/Ctrl Enter saves, and
+  **Add and write another** keeps going); from a note's
+  `question :: answer` lines (`lib/text.ts`: the spaces around `::` are
+  needed, so `std::vector` isn't a card, and code and maths blocks are
+  skipped); or with AI (`generate.ts`). For AI, a note, or one page or all
+  of a PDF (whole pages, up to 24,000 characters), goes through the send
+  preview first; the model is asked for a JSON list, one idea a card, only
+  what the text says, maths in LaTeX, the text treated as material and not
+  as instructions, and its reply is read leniently. Everything arrives as
+  drafts to tick and edit, and ones already made from the same source start
+  unticked. The note's toolbar and the PDF's details link to
+  `/cards/make?note=…` or `?document=…&page=…`, so neither feature imports
+  this one.
+- **The habit**: **Count cards as a habit** makes (or reuses) a habit, "Study
+  cards"; the rating that leaves nothing to study today ticks it.
+- **Elsewhere**: the dashboard shows what's due once there are cards, ⌘K
+  finds cards by either side and opens them, R starts studying, and
+  Settings → Data can delete every card with its reviews.
+- **Size**: the Cards page is 54 kB (17 kB compressed) with FSRS, loaded when
+  it's opened. The first load carries only what the dashboard card needs
+  (the collection and what's due: 6 kB); card actions stay with the page, so
+  the feature's `index.ts` doesn't re-export them.
+
 ## Routines
 
 `features/routines` keeps short checklists for a part of the day — a morning
@@ -1298,9 +1394,10 @@ created on the first play, which always follows a click or key press.
 `app/commands.tsx` lists every action once (title, section, keywords, optional
 hotkey). The ⌘K / Ctrl K palette searches it (and everything else; see
 Search); the same list drives the keyboard
-shortcuts and the shortcuts sheet. Single-key shortcuts (C, F, N, I, L, M, S,
-A, T, `,`, `?`) are ignored while typing or while a dialog (`aria-modal`) is
-open. N adds a task and I captures to the inbox, from anywhere; New note and
+shortcuts and the shortcuts sheet. Single-key shortcuts (C, F, N, I, L, R, M,
+S, A, T, `,`, `?`) are ignored while typing or while a dialog (`aria-modal`)
+is open. Bindings are refreshed before paint, so a key pressed as soon as
+something new shows reaches the handlers that go with it. N adds a task and I captures to the inbox, from anywhere; New note and
 Go to Notes are in the palette, and on a note E starts writing. F starts,
 pauses or resumes the focus timer; the palette also offers "Start focus on
 <subject>" for each subject, skip break and cancel, as they apply.
@@ -1368,7 +1465,11 @@ plan; model prompts; nothing sent until asked, only what was ticked, only
 what changed, deleting without sending, another model starting afresh,
 related notes, snippets; the worker calls, errors, events and transfers;
 tokenising, padding, pooling — and, given the real model's files in
-`MOMENTUM_TEST_MODEL_DIR`, sensible similarities from it), the assistant
+`MOMENTUM_TEST_MODEL_DIR`, sensible similarities from it), flashcards (schedules to FSRS and back, damaged
+records, what's due and in what order, the new-card limit across subjects,
+intervals, cards in notes, reading suggested cards, FSRS's steps and
+intervals, saving, logging and undoing a rating, the review log where
+backups read it, the habit), the assistant
 (keyword ranking and fusion, joining neighbouring passages, the request and
 its history, citations, the plans snapshot and its parts, keeping to one
 document, answers saved with what was sent, failures, Ask again, Stop
@@ -1389,5 +1490,8 @@ related notes, offline) and with a stand-in provider that logs every request
 (nothing sent before Send or before searching is chosen), and the assistant
 against a stand-in chat server (exactly the passages shown and not the ones
 taken out, citations opening their pages, follow-ups, Stop, the plans
-snapshot without the parts left out, nothing sent while typing) — are
-checked in a headless browser at desktop and phone sizes.
+snapshot without the parts left out, nothing sent while typing), and
+flashcards (studying with the keys, Undo, cards from a note's lines and
+from a PDF page with AI, nothing sent before Send, search, the habit,
+deleting them all) — are checked in a headless browser at desktop and phone
+sizes.

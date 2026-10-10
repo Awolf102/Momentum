@@ -6,7 +6,7 @@ import type { DBSchema, IDBPDatabase } from 'idb'
  * browser on any older version is brought up to date.
  */
 export const DB_NAME = 'momentum'
-export const DB_VERSION = 12
+export const DB_VERSION = 13
 
 /** Object stores that hold collections (see `lib/collection.ts`). */
 export const COLLECTION_STORES = [
@@ -20,6 +20,8 @@ export const COLLECTION_STORES = [
   'documents',
   'highlights',
   'conversations',
+  'cards',
+  'cardReviews',
 ] as const
 export type CollectionStoreName = (typeof COLLECTION_STORES)[number]
 
@@ -142,6 +144,26 @@ export interface MomentumDB extends DBSchema {
     key: string
     value: { id: string; [field: string]: unknown }
   }
+  /** Flashcards with their review schedules (see `features/flashcards`). */
+  cards: {
+    key: string
+    value: { id: string; subjectId: string | null; [field: string]: unknown }
+    indexes: { 'by-subject': string }
+  }
+  /**
+   * Every rating given to a card, never loaded whole: read by day, and kept
+   * for statistics and for fitting the scheduler to you later.
+   */
+  cardReviews: {
+    key: string
+    value: {
+      id: string
+      cardId: string
+      day: string
+      [field: string]: unknown
+    }
+    indexes: { 'by-card': string; 'by-day': string }
+  }
 }
 
 export function upgrade(
@@ -211,4 +233,12 @@ export function upgrade(
   }
   // v12: conversations with the assistant.
   if (oldVersion < 12) db.createObjectStore('conversations', { keyPath: 'id' })
+  // v13: flashcards, and the log of their reviews (read by day or card).
+  if (oldVersion < 13) {
+    const cards = db.createObjectStore('cards', { keyPath: 'id' })
+    cards.createIndex('by-subject', 'subjectId')
+    const reviews = db.createObjectStore('cardReviews', { keyPath: 'id' })
+    reviews.createIndex('by-card', 'cardId')
+    reviews.createIndex('by-day', 'day')
+  }
 }

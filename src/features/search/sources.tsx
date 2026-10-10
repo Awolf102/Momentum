@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import {
   BookIcon,
+  CardsIcon,
   CheckIcon,
   ChecklistIcon,
   InboxIcon,
@@ -14,6 +15,7 @@ import {
   habitsStore,
   liveHabits,
 } from '@/features/habits'
+import { cards, openCard } from '@/features/flashcards'
 import { inboxItems } from '@/features/inbox'
 import { documents, documentTexts, loadDocumentTexts } from '@/features/library'
 import { logEntries } from '@/features/log'
@@ -46,11 +48,12 @@ const LIMIT = 30
 const ORDER = {
   note: 0,
   document: 1,
-  task: 2,
-  habit: 3,
-  routine: 4,
-  log: 5,
-  inbox: 6,
+  card: 2,
+  task: 3,
+  habit: 4,
+  routine: 5,
+  log: 6,
+  inbox: 7,
 }
 
 /** Something searchable, with what to show and do when it's found. */
@@ -152,6 +155,28 @@ function candidates(today: string): Candidate[] {
               opens: `document:${document.id}`,
               run: () => navigate(paths.document(document.id)),
             },
+    })
+  }
+
+  for (const card of cards.get()) {
+    const subject = subjectOf(card.subjectId)
+    found.push({
+      entry: entryFor(card, subject, () => {
+        const front = plainLines(card.front)
+        return {
+          order: ORDER.card,
+          key: `card:${card.id}`,
+          title: front[0] ?? card.front.trim(),
+          text: [...front.slice(1), ...plainLines(card.back), subject].join(
+            '\n',
+          ),
+          updatedAt: card.updatedAt,
+        }
+      }),
+      section: 'Cards',
+      icon: <CardsIcon />,
+      detail: card.schedule.state === 'new' ? 'New' : undefined,
+      run: () => openCard(card.id),
     })
   }
 

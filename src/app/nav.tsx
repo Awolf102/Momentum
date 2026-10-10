@@ -1,6 +1,7 @@
 import type { ComponentType, ReactNode } from 'react'
 import {
   BookIcon,
+  CardsIcon,
   ChatIcon,
   ChecklistIcon,
   HomeIcon,
@@ -48,6 +49,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Library',
     icon: <LibraryIcon />,
     isActive: (location) => location.startsWith(paths.library),
+    tabBar: false,
+  },
+  {
+    href: paths.cards,
+    label: 'Cards',
+    icon: <CardsIcon />,
+    isActive: (location) => location.startsWith(paths.cards),
     tabBar: false,
   },
   {

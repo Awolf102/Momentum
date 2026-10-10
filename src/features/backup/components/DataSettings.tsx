@@ -16,6 +16,7 @@ import {
 import { SettingsCard } from '@/components/SettingsCard'
 import { Switch } from '@/components/Switch'
 import { conversations } from '@/features/assistant'
+import { cards, clearReviews } from '@/features/flashcards'
 import { focusSessions, resetTimer } from '@/features/focus'
 import { habitCheckIns, habitsStore } from '@/features/habits'
 import { inboxItems } from '@/features/inbox'
@@ -55,6 +56,8 @@ const RECORD_NAMES: Record<string, [one: string, many: string]> = {
   documents: ['document', 'documents'],
   highlights: ['highlight', 'highlights'],
   conversations: ['conversation', 'conversations'],
+  cards: ['card', 'cards'],
+  cardReviews: ['card review', 'card reviews'],
 }
 
 export function DataSettings() {
@@ -250,7 +253,7 @@ function BackupCard() {
   return (
     <SettingsCard
       title="Backup"
-      description="One file with your streak, habits, routines, tasks, notes, library, inbox, log, focus sessions, settings, photos and AI usage. Importing adds to what's here rather than replacing it."
+      description="One file with your streak, habits, routines, tasks, notes, cards, library, inbox, log, focus sessions, conversations, settings, photos and AI usage. Importing adds to what's here rather than replacing it."
     >
       <div className="space-y-2">
         {/* Chosen before exporting or importing, so it's never a surprise. */}
@@ -499,6 +502,15 @@ function ResetCard() {
           onReset={() => {
             void notes.clear()
             setDone('Your notes were deleted.')
+          }}
+        />
+        <ResetRow
+          label="Delete all cards"
+          confirm="Tap again to delete every card and its reviews"
+          onReset={() => {
+            void cards.clear()
+            void clearReviews()
+            setDone('Your cards and their reviews were deleted.')
           }}
         />
         <ResetRow

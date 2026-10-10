@@ -1,5 +1,7 @@
 import 'fake-indexeddb/auto'
 import { afterEach, describe, expect, it } from 'vitest'
+import { cards } from '@/features/flashcards'
+import { addCards } from '@/features/flashcards/actions'
 import { addHabit, habitsStore } from '@/features/habits'
 import { capture, inboxItems } from '@/features/inbox'
 import { documents, loadDocumentTexts } from '@/features/library'
@@ -18,6 +20,7 @@ afterEach(async () => {
     logEntries.clear(),
     inboxItems.clear(),
     documents.clear(),
+    cards.clear(),
   ])
   habitsStore.reset()
   routinesStore.reset()
@@ -94,6 +97,23 @@ describe('searching everything', () => {
     expect(text(searchEverything('flip')[0].snippet)).toBe(
       '[Flip]-flops store one bit.',
     )
+  })
+
+  it('finds cards by either side', async () => {
+    const [card] = await addCards(
+      [
+        {
+          front: 'What does a **Karnaugh map** group?',
+          back: 'Adjacent ones, in rectangles of $2^n$ cells',
+        },
+      ],
+      { subjectId: null },
+    )
+    const [byFront] = searchEverything('karnaugh')
+    expect(byFront).toMatchObject({ id: `card:${card.id}`, section: 'Cards' })
+    expect(text(byFront.title)).toBe('What does a [Karnaugh] map group?')
+    expect(byFront.detail).toBe('New')
+    expect(searchEverything('rectangles')[0].id).toBe(`card:${card.id}`)
   })
 
   it('lists at most five of a kind', async () => {

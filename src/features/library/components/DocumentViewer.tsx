@@ -773,6 +773,10 @@ function PdfView({
           setDetailsOpen(false)
           void noteFromHighlights(document)
         }}
+        onMakeCards={() => {
+          setDetailsOpen(false)
+          navigate(paths.makeCards({ document: document.id, page: current }))
+        }}
         onDelete={() => void remove()}
       />
     </div>

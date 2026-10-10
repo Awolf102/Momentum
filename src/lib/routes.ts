@@ -34,6 +34,19 @@ export const paths = {
     about === 'planner'
       ? '/assistant?mode=planner'
       : `/assistant?document=${encodeURIComponent(about.document)}`,
+  cards: '/cards',
+  /** Studying the cards due: all, one subject's, or those with none (null). */
+  study: (subjectId?: string | null) =>
+    subjectId === undefined
+      ? '/cards/review'
+      : `/cards/review?subject=${encodeURIComponent(subjectId ?? 'none')}`,
+  /** Making cards, from a note or a document (at a page) when given. */
+  makeCards: (from?: { note: string } | { document: string; page?: number }) =>
+    !from
+      ? '/cards/make'
+      : 'note' in from
+        ? `/cards/make?note=${encodeURIComponent(from.note)}`
+        : `/cards/make?document=${encodeURIComponent(from.document)}${from.page ? `&page=${from.page}` : ''}`,
   settings: (section?: SettingsSection) =>
     section ? `/settings/${section}` : '/settings',
 }
