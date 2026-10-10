@@ -1,7 +1,8 @@
 import type { Background, UserPhoto } from './types'
 
 /**
- * Every image in `src/assets/backgrounds/` becomes a built-in background.
+ * Every image in `src/assets/backgrounds/` becomes a built-in background
+ * (glob patterns must be literal strings for Vite).
  * The name comes from the file name: `australia-mountains.jpg` → "Australia Mountains".
  */
 const bundledPhotoUrls = import.meta.glob<string>(
@@ -9,71 +10,184 @@ const bundledPhotoUrls = import.meta.glob<string>(
   { eager: true, query: '?url', import: 'default' },
 )
 
+/** Photos in `src/assets/backgrounds/unlocks/<days>/` unlock at that longest streak. */
+const rewardPhotoUrls = import.meta.glob<string>(
+  '../../assets/backgrounds/unlocks/*/*.{jpg,jpeg,png,webp,avif}',
+  { eager: true, query: '?url', import: 'default' },
+)
+
+function fileName(path: string): string {
+  return (path.split('/').pop() ?? path).replace(/\.[^.]+$/, '')
+}
+
 function nameFromPath(path: string): string {
-  const fileName = path.split('/').pop() ?? path
-  return fileName
-    .replace(/\.[^.]+$/, '')
+  return fileName(path)
     .replace(/[-_]+/g, ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
-function slugFromPath(path: string): string {
-  return (path.split('/').pop() ?? path).replace(/\.[^.]+$/, '').toLowerCase()
+function bundled(urls: Record<string, string>): Background[] {
+  return Object.entries(urls)
+    .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+    .map(([path, src]) => {
+      const unlockAt = Number(/\/unlocks\/(\d+)\//.exec(path)?.[1])
+      return {
+        id: `photo:${fileName(path).toLowerCase()}`,
+        name: nameFromPath(path),
+        kind: 'photo',
+        src,
+        ...(unlockAt > 0 ? { unlockAt } : {}),
+      }
+    })
 }
 
-export const BUNDLED_PHOTOS: Background[] = Object.entries(bundledPhotoUrls)
-  .sort(([a], [b]) => a.localeCompare(b))
-  .map(([path, src]) => ({
-    id: `photo:${slugFromPath(path)}`,
-    name: nameFromPath(path),
-    kind: 'photo',
-    src,
-  }))
+export const BUNDLED_PHOTOS = bundled({
+  ...bundledPhotoUrls,
+  ...rewardPhotoUrls,
+})
 
 export const PRESETS: Background[] = [
-  {
-    id: 'alpine-dusk',
-    name: 'Alpine Dusk',
-    kind: 'scene',
-    scene: 'alpine-dusk',
-  },
+  { id: 'alpine-dusk', name: 'Alpine Ridge', kind: 'scene', scene: 'alpine' },
   {
     id: 'midnight',
     name: 'Midnight',
     kind: 'gradient',
-    css: 'radial-gradient(120% 80% at 50% 0%, #1d2a52 0%, #0b1022 55%, #05070f 100%)',
+    layers: [
+      {
+        type: 'radial',
+        at: [50, 0],
+        size: [120, 80],
+        stops: [
+          ['#1d2a52', 0],
+          ['#0b1022', 55],
+          ['#05070f', 100],
+        ],
+      },
+    ],
   },
   {
     id: 'aurora',
-    name: 'Aurora',
+    name: 'Lagoon',
     kind: 'gradient',
-    css: [
-      'radial-gradient(60% 50% at 20% 20%, rgb(45 212 191 / 0.45) 0%, transparent 70%)',
-      'radial-gradient(50% 45% at 80% 30%, rgb(129 140 248 / 0.45) 0%, transparent 70%)',
-      'radial-gradient(70% 60% at 50% 100%, rgb(16 185 129 / 0.25) 0%, transparent 70%)',
-      'linear-gradient(180deg, #071a24 0%, #050b14 100%)',
-    ].join(', '),
+    layers: [
+      {
+        type: 'radial',
+        at: [20, 20],
+        size: [60, 50],
+        stops: [
+          ['rgba(45,212,191,0.45)', 0],
+          ['rgba(45,212,191,0)', 70],
+        ],
+      },
+      {
+        type: 'radial',
+        at: [80, 30],
+        size: [50, 45],
+        stops: [
+          ['rgba(129,140,248,0.45)', 0],
+          ['rgba(129,140,248,0)', 70],
+        ],
+      },
+      {
+        type: 'radial',
+        at: [50, 100],
+        size: [70, 60],
+        stops: [
+          ['rgba(16,185,129,0.25)', 0],
+          ['rgba(16,185,129,0)', 70],
+        ],
+      },
+      {
+        type: 'linear',
+        stops: [
+          ['#071a24', 0],
+          ['#050b14', 100],
+        ],
+      },
+    ],
   },
   {
     id: 'ember',
     name: 'Ember',
     kind: 'gradient',
-    css: [
-      'radial-gradient(70% 55% at 50% 110%, rgb(249 115 22 / 0.55) 0%, transparent 70%)',
-      'radial-gradient(45% 40% at 85% 15%, rgb(244 63 94 / 0.3) 0%, transparent 70%)',
-      'linear-gradient(180deg, #120a10 0%, #1c0d08 100%)',
-    ].join(', '),
+    layers: [
+      {
+        type: 'radial',
+        at: [50, 110],
+        size: [70, 55],
+        stops: [
+          ['rgba(249,115,22,0.55)', 0],
+          ['rgba(249,115,22,0)', 70],
+        ],
+      },
+      {
+        type: 'radial',
+        at: [85, 15],
+        size: [45, 40],
+        stops: [
+          ['rgba(244,63,94,0.3)', 0],
+          ['rgba(244,63,94,0)', 70],
+        ],
+      },
+      {
+        type: 'linear',
+        stops: [
+          ['#120a10', 0],
+          ['#1c0d08', 100],
+        ],
+      },
+    ],
   },
   {
     id: 'graphite',
     name: 'Graphite',
     kind: 'gradient',
-    css: 'radial-gradient(100% 70% at 50% 0%, #2a2d34 0%, #131418 60%, #0a0a0c 100%)',
+    layers: [
+      {
+        type: 'radial',
+        at: [50, 0],
+        size: [100, 70],
+        stops: [
+          ['#2a2d34', 0],
+          ['#131418', 60],
+          ['#0a0a0c', 100],
+        ],
+      },
+    ],
+  },
+]
+
+/** Milestones you can attach to your own reward photos. */
+export const REWARD_MILESTONES = [30, 60, 100] as const
+
+/** Built-in rewards: the mountain at its most beautiful, earned with a long streak. */
+export const REWARD_SCENES: Background[] = [
+  {
+    id: 'scene:aurora',
+    name: 'Aurora Ridge',
+    kind: 'scene',
+    scene: 'aurora',
+    unlockAt: 30,
+  },
+  {
+    id: 'scene:moonrise',
+    name: 'Moonrise',
+    kind: 'scene',
+    scene: 'moonrise',
+    unlockAt: 60,
+  },
+  {
+    id: 'scene:first-light',
+    name: 'First Light',
+    kind: 'scene',
+    scene: 'first-light',
+    unlockAt: 100,
   },
 ]
 
 /** Your own bundled photo wins as the default; otherwise the mountain scene. */
-export const DEFAULT_BACKGROUND_ID = BUNDLED_PHOTOS[0]?.id ?? 'alpine-dusk'
+export const DEFAULT_BACKGROUND_ID =
+  BUNDLED_PHOTOS.find((photo) => !photo.unlockAt)?.id ?? 'alpine-dusk'
 
 export function userPhotoBackground(photo: UserPhoto): Background {
   return {
@@ -81,22 +195,42 @@ export function userPhotoBackground(photo: UserPhoto): Background {
     name: photo.name,
     kind: 'user-photo',
     photoId: photo.id,
+    ...(photo.unlockAt ? { unlockAt: photo.unlockAt } : {}),
   }
 }
 
-/** All backgrounds the picker offers, in display order. */
-export function listBackgrounds(photos: readonly UserPhoto[]): Background[] {
-  return [...BUNDLED_PHOTOS, ...photos.map(userPhotoBackground), ...PRESETS]
+export function isUnlocked(
+  background: Background,
+  longestStreak: number,
+): boolean {
+  return !background.unlockAt || longestStreak >= background.unlockAt
 }
 
-/** Resolves the selected id, falling back to the default if it no longer exists. */
+/** Every background, rewards last and in unlock order. */
+export function listBackgrounds(photos: readonly UserPhoto[]): Background[] {
+  const all = [
+    ...BUNDLED_PHOTOS,
+    ...photos.map(userPhotoBackground),
+    ...PRESETS,
+    ...REWARD_SCENES,
+  ]
+  const everyday = all.filter((background) => !background.unlockAt)
+  const rewards = all
+    .filter((background) => background.unlockAt)
+    .sort((a, b) => (a.unlockAt ?? 0) - (b.unlockAt ?? 0))
+  return [...everyday, ...rewards]
+}
+
+/** Resolves the selected id, falling back to the default if it's gone or still locked. */
 export function resolveBackground(
   id: string | null,
   photos: readonly UserPhoto[],
+  longestStreak: number,
 ): Background {
   const all = listBackgrounds(photos)
+  const selected = all.find((background) => background.id === id)
+  if (selected && isUnlocked(selected, longestStreak)) return selected
   return (
-    all.find((background) => background.id === id) ??
     all.find((background) => background.id === DEFAULT_BACKGROUND_ID) ??
     PRESETS[0]
   )

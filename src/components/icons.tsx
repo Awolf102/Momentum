@@ -112,3 +112,168 @@ export function CalendarCheckIcon(props: IconProps) {
     </Icon>
   )
 }
+
+export function SearchIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="M20 20l-4.2-4.2" />
+    </Icon>
+  )
+}
+
+export function KeyboardIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="6" width="18" height="12" rx="2.5" />
+      <path d="M7 10h.01M11 10h.01M15 10h.01M17 14H7" />
+    </Icon>
+  )
+}
+
+export function FlameIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3c1 3.5 6 5.5 6 11a6 6 0 01-12 0c0-3 1.5-4.5 2.5-6 .3 2 1.2 3 2.5 3.3C10.3 8 11 5.5 12 3z" />
+    </Icon>
+  )
+}
+
+export function ImageIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+      <circle cx="9" cy="10" r="1.6" />
+      <path d="M20.5 16l-5-5-8.5 8.5" />
+    </Icon>
+  )
+}
+
+export function MountainIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3 19l6.5-11 3.5 6 2-3 6 8H3z" />
+      <path d="M8 10.5l1.5 1 1.5-1" />
+    </Icon>
+  )
+}
+
+export function ShareIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 15V4M8 8l4-4 4 4" />
+      <path d="M7 11H6a2 2 0 00-2 2v5a2 2 0 002 2h12a2 2 0 002-2v-5a2 2 0 00-2-2h-1" />
+    </Icon>
+  )
+}
+
+export function VolumeIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 10v4h3l5 4V6L7 10H4z" />
+      <path d="M16 9a4 4 0 010 6M18.5 6.5a7.5 7.5 0 010 11" />
+    </Icon>
+  )
+}
+
+export function MuteIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 10v4h3l5 4V6L7 10H4z" />
+      <path d="M16 10l4 4M20 10l-4 4" />
+    </Icon>
+  )
+}
+
+export function SunriseIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M7 16a5 5 0 0110 0M3 20h18M12 4v4M4.9 9.9l1.4 1.4M19.1 9.9l-1.4 1.4M2 16h2M20 16h2" />
+    </Icon>
+  )
+}
+
+export function BellIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15L6 16zM10 21h4" />
+    </Icon>
+  )
+}
+
+export function InstallIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="6" y="2.5" width="12" height="19" rx="2.5" />
+      <path d="M12 7v7M9 11l3 3 3-3M10 18.5h4" />
+    </Icon>
+  )
+}
+
+export function LockIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="5" y="10.5" width="14" height="10" rx="2.5" />
+      <path d="M8 10.5V8a4 4 0 018 0v2.5" />
+    </Icon>
+  )
+}
+
+export function WindIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3 8h10a3 3 0 10-3-3M3 12h15a3 3 0 11-3 3M3 16h7" />
+    </Icon>
+  )
+}
+
+export function RainIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M7 15a4.5 4.5 0 01-.5-9A5.5 5.5 0 0117 7a4 4 0 01.5 8" />
+      <path d="M9 18l-1 2.5M13 18l-1 2.5M17 18l-1 2.5" />
+    </Icon>
+  )
+}
+
+export function PencilIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 013 3L8 19l-4 1z" />
+    </Icon>
+  )
+}
+
+export function UndoIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M9 8L4.5 12.5 9 17" />
+      <path d="M4.5 12.5H15a4.5 4.5 0 010 9h-2" />
+    </Icon>
+  )
+}
+
+export function SparkleIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3zM19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7L19 16z" />
+    </Icon>
+  )
+}
+
+export function ArrowLeftIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M19 12H5M11 6l-6 6 6 6" />
+    </Icon>
+  )
+}
+
+export function CopyIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="8.5" y="8.5" width="12" height="12" rx="2.5" />
+      <path d="M15.5 8.5V6a2.5 2.5 0 00-2.5-2.5H6A2.5 2.5 0 003.5 6v7A2.5 2.5 0 006 15.5h2.5" />
+    </Icon>
+  )
+}

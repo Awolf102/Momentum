@@ -1,5 +1,7 @@
-import { useSyncExternalStore } from 'react'
 import { isRecord } from './guards'
+import type { Store } from './store'
+
+export { useStore } from './store'
 
 /** The subset of the Web Storage API a store needs — swappable for tests or a remote backend. */
 export interface StorageDriver {
@@ -58,11 +60,8 @@ export interface PersistentStoreOptions<T> {
   storage?: StorageDriver
 }
 
-export interface PersistentStore<T> {
+export interface PersistentStore<T> extends Store<T> {
   readonly key: string
-  get(): T
-  set(next: T | ((previous: T) => T)): void
-  subscribe(listener: () => void): () => void
   reset(): void
   toEnvelope(): StoredEnvelope
   /** Decodes an envelope (e.g. from a backup file), running migrations. `null` if invalid. */
@@ -158,9 +157,4 @@ export function createPersistentStore<T>(
     toEnvelope: () => ({ version, data: state }),
     decode,
   }
-}
-
-/** Subscribes a component to a persistent store. */
-export function useStore<T>(store: PersistentStore<T>): T {
-  return useSyncExternalStore(store.subscribe, store.get, store.get)
 }

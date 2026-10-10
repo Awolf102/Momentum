@@ -21,6 +21,17 @@ export const streakStore = createPersistentStore<StreakData>({
   parse: parseStreakData,
 })
 
+const checkInListeners = new Set<() => void>()
+
+/**
+ * Runs `listener` whenever a check-in is recorded in this tab — from the
+ * button, a keyboard shortcut or the command palette. Returns an unsubscribe.
+ */
+export function onCheckIn(listener: () => void): () => void {
+  checkInListeners.add(listener)
+  return () => checkInListeners.delete(listener)
+}
+
 /**
  * Records a check-in for the current local day.
  * Reads the clock at call time, so a screen left open past midnight still
@@ -33,6 +44,7 @@ export function checkIn(now: Date = new Date()): boolean {
     ...previous,
     checkIns: { ...previous.checkIns, [today]: { at: now.toISOString() } },
   }))
+  for (const listener of checkInListeners) listener()
   return true
 }
 

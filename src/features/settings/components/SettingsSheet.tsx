@@ -1,16 +1,20 @@
 import type { ReactNode } from 'react'
 import { Sheet } from '@/components/Sheet'
-import { BackgroundSetting, ThemeSetting } from '@/features/appearance'
+import {
+  BackgroundSetting,
+  LightSetting,
+  ThemeSetting,
+} from '@/features/appearance'
+import { InstallSetting } from '@/features/pwa'
+import { ReminderSetting } from '@/features/reminder'
+import { useStore } from '@/lib/store'
+import { closeSettings, settingsOpenStore } from '../store'
 import { DataSettings } from './DataSettings'
 
-interface SettingsSheetProps {
-  open: boolean
-  onClose: () => void
-}
-
-export function SettingsSheet({ open, onClose }: SettingsSheetProps) {
+export function SettingsSheet() {
+  const open = useStore(settingsOpenStore)
   return (
-    <Sheet open={open} onClose={onClose} title="Settings">
+    <Sheet open={open} onClose={closeSettings} title="Settings">
       <div className="space-y-8 pt-2">
         <Section title="Theme">
           <ThemeSetting />
@@ -20,6 +24,15 @@ export function SettingsSheet({ open, onClose }: SettingsSheetProps) {
           description="Choose a scene or add your own photographs. Photos stay on this device."
         >
           <BackgroundSetting />
+        </Section>
+        <Section title="Light">
+          <LightSetting />
+        </Section>
+        <Section title="Reminder">
+          <ReminderSetting />
+        </Section>
+        <Section title="App">
+          <InstallSetting />
         </Section>
         <Section
           title="Your data"

@@ -3,7 +3,7 @@ import { loadPhoto, type PhotoVariant } from '../lib/photoStorage'
 
 /** An object URL for a stored photo, revoked automatically when no longer needed. */
 export function usePhotoUrl(
-  photoId: string,
+  photoId: string | null,
   variant: PhotoVariant,
 ): string | null {
   const [loaded, setLoaded] = useState<{ key: string; url: string } | null>(
@@ -12,6 +12,7 @@ export function usePhotoUrl(
   const key = `${photoId}:${variant}`
 
   useEffect(() => {
+    if (!photoId) return
     let cancelled = false
     let objectUrl: string | null = null
     loadPhoto(photoId, variant)

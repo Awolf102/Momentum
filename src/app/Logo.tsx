@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { LOGO_COLORS, LOGO_RIDGE } from '@/lib/brand'
 
 /** Momentum's mark: a mountain ridge that doubles as an "M". */
 export function Logo({ className }: { className?: string }) {
@@ -7,9 +8,9 @@ export function Logo({ className }: { className?: string }) {
     <svg viewBox="0 0 32 32" aria-hidden="true" className={className}>
       <defs>
         <linearGradient id={`${id}-ridge`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#fde68a" />
-          <stop offset="0.5" stopColor="#fb923c" />
-          <stop offset="1" stopColor="#f43f5e" />
+          <stop offset="0" stopColor={LOGO_COLORS[0]} />
+          <stop offset="0.5" stopColor={LOGO_COLORS[1]} />
+          <stop offset="1" stopColor={LOGO_COLORS[2]} />
         </linearGradient>
       </defs>
       <rect width="32" height="32" rx="9" fill="#0b0f1f" />
@@ -24,7 +25,7 @@ export function Logo({ className }: { className?: string }) {
         strokeOpacity="0.14"
       />
       <path
-        d="M6.5 22.5L12.5 11L16 17.5L19.5 11L25.5 22.5"
+        d={LOGO_RIDGE}
         fill="none"
         stroke={`url(#${id}-ridge)`}
         strokeWidth="3"
