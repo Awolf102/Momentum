@@ -11,6 +11,7 @@ import {
   DownloadIcon,
   HomeIcon,
   ImageIcon,
+  InboxIcon,
   InstallIcon,
   KeyboardIcon,
   MoonIcon,
@@ -61,6 +62,7 @@ import {
   newHabit,
   toggleHabit,
 } from '@/features/habits'
+import { openCapture } from '@/features/inbox'
 import { writeLine } from '@/features/log'
 import { newRoutine } from '@/features/routines'
 import { openQuickAdd, setTasksView, tasksViewStore } from '@/features/tasks'
@@ -185,6 +187,15 @@ export function useAppCommands(): Command[] {
           }))
         : []),
       {
+        id: 'capture',
+        title: 'Capture to inbox',
+        section: 'Tasks',
+        icon: <InboxIcon />,
+        keywords: ['inbox', 'note', 'idea', 'thought', 'jot', 'quick', 'link'],
+        hotkey: { key: 'i' },
+        run: openCapture,
+      },
+      {
         id: 'task-add',
         title: 'Add a task',
         section: 'Tasks',
@@ -294,6 +305,14 @@ export function useAppCommands(): Command[] {
         icon: <ChecklistIcon />,
         keywords: ['todo', 'list', 'board', 'kanban', 'due'],
         run: () => navigate(paths.tasks),
+      },
+      {
+        id: 'go-inbox',
+        title: 'Go to Inbox',
+        section: 'Go to',
+        icon: <InboxIcon />,
+        keywords: ['captured', 'sort', 'shared', 'ideas'],
+        run: () => navigate(paths.inbox),
       },
       {
         id: 'go-log',

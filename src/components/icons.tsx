@@ -342,6 +342,15 @@ export function AlertIcon(props: IconProps) {
   )
 }
 
+export function InboxIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3.5 13.5l2.6-7.3A2 2 0 018 4.9h8a2 2 0 011.9 1.3l2.6 7.3v4.5a2 2 0 01-2 2h-13a2 2 0 01-2-2v-4.5z" />
+      <path d="M3.5 13.5h4.25l1.5 2.5h5.5l1.5-2.5h4.25" />
+    </Icon>
+  )
+}
+
 export function ChecklistIcon(props: IconProps) {
   return (
     <Icon {...props}>

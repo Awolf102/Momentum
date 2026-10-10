@@ -8,6 +8,7 @@ import {
   useFocusCalendarView,
 } from '@/features/focus'
 import { HabitsCard, useHabitsCalendarView } from '@/features/habits'
+import { InboxNotice } from '@/features/inbox'
 import { TodayLine } from '@/features/log'
 import { RoutinesCard } from '@/features/routines'
 import { openShare } from '@/features/share'
@@ -43,6 +44,7 @@ export function DashboardPage() {
         }
       />
       <div className="flex w-full max-w-3xl flex-col gap-4 sm:gap-5">
+        <InboxNotice />
         <FocusCard />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
           <StreakStatTiles streak={streak} />

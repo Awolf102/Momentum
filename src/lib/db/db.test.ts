@@ -16,6 +16,7 @@ describe('database schema', () => {
     expect([...db.objectStoreNames].sort()).toEqual([
       'focusSessions',
       'habitCheckIns',
+      'inboxItems',
       'kv',
       'logEntries',
       'meta',

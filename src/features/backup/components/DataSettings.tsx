@@ -17,6 +17,7 @@ import { SettingsCard } from '@/components/SettingsCard'
 import { Switch } from '@/components/Switch'
 import { focusSessions, resetTimer } from '@/features/focus'
 import { habitCheckIns, habitsStore } from '@/features/habits'
+import { inboxItems } from '@/features/inbox'
 import { logEntries } from '@/features/log'
 import { routineRuns, routinesStore } from '@/features/routines'
 import { tasks } from '@/features/tasks'
@@ -40,6 +41,7 @@ const RECORD_NAMES: Record<string, [one: string, many: string]> = {
   tasks: ['task', 'tasks'],
   habitCheckIns: ['habit day', 'habit days'],
   routineRuns: ['routine day', 'routine days'],
+  inboxItems: ['inbox item', 'inbox items'],
 }
 
 export function DataSettings() {
@@ -226,7 +228,7 @@ function BackupCard() {
   return (
     <SettingsCard
       title="Backup"
-      description="One file with your streak, habits, routines, tasks, log, focus sessions, settings, photos and AI usage. Importing adds to what's here rather than replacing it."
+      description="One file with your streak, habits, routines, tasks, inbox, log, focus sessions, settings, photos and AI usage. Importing adds to what's here rather than replacing it."
     >
       <div className="space-y-2">
         {/* Chosen before exporting or importing, so it's never a surprise. */}
@@ -449,6 +451,14 @@ function ResetCard() {
           onReset={() => {
             void tasks.clear()
             setDone('Your tasks were cleared.')
+          }}
+        />
+        <ResetRow
+          label="Empty the inbox"
+          confirm="Tap again to delete everything in the inbox"
+          onReset={() => {
+            void inboxItems.clear()
+            setDone('Your inbox is empty.')
           }}
         />
         <ResetRow

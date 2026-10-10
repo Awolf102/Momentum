@@ -24,7 +24,7 @@ function TabContent({ icon, label }: { icon: ReactNode; label: string }) {
 export function TabBar({ hidden }: { hidden: boolean }) {
   const [location] = useLocation()
   // Pages, then search, with settings at the end: Home · Log · Search · Settings.
-  const pages = NAV_ITEMS.slice(0, -1)
+  const pages = NAV_ITEMS.slice(0, -1).filter((item) => item.tabBar !== false)
   const settings = NAV_ITEMS.at(-1)!
   const link = (item: NavItem) => (
     <Link
