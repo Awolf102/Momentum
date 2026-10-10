@@ -46,6 +46,15 @@ export function createMemoryBackend(
   }
 }
 
+/**
+ * How restored data meets what's here. `merge` combines them by the store's
+ * rule, this device's side winning where they disagree (a store without one
+ * takes the restored data): what restoring a backup does. `merge-theirs`
+ * combines them with the restored side winning, and `replace` takes the
+ * restored data as it is.
+ */
+export type RestoreMode = 'merge' | 'merge-theirs' | 'replace'
+
 export interface PersistentStoreOptions<T> {
   key: string
   /** Current schema version. Bump it for changes `parse` can't absorb. */
@@ -55,7 +64,10 @@ export interface PersistentStoreOptions<T> {
   parse: (data: unknown) => T | null
   /** Upgrades data written by an older version into the current shape (then `parse`d). */
   migrate?: (data: unknown, fromVersion: number) => unknown
-  /** How a restored backup combines with what's here. Default: replace. */
+  /**
+   * How restored data (from a backup, or another device) combines with
+   * what's here, `current` winning where they disagree. Default: replace.
+   */
   merge?: (current: T, incoming: T) => T
   registry?: StoreRegistry
 }
@@ -66,8 +78,8 @@ export interface PersistentStore<T> extends Store<T> {
   toEnvelope(): StoredEnvelope
   /** Decodes an envelope (e.g. from a backup), running migrations. `null` if invalid. */
   decode(envelope: unknown): T | null
-  /** Applies data from a backup: merged if the store defines how, else replaced. */
-  restore(value: T): void
+  /** Applies data from a backup or another device (see `RestoreMode`). */
+  restore(value: T, mode?: RestoreMode): void
 }
 
 interface RegisteredStore {
@@ -75,7 +87,7 @@ interface RegisteredStore {
   decode(raw: unknown): unknown
   apply(value: unknown): void
   envelope(): StoredEnvelope
-  restoreFrom(raw: unknown): boolean
+  restoreFrom(raw: unknown, mode?: RestoreMode): boolean
   /** Changed before hydration finished: keep this value. */
   dirty: boolean
 }
@@ -153,9 +165,12 @@ export class StoreRegistry {
   /**
    * Everything saved, for a backup: the live value of every registered store,
    * plus saved data for stores whose code hasn't loaded this session (a page
-   * that hasn't been opened yet).
+   * that hasn't been opened yet). `savedOnly` leaves out stores that were
+   * never saved, still at their defaults.
    */
-  async snapshotAll(): Promise<Record<string, StoredEnvelope>> {
+  async snapshotAll({ savedOnly = false } = {}): Promise<
+    Record<string, StoredEnvelope>
+  > {
     await this.flush()
     const saved = this.backend
       ? await this.backend.readAll()
@@ -164,17 +179,24 @@ export class StoreRegistry {
     for (const [key, value] of saved) {
       if (isEnvelope(value)) result[key] = value
     }
-    return { ...result, ...this.snapshot() }
+    for (const [key, envelope] of Object.entries(this.snapshot()))
+      if (!savedOnly || saved.has(key)) result[key] = envelope
+    return result
   }
 
   /**
-   * Restores one store from a backup envelope. Data for a store this session
-   * hasn't loaded is saved as-is for when it does. False if it can't be used
-   * (damaged, or from a newer version of a store).
+   * Restores one store from a backup envelope (or another device's), as
+   * `mode` says. Data for a store this session hasn't loaded is saved as-is
+   * for when it does. False if it can't be used (damaged, or from a newer
+   * version of a store).
    */
-  async restore(key: string, envelope: unknown): Promise<boolean> {
+  async restore(
+    key: string,
+    envelope: unknown,
+    mode: RestoreMode = 'merge',
+  ): Promise<boolean> {
     const store = this.stores.get(key)
-    if (store) return store.restoreFrom(envelope)
+    if (store) return store.restoreFrom(envelope, mode)
     if (!isEnvelope(envelope) || !this.backend) return false
     await this.backend.write(key, envelope)
     this.channel?.postMessage({ keys: [key] })
@@ -242,8 +264,17 @@ export class StoreRegistry {
     return report
   }
 
+  private changeListeners = new Set<(key: string) => void>()
+
+  /** Hears about every change made in this tab (sync uses it). */
+  onChange(listener: (key: string) => void): () => void {
+    this.changeListeners.add(listener)
+    return () => this.changeListeners.delete(listener)
+  }
+
   schedule(key: string, operation: 'write' | 'remove'): void {
     this.pending.set(key, operation)
+    for (const listener of this.changeListeners) listener(key)
     if (!this.backend || this.flushQueued) return // Written once hydration has picked a backend.
     // Changes made together are written together, straight after the code
     // that made them: soon enough that leaving the page doesn't lose them.
@@ -364,7 +395,7 @@ export function createPersistentStore<T>(
       emit()
     },
     envelope: () => ({ version, data: state }),
-    restoreFrom(raw) {
+    restoreFrom(raw, mode) {
       if (raw === undefined) {
         state = defaultValue
         emit()
@@ -372,7 +403,7 @@ export function createPersistentStore<T>(
       }
       const value = decode(raw)
       if (value === null) return false
-      store.restore(value)
+      store.restore(value, mode)
       return true
     },
   }
@@ -393,8 +424,14 @@ export function createPersistentStore<T>(
     },
     toEnvelope: () => ({ version, data: state }),
     decode,
-    restore(value) {
-      set(merge ? merge(state, value) : value)
+    restore(value, mode = 'merge') {
+      set(
+        !merge || mode === 'replace'
+          ? value
+          : mode === 'merge-theirs'
+            ? merge(value, state)
+            : merge(state, value),
+      )
     },
   }
   return store

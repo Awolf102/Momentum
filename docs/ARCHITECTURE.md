@@ -80,6 +80,12 @@ src/
 │   │   ├── material.ts       What's sent from notes and PDFs; reading JSON replies (tested)
 │   │   └── lib/              Retries, rate-limit gate, error mapping, usage (tested)
 │   ├── backup/               Backup v3 (all data, opt-in keys) and Settings → Data
+│   ├── sync/                 Optional sync through a server, encrypted on the device
+│   │   ├── lib/crypto.ts     Keys from the password; sealing records (tested)
+│   │   ├── lib/client.ts     The server's API (tested)
+│   │   ├── lib/engine.ts     A round: pull, apply, push what's newer (tested)
+│   │   ├── manager.ts        Signing in, the session, when to sync (tested)
+│   │   └── settings.ts       Settings → Sync (only the lazy settings page loads it)
 │   ├── streak/               Check-ins, streak rules, hero card, stats, flame
 │   ├── focus/                Focus timer: Pomodoro sessions, auto check-in
 │   │   ├── lib/timer.ts      Phases, pause/resume, catching up (pure, tested)
@@ -221,6 +227,7 @@ src/
 ├── assets/backgrounds/       Drop photos here → built-in backgrounds
 │   └── unlocks/<days>/       …or here → rewards unlocked at that streak
 └── styles/index.css          Tailwind, design tokens, glass utility
+server/                       The optional sync server: Node, SQLite, no dependencies (tested)
 ```
 
 ### Dependency rules
@@ -504,8 +511,8 @@ Everything persisted, and where:
 | `kv` › `momentum.tasks`                | List or board                                                          |
 | `kv` › `momentum.review`               | Whether the week shows on Sundays, and the AI write-ups kept by week   |
 | `photos`                               | Uploaded photos as Blobs (2560 px + 360 px thumbnail)                  |
-| `secrets`                              | API keys: `anthropic`, `openai`, `compatible`                          |
-| `meta`                                 | Housekeeping, e.g. when localStorage data was migrated                 |
+| `secrets`                              | API keys: `anthropic`, `openai`, `compatible`; sync's session and key  |
+| `meta`                                 | Housekeeping (localStorage migration); the sync account and progress   |
 | IndexedDB `momentum-reminder`          | What the service worker needs for reminders (a mirror)                 |
 | localStorage `momentum.theme`          | A copy of the theme, read before the first paint to avoid a flash      |
 
@@ -785,6 +792,78 @@ documents, notes, cards (with their reviews), quizzes, conversations, the
 inbox, the log and the focus history separately;
 resetting focus clears the sessions and the timer but keeps settings and
 subjects.
+
+## Sync
+
+Optional, and off until you sign in (Settings → Sync). A small server you
+run (`server/`) keeps each account's records; every device pulls what the
+others changed and pushes its own. Records are encrypted on the device, so
+the server holds only what it can't read.
+
+- **The server** (`server/`, Node 22 with its own `node:sqlite`, `node:http`
+  and `node:crypto`; TypeScript run as is, types stripped; no dependencies):
+  `db.ts` (the schema and its upgrades), `auth.ts` (accounts, sessions,
+  invite codes, limits on tries), `sync.ts` (push and pull), `http.ts` (the
+  API, CORS, limits, logging) and `main.ts` (the command line: `serve`,
+  `invite`, `users`, `remove-user`). Postgres can come later behind
+  `db.ts`.
+- **Keys** (`features/sync/lib/crypto.ts`): PBKDF2-SHA-256 (600 000
+  rounds, the username as salt) turns the password into a master key, and
+  HKDF from it gives two things: the **sign-in secret**, sent instead of
+  the password (the server keeps only an scrypt hash of it), and the
+  **record key**, which never leaves the device. Each record is sealed with
+  AES-GCM (a fresh IV each time), its store, id, time and deletion bound in
+  as additional data, so the server can't swap a record for another or pass
+  off an old one as new.
+- **The API** (`/api/…`, JSON, bearer sessions that last 90 days from their
+  last use): `health` (version, sign-up, limits), `accounts` (with an invite
+  code unless sign-up is open), `sessions` (sign in and out), `account` (its
+  size; deleting it needs the password's secret again), and `sync`: `POST`
+  pushes up to 500 sealed records, of which the server keeps each one newer
+  (by `updatedAt`) than its copy, numbering every change it keeps; `GET`
+  with `?since=n` returns the changes after `n`, a page at a time. A change
+  dated more than a day ahead of the server's clock is turned back (a device
+  clock set wrong would otherwise win over every later edit). Requests are
+  logged as method, path, status and time only.
+- **What the server sees:** usernames, each record's store (`tasks`,
+  `notes`…), id, time and size, and whether it's deleted. Not its contents.
+- **The engine** (`lib/engine.ts`, `syncOnce`): pull every page since the
+  last number seen, open each record, and import it (collections merge
+  record by record, the later edit winning, as a restored backup does);
+  then push each record that's newer than the version this device knows the
+  server has. That "known" map, rather than a time watermark, sends data
+  from before signing in, from a restored backup, or with an old timestamp.
+  Records too large to sync stay on the device and are counted; when
+  nothing else arrived meanwhile, a device doesn't pull its own pushes back.
+- **Settings** travel whole, a record per store, and go up when their
+  fingerprint changes. The stores' merges favour the side they run on, so
+  two devices could otherwise keep sending each other their own version.
+  Instead a pulled version replaces this device's when it hasn't changed
+  the store since it last synced; when it has, the two combine by the
+  store's own `merge` (check-ins, habits, routines, subjects and write-ups
+  from both), this device's side winning where they disagree, and the
+  result goes back up for the others to take as it is. On a device's first
+  sync they combine the other way round, so the account's settings win
+  over a new device's, and settings still at their defaults aren't sent at
+  all. `StoreRegistry.restore` takes the mode (`RestoreMode`: `merge`, as a
+  backup does, `merge-theirs` or `replace`); the sync code imports the
+  synced stores, so their `merge` is there whichever pages have opened.
+- **On the device** (`manager.ts`): the account and progress live in the
+  `meta` store (`sync:account`, `sync:progress`), the session and record key
+  in `secrets` (`sync:token`, `sync:key`) — none of them backed up or
+  synced. A round runs after local changes (8 seconds after the last one;
+  the collections and stores registries tell it), when the app comes back
+  into view or online, every five minutes while it's visible, and on **Sync
+  now**; tabs take turns through the Web Locks API. A change made during a
+  round can't be told from what the round pulled, so another round follows
+  straight after (finding nothing to send, for the latter); signing out
+  during a round leaves no trace of it. The sync code loads only on a
+  signed-in device (`boot.ts`) or in Settings.
+- **What syncs:** every collection, and the settings stores about your data
+  (streak, habits, routines, subjects, focus, cards, weekly review). Not API
+  keys, the library's files, photos, appearance, sound, reminders, AI setup,
+  the timer, or the search-by-meaning index. Clearing everything in Settings
+  → Data clears this device only; deleting things one by one syncs.
 
 ## Day rollover
 
@@ -1951,7 +2030,8 @@ if it uses AI. The focus timer is the worked example.
 Vitest covers the parts where bugs hide: date arithmetic (month, year, leap-day
 and DST boundaries — tests run in `Australia/Sydney`), streak rules, calendar
 layout, message selection, the store registry (hydration, localStorage
-migration, corruption, write-through, lazy stores, restore and merge),
+migration, corruption, write-through, lazy stores, restore and merge, either
+way round or replacing, snapshots without stores at their defaults),
 collections (atomic add, soft delete, merge), the database upgrade paths
 (every older version to the current one, data kept), backups (round trip,
 opt-in keys, sessions, v1 and v2 files; encryption: round trip, wrong
@@ -2025,7 +2105,24 @@ column, by hour spread by the clock, over midnight and a night the clocks
 go back, the best two hours wrapping past midnight, by weekday; streak
 runs, heights and the period's history; tasks on time, late and open by
 their day, today's and later ones, finished by the local day; recall of
-cards due, by column, and every rating), the local day of a timestamp, the
+cards due, by column, and every rating), sync (keys the same on every
+device and from a password typed differently, records bound to their
+label, the server address as typed; two devices through the real server:
+data and settings both ways, sealed on the way, edits, deletions and the
+later edit winning, records from before signing in or a restored backup,
+paging, a record too large, a clock far ahead, another password's records,
+a wrong password and an ended session; settings settling on one version
+though each side's merge favours itself, a change or a deletion on one
+device reaching the other as it is, changes on both combined, settings at
+their defaults left on the device; on the device, a change made during a
+round sent straight after and signing out mid-round leaving no trace;
+backups leaving out sync's secrets), the sync server (the schema, secrets hashed, invites used once,
+open sign-up, names, sessions ending and expiring, tries limited; pushing
+and pulling, accounts apart, the later edit winning, paging, a clock far
+ahead, bad records, batches, sizes and quotas; over HTTP: health and CORS,
+an account, sign-in and out, deleting with the password, bodies too large
+or not JSON, slowing down, logs without tokens), the local day of a
+timestamp, the
 assistant (keyword ranking and fusion, joining neighbouring passages, the request and
 its history, citations, the plans snapshot and its parts, keeping to one
 document, answers saved with what was sent, failures, Ask again, Stop
@@ -2090,4 +2187,9 @@ reviews against numbers worked out in the test: the tiles, each subject's
 share, an hour's focus and the best hours, the streak, tasks on time, late
 and open, recall against the aim; the three periods and a reload; the
 empty page; the sidebar on a short window) — are checked in a headless
-browser at desktop and phone sizes.
+browser at desktop and phone sizes; and sync with the real server running
+(an account made with an invite after a wrong one and mismatched
+passwords, a fresh phone signing in and getting the tasks and streak,
+changes both ways, a wrong password, the server stopped and started again,
+signing out, deleting the account, nothing readable in the server's
+database, no tokens in its log).

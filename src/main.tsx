@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client'
 import { App } from './app/App'
 import { StorageBlocked } from './app/StorageBlocked'
 import { listenForInstallPrompt, registerServiceWorker } from './features/pwa'
+import { bootSync } from './features/sync/boot'
 import { onDbEvent } from './lib/db/db'
 import { loadSecretNames } from './lib/secrets'
 import { hydrateStores, requestPersistentStorage } from './lib/storage'
@@ -43,4 +44,5 @@ void Promise.all([hydrateStores(), loadSecretNames()]).finally(() => {
     </StrictMode>,
   )
   void requestPersistentStorage()
+  void bootSync()
 })

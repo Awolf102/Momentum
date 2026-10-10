@@ -182,8 +182,8 @@ versions and the flame stages could go in earlier.
 | 3     | In review | Notes with maths, code and links (`feature/notes`, PR #10); search in ⌘K (`feature/search`), stacked on notes                                                                                                                                                                                                                                              |
 | 4     | In review | Document library and PDF viewer with highlights (`feature/library`), stacked on search; search by meaning (`feature/embeddings`), stacked on the library; chat with documents and the assistant (`feature/assistant`), stacked on search by meaning                                                                                                        |
 | 5     | In review | Flashcards with FSRS (`feature/flashcards`, PR #15), stacked on the assistant; practice quizzes (`feature/quizzes`, PR #16), stacked on flashcards; image to notes (`feature/image-notes`, PR #17), stacked on quizzes; voice notes (`feature/voice-notes`, PR #18), stacked on image to notes                                                             |
-| 6     | In review | Time blocking with .ics import (`feature/time-blocking`, PR #19), stacked on voice notes; goals with milestones, linked tasks and habits (`feature/goals`, PR #20), stacked on time blocking; the AI planner and weekly review (`feature/ai-planner`, PR #21), stacked on goals; analytics (`feature/analytics`), stacked on the AI planner                |
-| 7     | Planned   |                                                                                                                                                                                                                                                                                                                                                            |
+| 6     | In review | Time blocking with .ics import (`feature/time-blocking`, PR #19), stacked on voice notes; goals with milestones, linked tasks and habits (`feature/goals`, PR #20), stacked on time blocking; the AI planner and weekly review (`feature/ai-planner`, PR #21), stacked on goals; analytics (`feature/analytics`, PR #22), stacked on the AI planner        |
+| 7     | In review | The sync server and sync in the app, encrypted on the device (`feature/sync`, PR #23), stacked on analytics                                                                                                                                                                                                                                                |
 
 ### What Phase 1 changed in the plan
 
@@ -517,3 +517,33 @@ fit is noted in each PR: calendars are files, not subscriptions;
 tasks have no time estimate for the planner to use; there's no Sunday
 notification; and analytics can't place a paused session's breaks. **Next:**
 Phase 7, the optional sync server.
+
+### What sync changed in the plan
+
+- **No AI proxy.** Keeping API keys on a server would break the rule that
+  keys are stored only on the device, so it's left out unless you ask for
+  it. Each device keeps its own keys, as before.
+- **Encrypted on the device, end to end.** The password never leaves the
+  device: it gives a secret to sign in with and a key that seals every
+  record. The server, even one you run, can't read what's synced; it sees
+  usernames, which kind of record, ids, sizes and times.
+- **SQLite only, with no dependencies.** Node's own SQLite, HTTP and crypto
+  keep the server one folder you can run anywhere; Postgres can come later
+  behind its small database module.
+- **The later edit wins, record by record,** as with backups. Settings
+  travel whole, so devices settle on one version: one that hasn't changed
+  them since it last synced takes the other's as it is, and when both have,
+  they combine by the store's own rules. Clearing everything in Settings →
+  Data stays on the device.
+- **Files stay on each device.** PDFs and photos are too large to sync as
+  records; documents and highlights sync, and a PDF is added again on
+  another device.
+- **Sign-up by invite** unless the server is set to open, and the account
+  can be deleted from the app with the password.
+
+### Phase 7, done
+
+The sync server and sync in the app are built, in one PR (#23) stacked on
+analytics. What didn't fit is noted in the PR: files don't sync, a password
+can't be changed or recovered, clearing everything stays on the device, and
+times come from each device's clock. That's the last phase in this plan.
