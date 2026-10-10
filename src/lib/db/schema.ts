@@ -6,10 +6,14 @@ import type { DBSchema, IDBPDatabase } from 'idb'
  * browser on any older version is brought up to date.
  */
 export const DB_NAME = 'momentum'
-export const DB_VERSION = 4
+export const DB_VERSION = 5
 
 /** Object stores that hold collections (see `lib/collection.ts`). */
-export const COLLECTION_STORES = ['focusSessions', 'logEntries'] as const
+export const COLLECTION_STORES = [
+  'focusSessions',
+  'logEntries',
+  'tasks',
+] as const
 export type CollectionStoreName = (typeof COLLECTION_STORES)[number]
 
 export interface MomentumDB extends DBSchema {
@@ -37,6 +41,18 @@ export interface MomentumDB extends DBSchema {
     key: string
     value: { id: string; day: string; text: string; [field: string]: unknown }
   }
+  /** Tasks, one record each (see `features/tasks`). */
+  tasks: {
+    key: string
+    value: {
+      id: string
+      due: string | null
+      status: string
+      subjectId: string | null
+      [field: string]: unknown
+    }
+    indexes: { 'by-due': string; 'by-status': string; 'by-subject': string }
+  }
 }
 
 export function upgrade(
@@ -61,4 +77,11 @@ export function upgrade(
   // v4: the daily log. A record's id is its day, so one line per day is
   // guaranteed by the store itself.
   if (oldVersion < 4) db.createObjectStore('logEntries', { keyPath: 'id' })
+  // v5: tasks, indexed for the planner and analytics to come.
+  if (oldVersion < 5) {
+    const tasks = db.createObjectStore('tasks', { keyPath: 'id' })
+    tasks.createIndex('by-due', 'due')
+    tasks.createIndex('by-status', 'status')
+    tasks.createIndex('by-subject', 'subjectId')
+  }
 }

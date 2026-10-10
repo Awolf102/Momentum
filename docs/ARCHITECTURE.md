@@ -8,7 +8,8 @@ phase at a time ([ROADMAP.md](ROADMAP.md)). Phase 1 laid the foundations: a
 routed app shell, IndexedDB storage with migrations, full backups, and an
 optional bring-your-own-key AI layer. Phase 2 starts with a focus timer:
 Pomodoro sessions with subjects, which check you in when the day's first one
-finishes, and a daily log: one line a day about what you did.
+finishes, a daily log (one line a day about what you did), and tasks with
+quick add, repeats and a kanban board.
 
 ## Guiding principles
 
@@ -55,6 +56,7 @@ src/
 │   ├── Header.tsx, Footer.tsx, Logo.tsx, ShortcutsSheet.tsx
 ├── pages/
 │   ├── DashboardPage.tsx     Home: composes features into the dashboard
+│   ├── TasksPage.tsx         Tasks as a list or a board (lazy)
 │   ├── LogPage.tsx           The log: each day's line, check-in and focus (lazy)
 │   └── SettingsPage.tsx      Settings sections (lazy-loaded)
 ├── features/
@@ -73,6 +75,12 @@ src/
 │   │   ├── components/       FocusCard, TimerDial, FocusTodayTile, FocusPill
 │   │   └── settings.ts       Settings → Focus (its own entry point, lazy-loaded)
 │   ├── subjects/             Labels for sessions: Calculus, Reading… (editable)
+│   ├── tasks/                Tasks: quick add, repeats, list and board
+│   │   ├── lib/quickAdd.ts   "Lab report fri 5pm #calculus !high" → a task (tested)
+│   │   ├── lib/recurrence.ts Repeating schedules and the next date (tested)
+│   │   ├── lib/groups.ts, lib/board.ts   List groups, board order (tested)
+│   │   ├── tasks.ts          The tasks collection; add, edit, finish, move (tested)
+│   │   └── page.ts           The board and list (only the lazy page loads them)
 │   ├── log/                  The daily log: one line per day, editable in place
 │   │   ├── entries.ts        The logEntries collection; setLine (tested)
 │   │   ├── lib/timeline.ts   Days with a line, check-in or focus (pure, tested)
@@ -185,6 +193,23 @@ The subject, start, length and day are everything per-subject streaks need
 later, and the store is indexed `by-day` and `by-subject`, so they can be built
 without a migration. Cancelled sessions are never stored.
 
+A task is a record too. A repeating task is a series of them: finishing one
+creates the next, with the same `seriesId`, so each occurrence keeps its own
+history:
+
+```ts
+// object store "tasks", indexed by-due, by-status and by-subject
+{ "id": "…", "title": "Gym", "subjectId": null,
+  "status": "todo",                    // "todo" | "doing" | "done"
+  "priority": 0,                       // 0 none … 3 high
+  "due": "2026-10-15", "time": "07:00",
+  "recurrence": { "unit": "week", "interval": 1, "weekdays": [1, 4],
+                  "anchor": "2026-10-12" },
+  "seriesId": "…", "completedAt": null,
+  "order": 3,                          // place in its board column
+  "createdAt": "…", "updatedAt": "…" }
+```
+
 A log line is a record whose id is its day, so "one line per day" holds in the
 store itself, and two devices writing the same day merge to the later edit:
 
@@ -211,17 +236,20 @@ Everything persisted, and where:
 | `kv` › `momentum.ai.usage`    | Tokens and requests per model per month (13 months kept)               |
 | `focusSessions`               | Finished focus sessions (above)                                        |
 | `logEntries`                  | The daily log, one line per day (above)                                |
+| `tasks`                       | Tasks (above)                                                          |
+| `kv` › `momentum.tasks`       | List or board                                                          |
 | `photos`                      | Uploaded photos as Blobs (2560 px + 360 px thumbnail)                  |
 | `secrets`                     | API keys: `anthropic`, `openai`, `compatible`                          |
 | `meta`                        | Housekeeping, e.g. when localStorage data was migrated                 |
 | IndexedDB `momentum-reminder` | What the service worker needs for reminders (a mirror)                 |
 | localStorage `momentum.theme` | A copy of the theme, read before the first paint to avoid a flash      |
 
-These are object stores in the `momentum` database (version 4). Its schema
+These are object stores in the `momentum` database (version 5). Its schema
 lives in `lib/db/schema.ts` as one `upgrade` function with a step per version,
 so a browser on any older version upgrades in order: version 1 (photos only,
 from v2 of the app) gains `kv`, `secrets` and `meta`; version 2 (Phase 1) gains
-`focusSessions` and its indexes; version 3 (the timer) gains `logEntries`.
+`focusSessions` and its indexes; version 3 (the timer) gains `logEntries`;
+version 4 (the log) gains `tasks` and its indexes.
 Existing streaks, sessions, settings, keys and photos are untouched — each path
 is tested against `fake-indexeddb`.
 
@@ -316,7 +344,8 @@ database version.
 ## Routing and the shell
 
 `wouter` (about 2 KB) maps paths to pages: `/` is the dashboard, and
-`/log` the daily log, and `/settings/:section` the settings (appearance,
+`/tasks` the tasks, `/log` the daily log, and `/settings/:section` the
+settings (appearance,
 focus, app, AI, data). Pages other than
 the dashboard load on first visit, behind an error boundary that explains a
 failed load instead of showing a blank screen. Real paths, not `#` routes: the
@@ -326,9 +355,9 @@ offline; a static host needs the usual single-page-app fallback to `index.html`.
 The shell keeps the existing look:
 
 - **Wide screens (≥ 1024 px):** a glass sidebar with the logo, search (⌘K), the
-  pages (Home, Log, Settings), today's date and the sound control.
+  pages (Home, Tasks, Log, Settings), today's date and the sound control.
 - **Phones and tablets:** the header stays, and a floating glass tab bar (Home,
-  Log, Search, Settings) sits within thumb reach. Toasts move above it.
+  Tasks, Log, Search, Settings) sits within thumb reach. Toasts move above it.
 - The climb view still clears everything away. The fade is applied to each
   layer separately, because a `filter` on a shared wrapper would re-anchor the
   fixed sidebar and tab bar mid-transition.
@@ -642,6 +671,49 @@ panel (the background redrawn with `ctx.filter = blur()`), the flame from the
 same path data as the UI, the number and a first-person line. It's shared with
 the Web Share API where files are supported, otherwise downloaded or copied.
 
+## Tasks
+
+`features/tasks` is a to-do list with a board view. Tasks are records in the
+`tasks` collection (see Data model).
+
+- **Quick add.** One line becomes a task: `parseQuickAdd` (pure, tested) reads
+  dates (today, tomorrow, fri, next week, in 3 days, 12 Oct, 12/10 — day or
+  month first as the locale writes it), times (5pm, 17:30), `#subject` (by name,
+  ignoring case and spaces, or a prefix), priority (`!`, `!!`, `!!!`) and
+  repeats (every monday and thursday, daily, every 2 weeks, fortnightly), and
+  the rest is the title. It's careful with words: "sat", "sun" and "wed" only
+  count after on / by / next / every, "Call mum!" keeps its "!", unknown tags
+  stay in the title, and "quoted text" is never read. What it understood shows
+  under the field before you press Enter. It's on the dashboard, the Tasks page
+  and, from anywhere, in a dialog (N).
+- **Repeats** (`lib/recurrence.ts`) are a unit (day, week, month, year), an
+  interval, weekdays for weekly ones, and an anchor that schedules count from:
+  "every 2 weeks" alternates from the first week, and a monthly date that
+  started on the 31st falls on the last day of shorter months and comes back to
+  the 31st. Finishing an occurrence creates the next one, after today —
+  missed occurrences are skipped, so a chore done late is next due on its next
+  date, not yesterday. The next one's id comes from the series and its date,
+  so two tabs finishing it at once add it once.
+- **The list** groups open tasks by when they're due — Overdue, Today,
+  Tomorrow, Later, No date — soonest, then by time, then by priority; done
+  tasks fold away at the end. The checkbox's ring colour shows priority.
+- **The board** has To do, Doing and Done. Cards drag between and within
+  columns (HTML drag and drop, with the drop point shown); each card has an
+  `order` with room between values, so a move rewrites one card. Done is
+  newest first, whatever the order. Moving to Done finishes a task (and makes
+  its next occurrence); moving out reopens it. On phones the columns scroll
+  sideways, and a card's column is changed from its sheet.
+- **The sheet** edits everything: title, column, date and time, repeat (common
+  choices, or the custom rule quick add made), subject, priority, delete.
+  Without a date there's no time or repeat; moving a repeating task's date
+  moves its schedule.
+- **On the dashboard,** "Today's tasks" shows what's due and overdue, with
+  what you've finished today struck through, and its own quick add. The
+  activity calendar gains a Tasks view, brighter on days you finished more.
+- The board and list are only used by the Tasks page, so they have their own
+  entry point (`features/tasks/page.ts`); everything the dashboard uses comes
+  from `index.ts`.
+
 ## Daily log
 
 `features/log` keeps one line per day — what you did, how it went — in the
@@ -678,8 +750,9 @@ created on the first play, which always follows a click or key press.
 
 `app/commands.tsx` lists every action once (title, section, keywords, optional
 hotkey). The ⌘K / Ctrl K palette searches it; the same list drives the keyboard
-shortcuts and the shortcuts sheet. Single-key shortcuts (C, F, L, M, S, A, T,
-`,`, `?`) are ignored while typing or while a dialog (`aria-modal`) is open. F starts,
+shortcuts and the shortcuts sheet. Single-key shortcuts (C, F, N, L, M, S, A,
+T, `,`, `?`) are ignored while typing or while a dialog (`aria-modal`) is open.
+N adds a task from anywhere. F starts,
 pauses or resumes the focus timer; the palette also offers "Start focus on
 <subject>" for each subject, skip break and cancel, as they apply.
 
@@ -728,7 +801,10 @@ and v2 to v3, data kept), backups (round trip, opt-in keys, sessions, v1 and v2
 files), the focus timer (remaining time across pause and resume, resuming after
 a reload, sessions that ended while the app was closed, midnight crossing, auto
 check-in once per day, two wake-ups at once, daily totals and levels), the
-daily log (one line per day, edits, deletion, tidying, the timeline), the AI
+daily log (one line per day, edits, deletion, tidying, the timeline), tasks
+(quick add across dates, times, subjects, priorities, repeats and the words it
+must leave alone; repeating schedules through short months and missed dates;
+finishing, reopening, board moves, grouping), the AI
 layer (retries, Retry-After, the gate, error mapping, both adapters, usage and
 cost, settings parsing), light blending, climb progress, trail geometry and
 skyline detection (on synthetic images), command search and hotkey matching,
