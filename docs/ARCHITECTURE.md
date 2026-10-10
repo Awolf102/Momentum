@@ -64,6 +64,7 @@ src/
 │   ├── AssistantPage.tsx     Ask: conversations about your notes or plans (lazy)
 │   ├── CardsPage.tsx         Cards: what's due, studying, making cards (lazy)
 │   ├── QuizzesPage.tsx       Quizzes: making one, taking it, how it went (lazy)
+│   ├── CapturePage.tsx       A note from photos (lazy)
 │   ├── LogPage.tsx           The log: each day's line, check-in and focus (lazy)
 │   └── SettingsPage.tsx      Settings sections (lazy-loaded)
 ├── features/
@@ -116,6 +117,11 @@ src/
 │   │   ├── generate.ts       Writing a quiz; marking a short answer (tested)
 │   │   ├── actions.ts        Goes at a quiz, going again, cards from missed ones (tested)
 │   │   └── page.ts           Making, taking, results (only the lazy page loads them)
+│   ├── capture/              Notes from photos of handwritten notes or a whiteboard
+│   │   ├── lib/image.ts      Photo sizes, turning, tokens per provider (tested)
+│   │   ├── photo.ts          A photo read upright, turned, scaled down, as a JPEG
+│   │   ├── transcribe.ts     The instructions, the request, the note's title (tested)
+│   │   └── page.ts           The photo page (only the lazy page loads it)
 │   ├── assistant/            Ask: answers from your notes and documents, or your plans
 │   │   ├── lib/              Keyword ranking, prompts, citations, plans snapshot (tested)
 │   │   ├── retrieval.ts      A question's passages: by words, and by meaning (tested)
@@ -632,6 +638,11 @@ feature ─► ai.chat / ai.complete / ai.embed
   signal ends with an `aborted` error, never `done`: both SDKs end a
   cancelled stream quietly, as if the reply were complete, so the adapters
   check for it.
+- **Pictures.** A message is text, or parts: text and pictures (base64
+  JPEG, PNG, WebP or GIF). Anthropic gets pictures as image blocks; OpenAI
+  and compatible servers as data URLs, read in detail. Replies are text.
+  Whether a model reads pictures isn't known ahead of time; one that can't
+  answers with an error, which the photo page puts in words.
 - **Cost.** Usage is counted in tokens; prices aren't built in (they change),
   so an estimate appears once the user enters a price per million tokens.
 - **Size.** The SDKs load only when an AI request is made. Their chunks live in
@@ -660,6 +671,9 @@ feature ─► ai.chat / ai.complete / ai.embed
 - **Marking a short answer with AI** sends the question, its model answer
   and your answer, never the document, and only when you press **Check
   with AI** (or G); the line beside the button says exactly that.
+- **Photos for a note** go through the send preview too: each photo, its
+  size and about how many tokens. They're scaled down on the device first,
+  and kept only in memory while the page is open.
 - **The assistant** says the same for every question, in its composer: the
   provider and model, each passage as a chip you can take out (or, about
   your plans, which parts, with the exact text a click away), and how many
@@ -1454,6 +1468,46 @@ it's on.
   first load but the route, the menu item, the commands and the icon
   (0.4 kB).
 
+## Notes from photos
+
+`features/capture` turns photos of handwritten notes, a whiteboard or slides
+into a note, with a chat model that can read pictures. (Voice notes are to
+join it.)
+
+- **Choosing photos** (`components/PhotoNote.tsx`): up to ten, one a page,
+  from the file picker (on a phone, the camera or the library), pasted, or
+  dropped. Each can be turned a quarter at a time, moved earlier or taken
+  out. A picture the browser can't open (an iPhone's HEIC outside Safari,
+  say) says so and holds things up until it's removed.
+- **Preparing them** (`photo.ts`): each is read the right way up (the
+  camera's orientation flag is applied), turned as chosen, scaled down to at
+  most 1568 px on the long side and 1.15 megapixels (`lib/image.ts`: what
+  Anthropic reads anyway; plenty for handwriting), put on white (a
+  transparent screenshot stays readable), and encoded as a JPEG. The
+  originals stay in memory as previews and are let go when the page is.
+- **Sending them**: through the send preview, with each photo's size and
+  about how many tokens (`imageTokens`: Anthropic counts width × height ÷
+  750; OpenAI 170 a 512 px tile once fitted, plus 85). The request is one
+  message: what to do, then each photo, numbered when there are several.
+  The instructions (`transcribe.ts`) ask for what's there and nothing more,
+  in order, with the structure kept, maths in LaTeX, code fenced, a line in
+  italics for a diagram, `[?]` for a word that can't be read, a title as the
+  first heading, and the photos treated as material, not instructions.
+- **The note**: it streams in as it's written, then opens to read, with its
+  title (taken from the first heading) and a subject to choose; **Edit**
+  shows the markdown. **Save as a note** makes it a note like any other.
+  Stop keeps what came; a note cut off at the length limit (8,000 tokens)
+  says so. A model that can't read pictures is told apart from other errors.
+- **Elsewhere**: the camera button on Notes and the empty notes card, and
+  ⌘K **Note from a photo** (it answers to "whiteboard", "handwriting",
+  "scan"…), lead to `/capture/photo`, so the notes feature doesn't import
+  this one.
+- **Size**: the photo page is 15 kB (6 kB compressed), loaded when it's
+  opened, with the AI screens it shares with Cards, Quizzes and Ask if none
+  of them has been opened yet. The first load gains the route, the command
+  and the icons (0.9 kB). Mapping pictures lives in the provider adapters,
+  which load on the first AI request.
+
 ## Routines
 
 `features/routines` keeps short checklists for a part of the day — a morning
@@ -1598,7 +1652,10 @@ yours, not knowing, scores with halves, the ones missed; the requests for a
 quiz and for a mark, as material; saving goes, going again, renaming,
 deleting and Undo, cards from missed questions, damaged records), what's
 sent from several sources (all through them, sharing the room, a long note
-cut at a word) and reading JSON from replies (cut-off lists), the assistant
+cut at a word) and reading JSON from replies (cut-off lists), notes from
+photos (sizes within what providers read, turning, tokens per provider, the
+request with each photo numbered, streaming, the title from the first
+heading; pictures in both adapters' requests), the assistant
 (keyword ranking and fusion, joining neighbouring passages, the request and
 its history, citations, the plans snapshot and its parts, keeping to one
 document, answers saved with what was sent, failures, Ask again, Stop
@@ -1625,5 +1682,8 @@ from a PDF page with AI, nothing sent before Send, search, the habit,
 deleting them all), and quizzes (pages chosen and refused, nothing sent
 before Send and only the pages chosen, answering with the keys, AI marking
 from the answer alone, leaving and coming back, links back to the page,
-cards from the missed questions, going again, Stop, deleting them all) —
-are checked in a headless browser at desktop and phone sizes.
+cards from the missed questions, going again, Stop, deleting them all), and
+notes from photos (a photo stored sideways, turning one, one that can't be
+opened, pasting, the order and size of each photo sent, editing and saving,
+Stop, a model that can't read pictures) — are checked in a headless browser
+at desktop and phone sizes.

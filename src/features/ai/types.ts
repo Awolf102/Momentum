@@ -15,9 +15,20 @@ export type EmbeddingProviderId = Exclude<ProviderId, 'anthropic'>
 
 export type AiTask = 'chat' | 'embeddings'
 
+/** Part of a message: some text, or a picture (sent as base64). */
+export type ContentPart =
+  | { type: 'text'; text: string }
+  | {
+      type: 'image'
+      mediaType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+      /** Base64, without a `data:` prefix. */
+      data: string
+    }
+
 export interface ChatMessage {
   role: 'user' | 'assistant'
-  content: string
+  /** Text, or text and pictures (for a model that can read them). */
+  content: string | ContentPart[]
 }
 
 export interface ChatRequest {

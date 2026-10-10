@@ -573,3 +573,21 @@ export function QuizIcon(props: IconProps) {
     </Icon>
   )
 }
+
+export function CameraIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 8.75A2.25 2.25 0 016.25 6.5h1.6l1.3-1.9a1.5 1.5 0 011.24-.6h3.22a1.5 1.5 0 011.24.6l1.3 1.9h1.6A2.25 2.25 0 0120 8.75v8A2.25 2.25 0 0117.75 19H6.25A2.25 2.25 0 014 16.75z" />
+      <circle cx="12" cy="12.5" r="3.25" />
+    </Icon>
+  )
+}
+
+export function RotateIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M19.5 12a7.5 7.5 0 11-2.2-5.3" />
+      <path d="M19.5 4.5v4h-4" />
+    </Icon>
+  )
+}

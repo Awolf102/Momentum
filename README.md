@@ -27,6 +27,9 @@ day, keep the flame lit, and watch your streak grow.
   KaTeX), highlighted code (Verilog and VHDL included), checklists you can tick
   while reading, and `[[links]]` between notes — or to tasks — with each note
   listing the notes that link to it. Renaming a note keeps its links working.
+- **Note from a photo** (optional): photograph handwritten notes, a whiteboard
+  or slides, and AI writes them out as a note — markdown, with maths in LaTeX —
+  for you to check and edit before saving. The photos aren't kept.
 - **Library:** add PDFs — lecture slides, papers, chapters — and read them
   here: highlight in four colours with a note in the margin, pick up where you
   left off, and turn your highlights into a note. Search finds the words
@@ -229,6 +232,22 @@ Type `[[` to pick from your notes. Pin a note to keep it at the top; give it a
 subject to filter by. Nothing written in a note runs as code: HTML shows as
 text and unsafe links are removed.
 
+### From a photo
+
+The camera button on Notes (or ⌘K → **Note from a photo**) turns photos of
+handwritten notes, a whiteboard or slides into a note. A chat model that can
+read pictures needs to be set up (most current ones from Anthropic and OpenAI
+can).
+
+- **Add photos**, one a page, or paste or drop pictures. Turn one that's
+  sideways, move one earlier, or take one out.
+- **Make the note…** shows what will be sent first: each photo, its size, and
+  about how many tokens. Nothing is sent before **Send**; photos are scaled
+  down on your device to what the model reads anyway.
+- The note comes back as you watch, with its title, maths in LaTeX and `[?]`
+  for words it couldn't read. Edit it, give it a subject, and **Save as a
+  note**. Stop keeps what came so far. The photos aren't kept.
+
 ## Library
 
 Open **Library** and **Add PDF** (or drop PDFs on the page, or ⌘K → Add a
@@ -347,10 +366,11 @@ cards, and the Anthropic and OpenAI SDKs (all loaded on demand) · Web Audio · 
 src/
 ├── app/          App shell: routes, sidebar, tab bar, header, commands
 ├── pages/        Pages composed from features (dashboard, tasks, notes,
-│                 library, cards, quizzes, ask, inbox, log, settings)
+│                 photo notes, library, cards, quizzes, ask, inbox, log,
+│                 settings)
 ├── features/     streak · habits · routines · focus · subjects · tasks · notes
-│                 library · search · embeddings · flashcards · quizzes · assistant
-│                 inbox · log · calendar
+│                 capture · library · search · embeddings · flashcards · quizzes
+│                 assistant · inbox · log · calendar
 │                 motivation · appearance · climb · share · ambience
 │                 reminder · pwa · backup · ai
 ├── components/   Shared UI (glass card, sheet, settings card, icons…)

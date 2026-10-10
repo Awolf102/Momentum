@@ -32,6 +32,7 @@ const LibraryPage = lazyPage(() => import('@/pages/LibraryPage'))
 const AssistantPage = lazyPage(() => import('@/pages/AssistantPage'))
 const CardsPage = lazyPage(() => import('@/pages/CardsPage'))
 const QuizzesPage = lazyPage(() => import('@/pages/QuizzesPage'))
+const CapturePage = lazyPage(() => import('@/pages/CapturePage'))
 const SettingsPage = lazyPage(() => import('@/pages/SettingsPage'))
 
 export function AppRoutes() {
@@ -48,6 +49,7 @@ export function AppRoutes() {
           <Route path="/assistant/:id?" component={AssistantPage} />
           <Route path="/cards/:view?" component={CardsPage} />
           <Route path="/quizzes/:id?" component={QuizzesPage} />
+          <Route path="/capture/:mode?" component={CapturePage} />
           <Route path={paths.log} component={LogPage} />
           <Route path="/settings/:section?" component={SettingsPage} />
           <Route>

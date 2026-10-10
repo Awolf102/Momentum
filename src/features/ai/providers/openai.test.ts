@@ -128,6 +128,46 @@ describe('OpenAI provider', () => {
     })
   })
 
+  it('sends pictures as data URLs, read in detail', async () => {
+    const fake = fakeSdk({ chunks: [chunk('ok', 'stop')] })
+    await collect(
+      createOpenAiProvider({
+        id: 'openai',
+        apiKey: 'k',
+        loadSdk: fake.loadSdk,
+      }).chat({
+        model: 'gpt-test',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Photo 1 of 1' },
+              { type: 'image', mediaType: 'image/png', data: 'BBBB' },
+            ],
+          },
+          {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'Earlier reply' }],
+          },
+        ],
+      }),
+    )
+    expect(fake.chatBodies[0].messages).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Photo 1 of 1' },
+          {
+            type: 'image_url',
+            image_url: { url: 'data:image/png;base64,BBBB', detail: 'high' },
+          },
+        ],
+      },
+      // Replies are text only.
+      { role: 'assistant', content: 'Earlier reply' },
+    ])
+  })
+
   it('reports length cut-offs and refusals', async () => {
     const cut = fakeSdk({ chunks: [chunk('Long', 'length')] })
     const cutEvents = await collect(

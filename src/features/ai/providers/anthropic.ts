@@ -1,6 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import type {
   MessageDeltaUsage,
+  MessageParam,
   StopReason as SdkStopReason,
   Usage,
 } from '@anthropic-ai/sdk/resources/messages'
@@ -9,12 +10,37 @@ import { normalizeSdkError } from '../lib/sdkErrors'
 import type {
   AiProvider,
   ChatEvent,
+  ChatMessage,
   ModelInfo,
   StopReason,
   TokenUsage,
 } from '../types'
 
 type AnthropicSdk = typeof import('@anthropic-ai/sdk')
+
+/** Messages as Anthropic takes them: pictures as base64 image blocks. */
+export function toAnthropicMessages(
+  messages: readonly ChatMessage[],
+): MessageParam[] {
+  return messages.map(({ role, content }) => ({
+    role,
+    content:
+      typeof content === 'string'
+        ? content
+        : content.map((part) =>
+            part.type === 'text'
+              ? { type: 'text' as const, text: part.text }
+              : {
+                  type: 'image' as const,
+                  source: {
+                    type: 'base64' as const,
+                    media_type: part.mediaType,
+                    data: part.data,
+                  },
+                },
+          ),
+  }))
+}
 
 /**
  * Reply-length cap when a feature doesn't ask for one. Replies stream, so a
@@ -125,7 +151,7 @@ export function createAnthropicProvider(options: {
           {
             model: request.model,
             max_tokens: maxTokens,
-            messages: request.messages,
+            messages: toAnthropicMessages(request.messages),
             ...(request.system ? { system: request.system } : {}),
           },
           { signal: request.signal },

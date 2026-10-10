@@ -1,19 +1,49 @@
 import type OpenAI from 'openai'
 import type {
   ChatCompletionChunk,
+  ChatCompletionContentPart,
   ChatCompletionMessageParam,
 } from 'openai/resources/chat/completions'
 import { abortError, AiError } from '../errors'
+import { textOf } from '../lib/content'
 import { normalizeSdkError } from '../lib/sdkErrors'
 import type {
   AiProvider,
   ChatEvent,
+  ChatMessage,
   ModelInfo,
   StopReason,
   TokenUsage,
 } from '../types'
 
 type OpenAiSdk = typeof import('openai')
+
+/**
+ * Messages as OpenAI (and compatible servers) take them: pictures as data
+ * URLs, read in detail (handwriting needs it).
+ */
+export function toOpenAiMessages(
+  messages: readonly ChatMessage[],
+): ChatCompletionMessageParam[] {
+  return messages.map(({ role, content }): ChatCompletionMessageParam => {
+    if (typeof content === 'string') return { role, content }
+    if (role === 'assistant') return { role, content: textOf(content) }
+    return {
+      role,
+      content: content.map((part): ChatCompletionContentPart =>
+        part.type === 'text'
+          ? { type: 'text', text: part.text }
+          : {
+              type: 'image_url',
+              image_url: {
+                url: `data:${part.mediaType};base64,${part.data}`,
+                detail: 'high',
+              },
+            },
+      ),
+    }
+  })
+}
 
 function mapFinishReason(
   reason: ChatCompletionChunk.Choice['finish_reason'],
@@ -98,7 +128,7 @@ export function createOpenAiProvider(options: {
           ...(request.system
             ? [{ role: 'system' as const, content: request.system }]
             : []),
-          ...request.messages,
+          ...toOpenAiMessages(request.messages),
         ]
         // OpenAI renamed the length cap; most compatible servers still use the old name.
         const lengthCap = request.maxTokens
