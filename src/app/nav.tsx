@@ -8,6 +8,7 @@ import {
   InboxIcon,
   LibraryIcon,
   NoteIcon,
+  QuizIcon,
   SlidersIcon,
 } from '@/components/icons'
 import { InboxBadge } from '@/features/inbox'
@@ -56,6 +57,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: 'Cards',
     icon: <CardsIcon />,
     isActive: (location) => location.startsWith(paths.cards),
+    tabBar: false,
+  },
+  {
+    href: paths.quizzes,
+    label: 'Quizzes',
+    icon: <QuizIcon />,
+    isActive: (location) => location.startsWith(paths.quizzes),
     tabBar: false,
   },
   {

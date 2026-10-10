@@ -1,3 +1,4 @@
+import { jsonItems } from '@/features/ai/material'
 import type { CardDraft } from '../types'
 import { MAX_SIDE } from './limits'
 
@@ -58,36 +59,15 @@ function side(item: Record<string, unknown>, names: string[]): string {
   return ''
 }
 
-/** The first JSON list in some text, wherever it starts ("[" may come earlier in prose). */
-function jsonList(text: string): unknown[] {
-  const end = text.lastIndexOf(']')
-  for (
-    let start = text.indexOf('['), tries = 0;
-    start !== -1 && start < end && tries < 20;
-    start = text.indexOf('[', start + 1), tries++
-  ) {
-    try {
-      const value: unknown = JSON.parse(text.slice(start, end + 1))
-      if (Array.isArray(value)) return value
-    } catch {
-      // Not the list's start: try the next "[".
-    }
-  }
-  return []
-}
-
 /**
  * The cards in a model's reply: a JSON list of `{ "front", "back" }` (or
- * question and answer), with or without a code fence or words around it.
- * Repeats and half-empty cards are left out.
+ * question and answer), with or without a code fence or words around it,
+ * and even cut off part way. Repeats and half-empty cards are left out.
  */
 export function parseSuggestedCards(reply: string): SuggestedCard[] {
-  const items = jsonList(reply)
   const seen = new Set<string>()
   const suggested: SuggestedCard[] = []
-  for (const item of items) {
-    if (typeof item !== 'object' || item === null) continue
-    const record = item as Record<string, unknown>
+  for (const record of jsonItems(reply)) {
     const front = side(record, SIDE_NAMES.front)
     const back = side(record, SIDE_NAMES.back)
     const key = front.toLowerCase().replace(/\s+/g, ' ')

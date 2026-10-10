@@ -10,6 +10,11 @@ import { SegmentedControl } from '@/components/SegmentedControl'
 import { SettingsCard } from '@/components/SettingsCard'
 import { describeAiError, SendPreview, useAiReadiness } from '@/features/ai'
 import {
+  estimateTokens,
+  fitSource,
+  type SourceText,
+} from '@/features/ai/material'
+import {
   documents,
   loadDocumentTexts,
   type LibraryDocument,
@@ -22,12 +27,7 @@ import { navigate, openSettings, paths } from '@/lib/routes'
 import { useStore } from '@/lib/store'
 import { toast } from '@/lib/toast'
 import { addCards, findSimilar } from '../actions'
-import {
-  estimateTokens,
-  fitSource,
-  suggestCards,
-  type SourceText,
-} from '../generate'
+import { suggestCards } from '../generate'
 import { cardsInNote } from '../lib/text'
 import type { CardSource } from '../types'
 

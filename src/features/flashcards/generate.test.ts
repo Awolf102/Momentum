@@ -1,11 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-  cardsRequest,
-  CARDS_SYSTEM,
-  fitSource,
-  suggestCards,
-  type SourceText,
-} from './generate'
+import { fitSource, type SourceText } from '@/features/ai/material'
+import { cardsRequest, CARDS_SYSTEM, suggestCards } from './generate'
 
 const sent = vi.hoisted(() => ({ requests: [] as unknown[], reply: '' }))
 
@@ -30,30 +25,6 @@ const lecture: SourceText = {
 }
 
 describe('the text sent for cards', () => {
-  it('is whole pages, up to the limit, counting only what goes', () => {
-    expect(fitSource(lecture, 25)).toEqual({
-      source: {
-        ...lecture,
-        parts: [
-          { page: 1, text: 'a'.repeat(10) },
-          { page: 3, text: 'b'.repeat(10) },
-        ],
-      },
-      cut: true,
-      characters: 20,
-    })
-    expect(fitSource(lecture, 100)).toMatchObject({
-      cut: false,
-      characters: 30,
-    })
-    // A first page longer than the limit is shortened rather than lost.
-    expect(fitSource(lecture, 4)).toEqual({
-      source: { ...lecture, parts: [{ page: 1, text: 'aaaa' }] },
-      cut: true,
-      characters: 4,
-    })
-  })
-
   it('marks each page, so cards can say where they came from', () => {
     const request = cardsRequest(fitSource(lecture).source, 10)
     expect(request).toBe(

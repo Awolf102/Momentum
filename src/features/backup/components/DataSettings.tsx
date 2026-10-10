@@ -29,6 +29,7 @@ import {
 } from '@/features/library'
 import { logEntries } from '@/features/log'
 import { notes } from '@/features/notes'
+import { quizzes } from '@/features/quizzes'
 import { routineRuns, routinesStore } from '@/features/routines'
 import { tasks } from '@/features/tasks'
 import { resetStreak } from '@/features/streak'
@@ -58,6 +59,7 @@ const RECORD_NAMES: Record<string, [one: string, many: string]> = {
   conversations: ['conversation', 'conversations'],
   cards: ['card', 'cards'],
   cardReviews: ['card review', 'card reviews'],
+  quizzes: ['quiz', 'quizzes'],
 }
 
 export function DataSettings() {
@@ -253,7 +255,7 @@ function BackupCard() {
   return (
     <SettingsCard
       title="Backup"
-      description="One file with your streak, habits, routines, tasks, notes, cards, library, inbox, log, focus sessions, conversations, settings, photos and AI usage. Importing adds to what's here rather than replacing it."
+      description="One file with your streak, habits, routines, tasks, notes, cards, quizzes, library, inbox, log, focus sessions, conversations, settings, photos and AI usage. Importing adds to what's here rather than replacing it."
     >
       <div className="space-y-2">
         {/* Chosen before exporting or importing, so it's never a surprise. */}
@@ -511,6 +513,14 @@ function ResetCard() {
             void cards.clear()
             void clearReviews()
             setDone('Your cards and their reviews were deleted.')
+          }}
+        />
+        <ResetRow
+          label="Delete all quizzes"
+          confirm="Tap again to delete every quiz and its results"
+          onReset={() => {
+            void quizzes.clear()
+            setDone('Your quizzes were deleted.')
           }}
         />
         <ResetRow

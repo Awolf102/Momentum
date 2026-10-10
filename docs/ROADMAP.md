@@ -179,7 +179,7 @@ versions and the flame stages could go in earlier.
 | 2     | In review | Focus timer, subjects and collections (`feature/focus-timer`); daily log (`feature/daily-log`); tasks with quick add, repeats and the board (`feature/tasks`); password-protected backups (`feature/encrypted-backup`); more habits (`feature/habits`); routines (`feature/routines`); the inbox (`feature/inbox`). Each its own PR, stacked in that order |
 | 3     | In review | Notes with maths, code and links (`feature/notes`, PR #10); search in ⌘K (`feature/search`), stacked on notes                                                                                                                                                                                                                                              |
 | 4     | In review | Document library and PDF viewer with highlights (`feature/library`), stacked on search; search by meaning (`feature/embeddings`), stacked on the library; chat with documents and the assistant (`feature/assistant`), stacked on search by meaning                                                                                                        |
-| 5     | Building  | Flashcards with FSRS (`feature/flashcards`), stacked on the assistant                                                                                                                                                                                                                                                                                      |
+| 5     | Building  | Flashcards with FSRS (`feature/flashcards`, PR #15), stacked on the assistant; practice quizzes (`feature/quizzes`), stacked on flashcards                                                                                                                                                                                                                 |
 | 6–7   | Planned   |                                                                                                                                                                                                                                                                                                                                                            |
 
 ### What Phase 1 changed in the plan
@@ -355,3 +355,24 @@ versions and the flame stages could go in earlier.
 - **Due cards as a habit is a switch:** it makes a "Study cards" habit,
   ticked once the day's cards are done.
 - **Next:** practice quizzes, then image to notes and voice notes.
+
+### What quizzes changed in the plan
+
+- **Notes as well as PDFs, several at once.** The plan said "from selected
+  documents"; a quiz can mix PDFs (whole, or pages written as in a print
+  dialog) and notes. When they don't all fit in one request, pages are
+  taken from all through them rather than from the start.
+- **Short answers are marked by you, or by AI when you ask.** Marking
+  yourself against the model answer sends nothing; **Check with AI** sends
+  only the question, the model answer and your answer. Your mark can
+  always replace AI's.
+- **Wrong answers link back to the page,** as planned, and can also become
+  cards, so a quiz feeds the spaced repetition from Phase 5's first part.
+- **Multiple choice is checked, not trusted.** The right choice must be
+  written out (a bare number can't say whether it counts from 0 or 1), and
+  choices are shuffled because models favour putting the answer first.
+- **What's sent, and reading replies, is shared** in `features/ai/material.ts`,
+  so cards and quizzes (and whatever comes next) fit text into a request
+  and read JSON replies the same way.
+- **Next:** image to notes (a vision model turns a photo of handwritten
+  notes or a whiteboard into markdown), then voice notes.

@@ -47,6 +47,15 @@ export const paths = {
       : 'note' in from
         ? `/cards/make?note=${encodeURIComponent(from.note)}`
         : `/cards/make?document=${encodeURIComponent(from.document)}${from.page ? `&page=${from.page}` : ''}`,
+  quizzes: '/quizzes',
+  quiz: (id: string) => `/quizzes/${encodeURIComponent(id)}`,
+  /** Making a quiz, from a note or a document when given. */
+  newQuiz: (from?: { note: string } | { document: string }) =>
+    !from
+      ? '/quizzes/new'
+      : 'note' in from
+        ? `/quizzes/new?note=${encodeURIComponent(from.note)}`
+        : `/quizzes/new?document=${encodeURIComponent(from.document)}`,
   settings: (section?: SettingsSection) =>
     section ? `/settings/${section}` : '/settings',
 }

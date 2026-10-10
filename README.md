@@ -44,6 +44,10 @@ day, keep the flame lit, and watch your streak grow.
   suggest some from a note or a PDF page. Each comes back just before you'd
   forget it (FSRS), so a few minutes a day keep it all fresh: R to study, 1–4
   to say how well you remembered.
+- **Quizzes** (optional): choose notes and PDFs (whole, or some pages) and
+  AI writes multiple-choice and short-answer questions from them. Answers
+  are marked as you go (short ones by you, or by AI), each one you miss links
+  back to the page it's on, and the missed ones can become cards.
 - **Ask** (optional): ask about your notes and PDFs and get answers that cite
   them — each number opens the note, or the PDF at that page. Before you
   send, you see exactly which passages go with your question, and can take
@@ -262,6 +266,27 @@ New cards start at 20 a day; in **Options** you can change that, aim to
 remember more or less (90% suits most people), and **Count cards as a
 habit**, ticked once the day's cards are done.
 
+## Quizzes
+
+Open **Quizzes** in the sidebar (or ⌘K → **New practice quiz**), or start
+from a PDF's **Document details** → **Make a practice quiz**, or the quiz
+button on a note. A chat model needs to be set up.
+
+- **Make one**: tick notes and PDFs; for a PDF, write the pages you want
+  (`3-7, 10`, or leave it for all of them). Choose how many questions (5, 10
+  or 20) and what kind: mixed, multiple choice or short answer. **Make
+  quiz…** shows exactly what will be sent before anything is; when there's
+  too much to send, pages are taken from all through what you chose.
+- **Take it**: multiple choice is 1–4, marked straight away. For a short
+  answer, type it and press Enter to see the model answer, then mark it
+  yourself (1 right, 2 partly, 3 wrong) or press G to have AI mark it, which
+  sends only the question, the model answer and yours. **I don't know** shows
+  the answer. Enter moves on; leave whenever you like and carry on later.
+- **Afterwards**: your score (partly right counts half), and each question
+  you missed with the right answer, why, and **Read it again**, a link to
+  the page it's on. Try the missed ones again, take the whole quiz again,
+  or **Make cards to remember them**.
+
 ## Focus timer
 
 Pick a subject on the dashboard and press **Start focus** (or F). Pause, resume,
@@ -272,27 +297,29 @@ minutes.
 
 ## Keyboard shortcuts
 
-| Keys        | Action                       |
-| ----------- | ---------------------------- |
-| ⌘K / Ctrl K | Search, and every command    |
-| C           | Check in for today           |
-| F           | Start / pause / resume focus |
-| N           | Add a task                   |
-| I           | Capture to inbox             |
-| L           | Write today's log line       |
-| R           | Study cards                  |
-| Space, 1–4  | Show the answer, rate it     |
-| Z           | Undo the last rating (cards) |
-| ← →         | Previous / next page (PDF)   |
-| + − 0       | Zoom in / out / fit (PDF)    |
-| H           | Highlights (PDF)             |
-| E           | Write (on a note)            |
-| M           | View the climb               |
-| S           | Share streak card            |
-| A           | Play / pause ambient sound   |
-| T           | Switch light / dark theme    |
-| ,           | Settings                     |
-| ?           | All shortcuts                |
+| Keys        | Action                            |
+| ----------- | --------------------------------- |
+| ⌘K / Ctrl K | Search, and every command         |
+| C           | Check in for today                |
+| F           | Start / pause / resume focus      |
+| N           | Add a task                        |
+| I           | Capture to inbox                  |
+| L           | Write today's log line            |
+| R           | Study cards                       |
+| Space, 1–4  | Show the answer, rate it          |
+| Z           | Undo the last rating (cards)      |
+| 1–4, 1–3    | Choose an answer, mark one (quiz) |
+| G           | Have AI mark an answer (quiz)     |
+| ← →         | Previous / next page (PDF)        |
+| + − 0       | Zoom in / out / fit (PDF)         |
+| H           | Highlights (PDF)                  |
+| E           | Write (on a note)                 |
+| M           | View the climb                    |
+| S           | Share streak card                 |
+| A           | Play / pause ambient sound        |
+| T           | Switch light / dark theme         |
+| ,           | Settings                          |
+| ?           | All shortcuts                     |
 
 ## Installing
 
@@ -320,10 +347,10 @@ cards, and the Anthropic and OpenAI SDKs (all loaded on demand) · Web Audio · 
 src/
 ├── app/          App shell: routes, sidebar, tab bar, header, commands
 ├── pages/        Pages composed from features (dashboard, tasks, notes,
-│                 library, cards, ask, inbox, log, settings)
+│                 library, cards, quizzes, ask, inbox, log, settings)
 ├── features/     streak · habits · routines · focus · subjects · tasks · notes
-│                 library · search · embeddings · flashcards · assistant · inbox
-│                 log · calendar
+│                 library · search · embeddings · flashcards · quizzes · assistant
+│                 inbox · log · calendar
 │                 motivation · appearance · climb · share · ambience
 │                 reminder · pwa · backup · ai
 ├── components/   Shared UI (glass card, sheet, settings card, icons…)

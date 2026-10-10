@@ -31,6 +31,7 @@ describe('database schema', () => {
       'meta',
       'notes',
       'photos',
+      'quizzes',
       'routineRuns',
       'secrets',
       'tasks',
