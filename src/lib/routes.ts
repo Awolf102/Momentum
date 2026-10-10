@@ -29,6 +29,9 @@ export const paths = {
   planDraft: '/plan?draft=1',
   /** A week in review: this week's, or the week a day is in. */
   review: (week?: string) => (week ? `/review?week=${week}` : '/review'),
+  /** Charts of focus, streaks, tasks and cards, over four weeks or longer. */
+  analytics: (period?: string) =>
+    period && period !== 'month' ? `/analytics?period=${period}` : '/analytics',
   goals: '/goals',
   goal: (id: string) => `/goals/${encodeURIComponent(id)}`,
   /** The goals, with a new one being written. */
