@@ -6,7 +6,7 @@ import type { DBSchema, IDBPDatabase } from 'idb'
  * browser on any older version is brought up to date.
  */
 export const DB_NAME = 'momentum'
-export const DB_VERSION = 6
+export const DB_VERSION = 7
 
 /** Object stores that hold collections (see `lib/collection.ts`). */
 export const COLLECTION_STORES = [
@@ -14,6 +14,7 @@ export const COLLECTION_STORES = [
   'logEntries',
   'tasks',
   'habitCheckIns',
+  'routineRuns',
 ] as const
 export type CollectionStoreName = (typeof COLLECTION_STORES)[number]
 
@@ -65,6 +66,17 @@ export interface MomentumDB extends DBSchema {
     }
     indexes: { 'by-habit': string; 'by-day': string }
   }
+  /** A routine's steps done on a day (see `features/routines`). */
+  routineRuns: {
+    key: string
+    value: {
+      id: string
+      routineId: string
+      day: string
+      [field: string]: unknown
+    }
+    indexes: { 'by-routine': string; 'by-day': string }
+  }
 }
 
 export function upgrade(
@@ -102,5 +114,11 @@ export function upgrade(
     const checkIns = db.createObjectStore('habitCheckIns', { keyPath: 'id' })
     checkIns.createIndex('by-habit', 'habitId')
     checkIns.createIndex('by-day', 'day')
+  }
+  // v7: routines. Each day's run through one (the id is "<routine>:<day>").
+  if (oldVersion < 7) {
+    const runs = db.createObjectStore('routineRuns', { keyPath: 'id' })
+    runs.createIndex('by-routine', 'routineId')
+    runs.createIndex('by-day', 'day')
   }
 }

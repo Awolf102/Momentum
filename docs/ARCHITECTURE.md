@@ -10,7 +10,7 @@ optional bring-your-own-key AI layer. Phase 2 starts with a focus timer:
 Pomodoro sessions with subjects, which check you in when the day's first one
 finishes, a daily log (one line a day about what you did), and tasks with
 quick add, repeats and a kanban board, more habits beside the daily check-in,
-and password-protected backups.
+routines, and password-protected backups.
 
 ## Guiding principles
 
@@ -76,6 +76,9 @@ src/
 │   │   ├── components/       FocusCard, TimerDial, FocusTodayTile, FocusPill
 │   │   └── settings.ts       Settings → Focus (its own entry point, lazy-loaded)
 │   ├── subjects/             Labels for sessions: Calculus, Reading… (editable)
+│   ├── routines/             Checklists for a part of the day, fresh each day
+│   │   ├── lib/day.ts        Part of the day, today's order, progress (tested)
+│   │   └── runs.ts           The routineRuns collection; ticking steps (tested)
 │   ├── habits/               More habits, each with its own days and streak
 │   │   ├── lib/summary.ts    Streaks over chosen weekdays, the week, rates (tested)
 │   │   └── checkIns.ts       The habitCheckIns collection; tick on and off (tested)
@@ -219,6 +222,11 @@ means every day) — in the `momentum.habits` store, and each day it was done is
 a record in `habitCheckIns` with the id `<habit>:<day>`, so a day counts once
 and unticking it is a soft delete that merges correctly between devices.
 
+A routine is a definition too — name, part of the day, steps, weekdays — in
+`momentum.routines`, and each day's run through it is a record in
+`routineRuns` (id `<routine>:<day>`) listing the steps ticked, with
+`completedAt` set once they all are.
+
 A log line is a record whose id is its day, so "one line per day" holds in the
 store itself, and two devices writing the same day merge to the later edit:
 
@@ -248,6 +256,8 @@ Everything persisted, and where:
 | `tasks`                       | Tasks (above)                                                          |
 | `kv` › `momentum.habits`      | Habits: name, colour, weekdays                                         |
 | `habitCheckIns`               | The days each habit was done                                           |
+| `kv` › `momentum.routines`    | Routines: name, part of the day, steps, weekdays                       |
+| `routineRuns`                 | Each day's ticked steps per routine                                    |
 | `kv` › `momentum.tasks`       | List or board                                                          |
 | `photos`                      | Uploaded photos as Blobs (2560 px + 360 px thumbnail)                  |
 | `secrets`                     | API keys: `anthropic`, `openai`, `compatible`                          |
@@ -255,13 +265,14 @@ Everything persisted, and where:
 | IndexedDB `momentum-reminder` | What the service worker needs for reminders (a mirror)                 |
 | localStorage `momentum.theme` | A copy of the theme, read before the first paint to avoid a flash      |
 
-These are object stores in the `momentum` database (version 6). Its schema
+These are object stores in the `momentum` database (version 7). Its schema
 lives in `lib/db/schema.ts` as one `upgrade` function with a step per version,
 so a browser on any older version upgrades in order: version 1 (photos only,
 from v2 of the app) gains `kv`, `secrets` and `meta`; version 2 (Phase 1) gains
 `focusSessions` and its indexes; version 3 (the timer) gains `logEntries`;
 version 4 (the log) gains `tasks` and its indexes; version 5 (tasks) gains
-`habitCheckIns`, indexed by habit and by day.
+`habitCheckIns`; version 6 (habits) gains `routineRuns` — both indexed by
+their habit or routine and by day.
 Existing streaks, sessions, settings, keys and photos are untouched — each path
 is tested against `fake-indexeddb`.
 
@@ -768,6 +779,26 @@ streak. Moving it would touch all of them for no visible gain; the habit
 streak logic is separate because it understands weekdays, which the main
 streak doesn't need.
 
+## Routines
+
+`features/routines` keeps short checklists for a part of the day — a morning
+start, a study warm-up, an evening wind-down — that start fresh each day.
+
+- **The one for now comes first.** `sortForNow` (pure, tested) orders today's
+  routines: this part of the day (morning from 4am, afternoon from noon,
+  evening from 5pm), then "any time", then the rest, so an unfinished morning
+  routine is still there in the evening. On the dashboard the first unfinished
+  one is open as a checklist with a progress bar; the others are folded.
+- **A day is done when every step is.** Ticking the last step sets the run's
+  `completedAt`; unticking any step clears it. Progress only counts current
+  steps, so removing a step later doesn't skew past days.
+- **Streaks** reuse the habits logic over completed days (with the routine's
+  weekdays), so days a routine isn't due never break its run.
+- **Starting one** takes a tap: Morning, Study session and Evening templates,
+  or a routine of your own. The sheet edits the name, steps (add, reorder,
+  rename, remove), part of the day and days, and shows its numbers.
+- The weekday picker is shared with habits (`components/DayPicker.tsx`).
+
 ## Daily log
 
 `features/log` keeps one line per day — what you did, how it went — in the
@@ -858,7 +889,8 @@ bounds), the focus timer (remaining time across pause and resume, resuming
 after a reload, sessions that ended while the app was closed, midnight crossing, auto
 check-in once per day, two wake-ups at once, daily totals and levels),
 habits (streaks over chosen weekdays, days off, the last week, the four-week
-rate, ticking on and off, merging), the daily log (one line per day, edits, deletion, tidying, the timeline), tasks
+rate, ticking on and off, merging), routines (part of the day, today's order,
+editing steps, completing and reopening a day), the daily log (one line per day, edits, deletion, tidying, the timeline), tasks
 (quick add across dates, times, subjects, priorities, repeats and the words it
 must leave alone; repeating schedules through short months and missed dates;
 finishing, reopening, board moves, grouping), the AI

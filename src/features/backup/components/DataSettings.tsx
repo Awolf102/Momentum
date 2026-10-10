@@ -18,6 +18,7 @@ import { Switch } from '@/components/Switch'
 import { focusSessions, resetTimer } from '@/features/focus'
 import { habitCheckIns, habitsStore } from '@/features/habits'
 import { logEntries } from '@/features/log'
+import { routineRuns, routinesStore } from '@/features/routines'
 import { tasks } from '@/features/tasks'
 import { resetStreak } from '@/features/streak'
 import { cn } from '@/lib/cn'
@@ -38,6 +39,7 @@ const RECORD_NAMES: Record<string, [one: string, many: string]> = {
   logEntries: ['log line', 'log lines'],
   tasks: ['task', 'tasks'],
   habitCheckIns: ['habit day', 'habit days'],
+  routineRuns: ['routine day', 'routine days'],
 }
 
 export function DataSettings() {
@@ -224,7 +226,7 @@ function BackupCard() {
   return (
     <SettingsCard
       title="Backup"
-      description="One file with your streak, habits, tasks, log, focus sessions, settings, photos and AI usage. Importing adds to what's here rather than replacing it."
+      description="One file with your streak, habits, routines, tasks, log, focus sessions, settings, photos and AI usage. Importing adds to what's here rather than replacing it."
     >
       <div className="space-y-2">
         {/* Chosen before exporting or importing, so it's never a surprise. */}
@@ -430,6 +432,15 @@ function ResetCard() {
             habitsStore.reset()
             void habitCheckIns.clear()
             setDone('Your habits were cleared.')
+          }}
+        />
+        <ResetRow
+          label="Reset routines"
+          confirm="Tap again to erase every routine and its history"
+          onReset={() => {
+            routinesStore.reset()
+            void routineRuns.clear()
+            setDone('Your routines were cleared.')
           }}
         />
         <ResetRow

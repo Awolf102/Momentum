@@ -4,6 +4,13 @@ export { HabitSheet } from './components/HabitSheet'
 export { useHabitDays, useHabits } from './hooks/useHabits'
 export { useHabitsCalendarView } from './hooks/useHabitsCalendarView'
 export {
+  depthLevel,
+  describeSchedule,
+  isScheduled,
+  summarizeHabit,
+  type HabitSummary,
+} from './lib/summary'
+export {
   addHabit,
   editHabit,
   habitsStore,
