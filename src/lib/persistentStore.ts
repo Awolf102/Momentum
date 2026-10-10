@@ -95,7 +95,7 @@ export class StoreRegistry {
   private stores = new Map<string, RegisteredStore>()
   private backend: StorageBackend | null = null
   private pending = new Map<string, 'write' | 'remove'>()
-  private flushTimer: ReturnType<typeof setTimeout> | undefined
+  private flushQueued = false
   private flushing: Promise<void> = Promise.resolve()
   private channel: BroadcastChannel | null = null
   private loading = new Set<Promise<void>>()
@@ -244,9 +244,14 @@ export class StoreRegistry {
 
   schedule(key: string, operation: 'write' | 'remove'): void {
     this.pending.set(key, operation)
-    if (!this.backend) return // Written once hydration has picked a backend.
-    clearTimeout(this.flushTimer)
-    this.flushTimer = setTimeout(() => void this.flush(), 0)
+    if (!this.backend || this.flushQueued) return // Written once hydration has picked a backend.
+    // Changes made together are written together, straight after the code
+    // that made them: soon enough that leaving the page doesn't lose them.
+    this.flushQueued = true
+    queueMicrotask(() => {
+      this.flushQueued = false
+      void this.flush()
+    })
   }
 
   /** Writes pending changes now. Resolves when they're saved. */

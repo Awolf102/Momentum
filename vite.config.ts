@@ -65,6 +65,16 @@ export default defineConfig({
   build: {
     rolldownOptions: {
       output: {
+        codeSplitting: {
+          groups: [
+            {
+              // React and Motion change rarely. Kept apart from Momentum's own
+              // code, an update downloads only the part that changed.
+              name: 'vendor',
+              test: /node_modules[\\/](react|react-dom|scheduler|motion|motion-dom|motion-utils|framer-motion)[\\/]/,
+            },
+          ],
+        },
         // Chunks holding the AI SDKs go in their own folder (see globIgnores).
         chunkFileNames: (chunk) =>
           chunk.moduleIds.some((id) =>

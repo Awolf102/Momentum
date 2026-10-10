@@ -14,11 +14,58 @@ describe('database schema', () => {
     const db = await getDb()
     expect(db.version).toBe(DB_VERSION)
     expect([...db.objectStoreNames].sort()).toEqual([
+      'focusSessions',
       'kv',
       'meta',
       'photos',
       'secrets',
     ])
+  })
+
+  it('upgrades a v2 database (Phase 1) without touching existing data', async () => {
+    // What Phase 1 created: streak, settings and keys already saved.
+    const old = await openDB(DB_NAME, 2, {
+      upgrade(database) {
+        database.createObjectStore('photos')
+        database.createObjectStore('kv')
+        database.createObjectStore('secrets')
+        database.createObjectStore('meta')
+      },
+    })
+    const streak = {
+      version: 1,
+      data: { checkIns: { '2026-10-09': { at: '2026-10-09T08:00:00.000Z' } } },
+    }
+    await old.put('kv', streak, 'momentum.streak')
+    await old.put(
+      'kv',
+      { version: 1, data: { theme: 'light' } },
+      'momentum.appearance',
+    )
+    await old.put('secrets', 'sk-ant-test-key', 'anthropic')
+    await old.put('photos', 'photo-bytes', 'abc:full')
+    old.close()
+
+    const db = await getDb()
+    expect(db.version).toBe(DB_VERSION)
+    expect(await db.get('kv', 'momentum.streak')).toEqual(streak)
+    expect(await db.get('kv', 'momentum.appearance')).toEqual({
+      version: 1,
+      data: { theme: 'light' },
+    })
+    expect(await db.get('secrets', 'anthropic')).toBe('sk-ant-test-key')
+    expect(await db.get('photos', 'abc:full')).toBe('photo-bytes')
+    // The new store is ready, indexed by day and by subject.
+    const tx = db.transaction('focusSessions')
+    expect([...tx.store.indexNames].sort()).toEqual(['by-day', 'by-subject'])
+    await db.put('focusSessions', {
+      id: 's1',
+      day: '2026-10-10',
+      subjectId: 'calculus',
+    })
+    expect(
+      await db.getAllFromIndex('focusSessions', 'by-day', '2026-10-10'),
+    ).toHaveLength(1)
   })
 
   it('upgrades the v1 photo database without losing photos', async () => {

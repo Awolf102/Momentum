@@ -1,6 +1,12 @@
 import { navigate as navigateBrowser } from 'wouter/use-browser-location'
 
-export const SETTINGS_SECTIONS = ['appearance', 'app', 'ai', 'data'] as const
+export const SETTINGS_SECTIONS = [
+  'appearance',
+  'focus',
+  'app',
+  'ai',
+  'data',
+] as const
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]
 
 export function isSettingsSection(value: string): value is SettingsSection {

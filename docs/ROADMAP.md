@@ -23,7 +23,7 @@ included a focus timer and a log) were never built. In this roadmap:
   become a shared foundation in Phase 2, because documents, habits, tasks and
   analytics all tag by subject.
 - **The focus timer and a daily log** are scheduled in Phase 2. The "timer"
-  brief that is still to come will slot in there.
+  brief that is still to come will slot in there. (It has: see Progress.)
 - Phase 1's storage migration therefore covers the data that exists today:
   streak, appearance, climb trails, ambience, reminder settings and photos.
 
@@ -91,11 +91,13 @@ habits, with the main streak kept as the headline.
 
 **Introduced when first needed.**
 
-- **Subjects registry** (Phase 2): colour, icon, archived flag; used everywhere a
-  thing can be "about" something.
-- **Collections API** (Phase 2): typed IndexedDB collections with indexes,
-  `createdAt`/`updatedAt`/`deletedAt` on every record (soft deletes keep sync
-  possible later), and change events for live queries.
+- **Subjects registry** (Phase 2, built with the focus timer): name and colour,
+  soft-deleted so history keeps them; used everywhere a thing can be "about"
+  something. Icons can come later.
+- **Collections API** (Phase 2, built with the focus timer): typed IndexedDB
+  collections with indexes, `createdAt`/`updatedAt`/`deletedAt` on every record
+  (soft deletes keep sync possible later), atomic adds across tabs, merge on
+  import, and change events for live queries.
 - **Markdown renderer** (Phase 3): one component with KaTeX and code
   highlighting, both lazy, shared by notes, chat answers and image-to-notes.
 - **Search index** (Phase 3): keyword index fed by every collection; semantic
@@ -171,10 +173,11 @@ versions and the flame stages could go in earlier.
 
 ## Progress
 
-| Phase | Status    | Notes                                                                    |
-| ----- | --------- | ------------------------------------------------------------------------ |
-| 1     | In review | Branch `claude/v3-phase-1-foundations`, stacked on the v2 branch (PR #1) |
-| 2–7   | Planned   |                                                                          |
+| Phase | Status      | Notes                                                                                                                               |
+| ----- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | In review   | Branch `claude/v3-phase-1-foundations` (PR #2), stacked on the v2 branch (PR #1)                                                    |
+| 2     | In progress | Focus timer, subjects and collections in review on `feature/focus-timer`, stacked on Phase 1. Daily log, tasks and the rest to come |
+| 3–7   | Planned     |                                                                                                                                     |
 
 ### What Phase 1 changed in the plan
 
@@ -197,3 +200,21 @@ versions and the flame stages could go in earlier.
 - **Local servers and browsers.** A hosted Momentum calling `localhost` (Ollama)
   needs `OLLAMA_ORIGINS`, and Chromium may ask for local-network permission.
   Settings explains the first; the second is the browser's own prompt.
+
+### What the focus timer changed in the plan
+
+- **Check-in rules the brief expected don't exist yet.** The timer brief asks
+  to respect streak freezes, effort levels and the one-line log. Only "once per
+  calendar day" exists today. The timer checks in through the streak's own
+  `checkIn()`, so freezes, effort and the log will apply to it automatically
+  when they're built (the log is still Phase 2).
+- **Collections load whole.** A collection is read into memory at start-up.
+  That's right for focus sessions (a few a day is a few thousand records over
+  years) and keeps reads synchronous for React. Tasks and notes can add
+  index-backed queries (`by-day`, `by-subject` already exist for sessions) if
+  they outgrow it.
+- **Subjects are the first shared registry.** Tasks, notes, documents and
+  habits should tag by the same subjects rather than each keeping a list.
+- **The calendar takes views.** Each feature with days to show gives the
+  calendar a `CalendarView`; multiple habits (Phase 2) will add one per habit
+  without touching the calendar.

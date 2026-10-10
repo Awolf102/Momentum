@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CollectionRegistry,
+  createCollection,
+  createMemoryCollectionBackend,
+  type CollectionRecord,
+} from '@/lib/collection'
+import {
   createMemoryBackend,
   createPersistentStore,
   StoreRegistry,
@@ -10,6 +16,21 @@ import {
   restoreBackup,
   type BackupSources,
 } from './backup'
+
+interface Session extends CollectionRecord {
+  minutes: number
+}
+
+const session = (
+  id: string,
+  minutes: number,
+  updatedAt = '2026-10-10T09:25:00.000Z',
+): Session => ({
+  id,
+  minutes,
+  createdAt: '2026-10-10T09:25:00.000Z',
+  updatedAt,
+})
 
 function device() {
   const registry = new StoreRegistry()
@@ -30,22 +51,49 @@ function device() {
     parse: (data) => data as { theme: string },
     registry,
   })
+  const collections = new CollectionRegistry()
+  const sessions = createCollection<Session>({
+    name: 'focusSessions',
+    parse: (value) =>
+      typeof (value as Session | null)?.minutes === 'number'
+        ? (value as Session)
+        : null,
+    registry: collections,
+  })
   const photos = new Map<string, Blob>()
   const secrets: Record<string, string> = {}
   const sources: BackupSources = {
     registry,
     listPhotos: async () => [...photos].map(([key, blob]) => ({ key, blob })),
     putPhoto: async (key, blob) => void photos.set(key, blob),
+    exportCollections: () => collections.exportAll(['focusSessions']),
+    importCollection: (name, records) =>
+      collections.importRecords(name, records),
     getSecrets: async () => ({ ...secrets }),
     setSecret: async (name, value) => void (secrets[name] = value),
   }
-  return { registry, streak, settings, photos, secrets, sources }
+  const backend = createMemoryBackend()
+  const hydrate = async () => {
+    await registry.hydrate(backend)
+    await collections.hydrate(createMemoryCollectionBackend())
+  }
+  return {
+    registry,
+    backend,
+    streak,
+    settings,
+    sessions,
+    photos,
+    secrets,
+    sources,
+    hydrate,
+  }
 }
 
 describe('backups', () => {
   it('round-trips every store, photo and (opt-in) key', async () => {
     const source = device()
-    await source.registry.hydrate(createMemoryBackend())
+    await source.hydrate()
     source.streak.set({ days: ['2026-10-09', '2026-10-10'] })
     source.settings.set({ theme: 'light' })
     source.photos.set(
@@ -62,14 +110,12 @@ describe('backups', () => {
     expect(withKeys.secrets).toEqual({ anthropic: 'sk-ant-secret' })
 
     const target = device()
-    await target.registry.hydrate(createMemoryBackend())
+    await target.hydrate()
     target.streak.set({ days: ['2026-10-01'] })
     const report = await restoreBackup(
       parseBackup(JSON.stringify(withKeys)),
       target.sources,
-      {
-        includeSecrets: true,
-      },
+      { includeSecrets: true },
     )
 
     expect(target.settings.get()).toEqual({ theme: 'light' })
@@ -85,8 +131,40 @@ describe('backups', () => {
     expect(report).toMatchObject({ photos: 1, secrets: 1 })
   })
 
+  it('carries focus sessions, merging with what the other device has', async () => {
+    const source = device()
+    await source.hydrate()
+    await source.sessions.add(session('a', 25))
+    await source.sessions.add(session('b', 50))
+    const backup = parseBackup(
+      JSON.stringify(
+        await createBackup(source.sources, { includeSecrets: false }),
+      ),
+    )
+    expect(backup.version).toBe(3)
+    expect(
+      backup.collections.focusSessions.map((record) => record.id).sort(),
+    ).toEqual(['a', 'b'])
+
+    const target = device()
+    await target.hydrate()
+    // The target already has a newer copy of "a", and a session of its own.
+    await target.sessions.put(session('a', 30, '2026-10-11T00:00:00.000Z'))
+    await target.sessions.add(session('c', 25))
+    const report = await restoreBackup(backup, target.sources, {
+      includeSecrets: false,
+    })
+    expect(report.records).toBe(1)
+    expect(
+      Object.fromEntries(
+        target.sessions.get().map((record) => [record.id, record.minutes]),
+      ),
+    ).toEqual({ a: 30, b: 50, c: 25 })
+  })
+
   it('leaves keys out unless the importer agrees', async () => {
     const target = device()
+    await target.hydrate()
     const backup = parseBackup(
       JSON.stringify({
         format: 'momentum-backup',
@@ -98,6 +176,24 @@ describe('backups', () => {
     )
     await restoreBackup(backup, target.sources, { includeSecrets: false })
     expect(target.secrets).toEqual({})
+  })
+
+  it('still reads version 2 backups (no collections)', async () => {
+    const backup = parseBackup(
+      JSON.stringify({
+        format: 'momentum-backup',
+        version: 2,
+        stores: {},
+        photos: [],
+      }),
+    )
+    expect(backup.collections).toEqual({})
+    const target = device()
+    await target.hydrate()
+    const report = await restoreBackup(backup, target.sources, {
+      includeSecrets: false,
+    })
+    expect(report.records).toBe(0)
   })
 
   it('still reads version 1 backups (streak only)', () => {
@@ -121,8 +217,7 @@ describe('backups', () => {
 
   it('keeps data for stores this version has not loaded, and skips damaged data', async () => {
     const target = device()
-    const backend = createMemoryBackend()
-    await target.registry.hydrate(backend)
+    await target.hydrate()
     const report = await restoreBackup(
       parseBackup(
         JSON.stringify({
@@ -140,7 +235,7 @@ describe('backups', () => {
     )
     expect(report.restored).toEqual(['momentum.future'])
     expect(report.skipped).toEqual(['momentum.appearance'])
-    expect(backend.entries.get('momentum.future')).toEqual({
+    expect(target.backend.entries.get('momentum.future')).toEqual({
       version: 1,
       data: { tasks: [] },
     })

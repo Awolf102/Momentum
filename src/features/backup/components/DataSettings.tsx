@@ -14,6 +14,7 @@ import {
 } from '@/components/icons'
 import { SettingsCard } from '@/components/SettingsCard'
 import { Switch } from '@/components/Switch'
+import { focusSessions, resetTimer } from '@/features/focus'
 import { resetStreak } from '@/features/streak'
 import { cn } from '@/lib/cn'
 import { requestPersistentStorage } from '@/lib/storage'
@@ -146,6 +147,10 @@ function BackupCard() {
         parts.push(
           `${report.photos} ${report.photos === 1 ? 'photo' : 'photos'}`,
         )
+      if (report.records)
+        parts.push(
+          `${report.records} ${report.records === 1 ? 'focus session' : 'focus sessions'}`,
+        )
       if (report.secrets)
         parts.push(
           `${report.secrets} API ${report.secrets === 1 ? 'key' : 'keys'}`,
@@ -171,7 +176,7 @@ function BackupCard() {
   return (
     <SettingsCard
       title="Backup"
-      description="One file with your streak, settings, photos and AI usage. Importing adds check-ins rather than replacing them."
+      description="One file with your streak, focus sessions, settings, photos and AI usage. Importing adds to what's here rather than replacing it."
     >
       <div className="space-y-2">
         {/* Chosen before exporting or importing, so it's never a surprise. */}
@@ -226,43 +231,65 @@ function BackupCard() {
 }
 
 function ResetCard() {
-  const [confirming, setConfirming] = useState(false)
-  const [done, setDone] = useState(false)
+  const [done, setDone] = useState<string | null>(null)
+  return (
+    <SettingsCard title="Start over">
+      <div className="space-y-2">
+        <ResetRow
+          label="Reset streak history"
+          confirm="Tap again to erase all check-ins"
+          onReset={() => {
+            resetStreak()
+            setDone('Your streak history was cleared.')
+          }}
+        />
+        <ResetRow
+          label="Reset focus history"
+          confirm="Tap again to erase all focus sessions"
+          onReset={() => {
+            void focusSessions.clear()
+            resetTimer()
+            setDone(
+              'Your focus sessions were cleared. Settings and subjects are kept.',
+            )
+          }}
+        />
+      </div>
+      {done && (
+        <p role="status" className="pt-3 text-sm text-fg-muted">
+          {done}
+        </p>
+      )}
+    </SettingsCard>
+  )
+}
 
-  // The reset button asks for a second tap, then quietly disarms.
+/** A reset that asks for a second tap, then quietly disarms. */
+function ResetRow({
+  label,
+  confirm,
+  onReset,
+}: {
+  label: string
+  confirm: string
+  onReset: () => void
+}) {
+  const [confirming, setConfirming] = useState(false)
   useEffect(() => {
     if (!confirming) return
     const timer = setTimeout(() => setConfirming(false), 4000)
     return () => clearTimeout(timer)
   }, [confirming])
-
-  function handleReset() {
-    if (!confirming) {
-      setConfirming(true)
-      return
-    }
-    resetStreak()
-    setConfirming(false)
-    setDone(true)
-  }
-
   return (
-    <SettingsCard title="Start over">
-      <ActionRow
-        icon={<TrashIcon />}
-        label={
-          confirming
-            ? 'Tap again to erase all check-ins'
-            : 'Reset streak history'
-        }
-        onClick={handleReset}
-        danger
-      />
-      {done && (
-        <p role="status" className="pt-3 text-sm text-fg-muted">
-          Your streak history was cleared.
-        </p>
-      )}
-    </SettingsCard>
+    <ActionRow
+      icon={<TrashIcon />}
+      label={confirming ? confirm : label}
+      onClick={() => {
+        if (!confirming) return setConfirming(true)
+        setConfirming(false)
+        onReset()
+      }}
+      danger
+    />
   )
 }

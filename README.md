@@ -9,6 +9,13 @@ day, keep the flame lit, and watch your streak grow.
   streak** and total days, this week at a glance, and a **GitHub-style activity
   calendar** where days glow brighter the deeper they are into a streak.
 - **A motivational line** after each check-in, with milestone messages.
+- **Focus timer:** Pomodoro sessions (25 min focus, 5 min breaks, a 15 min
+  break after every fourth; all adjustable) labelled by subject — Calculus,
+  Programming, Reading or your own. The day's first finished session checks you
+  in. It keeps time from timestamps, so it's right after the phone sleeps or the
+  tab reloads, and a session that ends while Momentum is closed still counts.
+  A chime and a notification when a phase ends, the countdown in the tab title,
+  today's focus minutes, and a calendar view shaded by focus time.
 - **The climb:** a marker walks up the ridge in your background, reaching a summit
   at 7, 14, 30, 60, 100, 200 and 365 days. Mountains in photos are found
   automatically, or you can trace the trail yourself.
@@ -16,15 +23,17 @@ day, keep the flame lit, and watch your streak grow.
   the clock, or warm from night to golden hour as your streak grows.
 - **Reward backgrounds** unlocked at 30, 60 and 100 days — including your own
   travel photos, kept hidden until you earn them.
-- **Ambient sound** for studying: wind, rain and a quiet fire, generated live.
+- **Ambient sound** for studying: wind, rain and a quiet fire, generated live —
+  optionally only while a focus session runs.
 - **Shareable streak card**: an image of your streak over your background.
-- **Keyboard first:** C to check in, ⌘K for the command palette.
+- **Keyboard first:** C to check in, F to start or pause focus, ⌘K for the
+  command palette.
 - **Installable and offline**, with an optional evening reminder if you haven't
   checked in.
 - **Your own photographs as backgrounds**, behind frosted-glass cards, dark mode
   by default with a light theme.
 - **Local-first:** everything is saved in your browser's database (IndexedDB),
-  with one-file backups of all of it.
+  with one-file backups of all of it, focus sessions included.
 - **Optional AI, with your own key:** Anthropic, OpenAI, or a server such as
   Ollama. Momentum works fully without it. (The AI features themselves arrive
   in later phases; see [docs/ROADMAP.md](docs/ROADMAP.md).)
@@ -88,18 +97,27 @@ they change; add your provider's price per million tokens to see an estimate.
 
 **Backups** leave API keys out unless you turn on **Include API keys**.
 
+## Focus timer
+
+Pick a subject on the dashboard and press **Start focus** (or F). Pause, resume,
+skip a break or cancel — a cancelled session doesn't count. Session and break
+lengths, ambient sound while focusing, notifications and your subjects are in
+**Settings → Focus**. The calendar's **Focus** view shades days by focus
+minutes.
+
 ## Keyboard shortcuts
 
-| Keys        | Action                     |
-| ----------- | -------------------------- |
-| ⌘K / Ctrl K | Command palette            |
-| C           | Check in for today         |
-| M           | View the climb             |
-| S           | Share streak card          |
-| A           | Play / pause ambient sound |
-| T           | Switch light / dark theme  |
-| ,           | Settings                   |
-| ?           | All shortcuts              |
+| Keys        | Action                       |
+| ----------- | ---------------------------- |
+| ⌘K / Ctrl K | Command palette              |
+| C           | Check in for today           |
+| F           | Start / pause / resume focus |
+| M           | View the climb               |
+| S           | Share streak card            |
+| A           | Play / pause ambient sound   |
+| T           | Switch light / dark theme    |
+| ,           | Settings                     |
+| ?           | All shortcuts                |
 
 ## Installing
 
@@ -125,8 +143,8 @@ Anthropic and OpenAI SDKs (loaded on demand) · Web Audio · Workbox (vite-plugi
 src/
 ├── app/          App shell: routes, sidebar, tab bar, header, commands
 ├── pages/        Pages composed from features (dashboard, settings)
-├── features/     streak · calendar · motivation · appearance · climb · share
-│                 ambience · reminder · pwa · backup · ai
+├── features/     streak · focus · subjects · calendar · motivation · appearance
+│                 climb · share · ambience · reminder · pwa · backup · ai
 ├── components/   Shared UI (glass card, sheet, settings card, icons…)
 ├── lib/          Dates, the database and stores, secrets, routes, hooks
 └── styles/       Tailwind, design tokens, glass utility

@@ -1,4 +1,5 @@
 import { isRecord } from '@/lib/guards'
+import { requestNotifications } from '@/lib/notify'
 import { createPersistentStore } from '@/lib/persistentStore'
 import { parseTime } from './lib/schedule'
 
@@ -25,23 +26,10 @@ export const reminderStore = createPersistentStore<ReminderSettings>({
   },
 })
 
-export const notificationsSupported = () =>
-  typeof window !== 'undefined' && 'Notification' in window
-
 /** Asks for permission, then turns the reminder on. Returns a reason if it couldn't. */
 export async function enableReminder(): Promise<string | null> {
-  if (!notificationsSupported()) {
-    return /iPhone|iPad|iPod/.test(navigator.userAgent)
-      ? 'On iPhone and iPad, add Momentum to your Home Screen first, then turn this on from the app.'
-      : "This browser doesn't support notifications."
-  }
-  const permission =
-    Notification.permission === 'default'
-      ? await Notification.requestPermission()
-      : Notification.permission
-  if (permission !== 'granted') {
-    return 'Notifications are blocked for this site. Allow them in your browser settings to get reminders.'
-  }
+  const problem = await requestNotifications()
+  if (problem) return problem
   reminderStore.set((previous) => ({ ...previous, enabled: true }))
   await registerPeriodicSync()
   return null

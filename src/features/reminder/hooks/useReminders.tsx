@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { BellIcon } from '@/components/icons'
 import { toDateKey, type DateKey } from '@/lib/date'
+import { canNotify, notify } from '@/lib/notify'
 import { useStore } from '@/lib/store'
 import { toast } from '@/lib/toast'
 import { readMirror, writeMirror } from '../lib/mirror'
@@ -37,19 +38,11 @@ async function remind(current: Current) {
     })
     return
   }
-  const options: NotificationOptions & {
-    actions?: { action: string; title: string }[]
-  } = {
+  await notify(title, {
     body,
     tag: REMINDER_TAG,
-    icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
-    data: { url: '/' },
     actions: [{ action: 'check-in', title: 'Check in' }],
-  }
-  const registration = await navigator.serviceWorker?.getRegistration()
-  if (registration) await registration.showNotification(title, options)
-  else new Notification(title, options)
+  })
 }
 
 /**
@@ -74,13 +67,7 @@ export function useReminders({
   }, [enabled, time, streak, lastCheckIn])
 
   useEffect(() => {
-    if (
-      !enabled ||
-      !('Notification' in window) ||
-      Notification.permission !== 'granted'
-    ) {
-      return
-    }
+    if (!enabled || !canNotify()) return
     let timer: ReturnType<typeof setTimeout>
     const schedule = () => {
       timer = setTimeout(

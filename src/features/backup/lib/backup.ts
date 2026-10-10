@@ -1,3 +1,4 @@
+import type { CollectionRecord } from '@/lib/collection'
 import { isRecord } from '@/lib/guards'
 import {
   isEnvelope,
@@ -7,7 +8,7 @@ import {
 } from '@/lib/persistentStore'
 
 export const BACKUP_FORMAT = 'momentum-backup'
-export const BACKUP_VERSION = 2
+export const BACKUP_VERSION = 3
 
 export interface BackupPhoto {
   key: string
@@ -22,15 +23,20 @@ export interface Backup {
   exportedAt: string
   stores: Record<string, StoredEnvelope>
   photos: BackupPhoto[]
+  /** Collections (e.g. focus sessions), every record. Since version 3. */
+  collections: Record<string, CollectionRecord[]>
   /** Only present when the user chose to include API keys. */
   secrets?: Record<string, string>
 }
 
-/** Where a backup reads and writes photos and secrets (swappable in tests). */
+/** Where a backup reads and writes everything (swappable in tests). */
 export interface BackupSources {
   registry: StoreRegistry
   listPhotos(): Promise<Array<{ key: string; blob: Blob }>>
   putPhoto(key: string, blob: Blob): Promise<void>
+  exportCollections(): Promise<Record<string, CollectionRecord[]>>
+  /** Merges records in; returns how many were new or newer. */
+  importCollection(name: string, records: readonly unknown[]): Promise<number>
   getSecrets(): Promise<Record<string, string>>
   setSecret(name: string, value: string): Promise<void>
 }
@@ -70,13 +76,14 @@ export async function createBackup(
     exportedAt: new Date().toISOString(),
     stores: await sources.registry.snapshotAll(),
     photos,
+    collections: await sources.exportCollections(),
     ...(options.includeSecrets ? { secrets: await sources.getSecrets() } : {}),
   }
 }
 
 /**
- * Reads a backup file's contents. Accepts this format and the v1 format
- * (streak only), which it upgrades.
+ * Reads a backup file's contents. Accepts this format, v2 (no collections)
+ * and v1 (streak only), which it upgrades.
  */
 export function parseBackup(text: string): Backup {
   let parsed: unknown
@@ -98,6 +105,7 @@ export function parseBackup(text: string): Backup {
       exportedAt,
       stores: { 'momentum.streak': parsed.streak },
       photos: [],
+      collections: {},
     }
   }
   if (typeof parsed.version !== 'number' || parsed.version > BACKUP_VERSION) {
@@ -118,6 +126,14 @@ export function parseBackup(text: string): Backup {
           typeof photo.data === 'string',
       )
     : []
+  // Records are checked one by one when restored.
+  const collections: Record<string, CollectionRecord[]> = {}
+  if (isRecord(parsed.collections)) {
+    for (const [name, records] of Object.entries(parsed.collections)) {
+      if (Array.isArray(records))
+        collections[name] = records as CollectionRecord[]
+    }
+  }
   const secrets = isRecord(parsed.secrets)
     ? Object.fromEntries(
         Object.entries(parsed.secrets).filter(
@@ -131,6 +147,7 @@ export function parseBackup(text: string): Backup {
     exportedAt,
     stores,
     photos,
+    collections,
     secrets,
   }
 }
@@ -139,14 +156,17 @@ export interface RestoreReport {
   restored: string[]
   skipped: string[]
   photos: number
+  /** Collection records that were new or newer than what's here. */
+  records: number
   secrets: number
 }
 
 /**
  * Applies a backup. Each store decides how: most replace what's here; the
  * streak combines check-ins so restoring never erases progress. Data for
- * stores that aren't loaded yet is saved for later. Photos are added; API
- * keys only if the backup has them and the user agreed.
+ * stores that aren't loaded yet is saved for later. Photos are added, and
+ * collection records merged (the newer copy of each wins). API keys only if
+ * the backup has them and the user agreed.
  */
 export async function restoreBackup(
   backup: Backup,
@@ -157,6 +177,7 @@ export async function restoreBackup(
     restored: [],
     skipped: [],
     photos: 0,
+    records: 0,
     secrets: 0,
   }
   for (const [key, envelope] of Object.entries(backup.stores)) {
@@ -166,6 +187,9 @@ export async function restoreBackup(
   for (const photo of backup.photos) {
     await sources.putPhoto(photo.key, base64ToBlob(photo.data, photo.type))
     report.photos++
+  }
+  for (const [name, records] of Object.entries(backup.collections)) {
+    report.records += await sources.importCollection(name, records)
   }
   if (options.includeSecrets && backup.secrets) {
     for (const [name, value] of Object.entries(backup.secrets)) {

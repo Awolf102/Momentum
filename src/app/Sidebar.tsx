@@ -2,6 +2,7 @@ import { Link, useLocation } from 'wouter'
 import { SearchIcon } from '@/components/icons'
 import { Kbd } from '@/components/Kbd'
 import { AmbienceControl } from '@/features/ambience'
+import { FocusPill } from '@/features/focus'
 import { cn } from '@/lib/cn'
 import { formatDateKey } from '@/lib/date'
 import { formatHotkey } from '@/lib/hotkeys'
@@ -61,6 +62,7 @@ export function Sidebar({ hidden }: { hidden: boolean }) {
           )
         })}
       </nav>
+      {location !== paths.home && <FocusPill className="mt-4 self-start" />}
       <div className="mt-auto flex items-center justify-between gap-2 pl-2">
         <time dateTime={today} className="text-xs leading-snug text-fg-subtle">
           {formatDateKey(today, {

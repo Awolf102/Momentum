@@ -5,6 +5,7 @@ import { CommandPalette } from '@/components/CommandPalette'
 import { Toaster } from '@/components/Toaster'
 import { BackgroundLayer, useUnlockCelebrations } from '@/features/appearance'
 import { ClimbOverlay, climbViewStore } from '@/features/climb'
+import { useFocusEngine } from '@/features/focus'
 import { ShareSheet } from '@/features/share'
 import { useReminders } from '@/features/reminder'
 import { checkIn, useStreak } from '@/features/streak'
@@ -28,6 +29,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { current, longest, lastCheckIn } = useStreak()
   const progress = useMemo(() => ({ current, longest }), [current, longest])
   useReminders({ streak: current, lastCheckIn })
+  // The focus timer runs app-wide, whatever page is open.
+  useFocusEngine()
   useLaunchActions()
   return (
     <ProgressContext value={progress}>
