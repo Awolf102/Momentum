@@ -28,6 +28,7 @@ const LogPage = lazyPage(() => import('@/pages/LogPage'))
 const TasksPage = lazyPage(() => import('@/pages/TasksPage'))
 const PlanPage = lazyPage(() => import('@/pages/PlanPage'))
 const GoalsPage = lazyPage(() => import('@/pages/GoalsPage'))
+const ReviewPage = lazyPage(() => import('@/pages/ReviewPage'))
 const InboxPage = lazyPage(() => import('@/pages/InboxPage'))
 const NotesPage = lazyPage(() => import('@/pages/NotesPage'))
 const LibraryPage = lazyPage(() => import('@/pages/LibraryPage'))
@@ -47,6 +48,7 @@ export function AppRoutes() {
           <Route path={paths.tasks} component={TasksPage} />
           <Route path={paths.plan} component={PlanPage} />
           <Route path="/goals/:id?" component={GoalsPage} />
+          <Route path={paths.review()} component={ReviewPage} />
           <Route path={paths.inbox} component={InboxPage} />
           <Route path="/notes/:id?" component={NotesPage} />
           <Route path="/library/:id?" component={LibraryPage} />

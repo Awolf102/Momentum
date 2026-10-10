@@ -538,6 +538,22 @@ export function useAppCommands(): Command[] {
         run: () => navigate(paths.goals),
       },
       {
+        id: 'review-week',
+        title: 'Review my week',
+        section: 'Go to',
+        icon: <SunriseIcon />,
+        keywords: [
+          'week',
+          'review',
+          'summary',
+          'sunday',
+          'reflect',
+          'weekly',
+          'recap',
+        ],
+        run: () => navigate(paths.review()),
+      },
+      {
         id: 'go-notes',
         title: 'Go to Notes',
         section: 'Go to',
