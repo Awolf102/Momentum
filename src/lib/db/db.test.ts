@@ -16,6 +16,7 @@ describe('database schema', () => {
     expect([...db.objectStoreNames].sort()).toEqual([
       'focusSessions',
       'kv',
+      'logEntries',
       'meta',
       'photos',
       'secrets',
@@ -66,6 +67,40 @@ describe('database schema', () => {
     expect(
       await db.getAllFromIndex('focusSessions', 'by-day', '2026-10-10'),
     ).toHaveLength(1)
+  })
+
+  it('upgrades a v3 database (focus timer) without touching its sessions', async () => {
+    const old = await openDB(DB_NAME, 3, {
+      upgrade(database) {
+        for (const name of ['photos', 'kv', 'secrets', 'meta'])
+          database.createObjectStore(name)
+        const sessions = database.createObjectStore('focusSessions', {
+          keyPath: 'id',
+        })
+        sessions.createIndex('by-day', 'day')
+        sessions.createIndex('by-subject', 'subjectId')
+      },
+    })
+    await old.put('focusSessions', {
+      id: 's1',
+      day: '2026-10-10',
+      subjectId: 'calculus',
+    })
+    old.close()
+
+    const db = await getDb()
+    expect(db.version).toBe(DB_VERSION)
+    expect(await db.get('focusSessions', 's1')).toMatchObject({
+      day: '2026-10-10',
+    })
+    await db.put('logEntries', {
+      id: '2026-10-10',
+      day: '2026-10-10',
+      text: 'Lab done',
+    })
+    expect(await db.get('logEntries', '2026-10-10')).toMatchObject({
+      text: 'Lab done',
+    })
   })
 
   it('upgrades the v1 photo database without losing photos', async () => {

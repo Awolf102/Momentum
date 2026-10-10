@@ -24,6 +24,7 @@ function lazyPage(load: () => Promise<{ default: ComponentType }>) {
   })
 }
 
+const LogPage = lazyPage(() => import('@/pages/LogPage'))
 const SettingsPage = lazyPage(() => import('@/pages/SettingsPage'))
 
 export function AppRoutes() {
@@ -33,6 +34,7 @@ export function AppRoutes() {
       <Suspense fallback={null}>
         <Switch>
           <Route path={paths.home} component={DashboardPage} />
+          <Route path={paths.log} component={LogPage} />
           <Route path="/settings/:section?" component={SettingsPage} />
           <Route>
             <Redirect to={paths.home} replace />

@@ -76,12 +76,23 @@ export default defineConfig({
           ],
         },
         // Chunks holding the AI SDKs go in their own folder (see globIgnores).
-        chunkFileNames: (chunk) =>
-          chunk.moduleIds.some((id) =>
-            /node_modules[\\/](openai|@anthropic-ai[\\/]sdk)[\\/]/.test(id),
+        chunkFileNames: (chunk) => {
+          if (
+            chunk.moduleIds.some((id) =>
+              /node_modules[\\/](openai|@anthropic-ai[\\/]sdk)[\\/]/.test(id),
+            )
           )
-            ? 'assets/ai/[name]-[hash].js'
-            : 'assets/[name]-[hash].js',
+            return 'assets/ai/[name]-[hash].js'
+          // Code the bundler splits out because several chunks share it is
+          // named after whichever module came first, which misleads (a "log"
+          // chunk full of timer code). Call it what it is.
+          if (
+            !chunk.isDynamicEntry &&
+            !['vendor', 'rolldown-runtime'].includes(chunk.name)
+          )
+            return 'assets/shared-[hash].js'
+          return 'assets/[name]-[hash].js'
+        },
       },
     },
   },

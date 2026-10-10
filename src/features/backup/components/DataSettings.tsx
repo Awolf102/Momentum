@@ -15,6 +15,7 @@ import {
 import { SettingsCard } from '@/components/SettingsCard'
 import { Switch } from '@/components/Switch'
 import { focusSessions, resetTimer } from '@/features/focus'
+import { logEntries } from '@/features/log'
 import { resetStreak } from '@/features/streak'
 import { cn } from '@/lib/cn'
 import { requestPersistentStorage } from '@/lib/storage'
@@ -26,6 +27,12 @@ import {
 } from '../lib/storageStatus'
 
 type Message = { tone: 'ok' | 'error'; text: string } | null
+
+/** How restored records are counted in the import message. */
+const RECORD_NAMES: Record<string, [one: string, many: string]> = {
+  focusSessions: ['focus session', 'focus sessions'],
+  logEntries: ['log line', 'log lines'],
+}
 
 export function DataSettings() {
   return (
@@ -147,10 +154,10 @@ function BackupCard() {
         parts.push(
           `${report.photos} ${report.photos === 1 ? 'photo' : 'photos'}`,
         )
-      if (report.records)
-        parts.push(
-          `${report.records} ${report.records === 1 ? 'focus session' : 'focus sessions'}`,
-        )
+      for (const [name, count] of Object.entries(report.records)) {
+        const [one, many] = RECORD_NAMES[name] ?? ['record', 'records']
+        parts.push(`${count} ${count === 1 ? one : many}`)
+      }
       if (report.secrets)
         parts.push(
           `${report.secrets} API ${report.secrets === 1 ? 'key' : 'keys'}`,
@@ -176,7 +183,7 @@ function BackupCard() {
   return (
     <SettingsCard
       title="Backup"
-      description="One file with your streak, focus sessions, settings, photos and AI usage. Importing adds to what's here rather than replacing it."
+      description="One file with your streak, log, focus sessions, settings, photos and AI usage. Importing adds to what's here rather than replacing it."
     >
       <div className="space-y-2">
         {/* Chosen before exporting or importing, so it's never a surprise. */}
@@ -241,6 +248,14 @@ function ResetCard() {
           onReset={() => {
             resetStreak()
             setDone('Your streak history was cleared.')
+          }}
+        />
+        <ResetRow
+          label="Reset log"
+          confirm="Tap again to erase every line"
+          onReset={() => {
+            void logEntries.clear()
+            setDone('Your log was cleared.')
           }}
         />
         <ResetRow

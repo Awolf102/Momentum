@@ -3,7 +3,7 @@ import { Link, useLocation } from 'wouter'
 import { SearchIcon } from '@/components/icons'
 import { cn } from '@/lib/cn'
 import { togglePalette } from '@/lib/overlays'
-import { NAV_ITEMS } from './nav'
+import { NAV_ITEMS, type NavItem } from './nav'
 
 const tabClass = (active: boolean) =>
   cn(
@@ -23,7 +23,19 @@ function TabContent({ icon, label }: { icon: ReactNode; label: string }) {
 /** Navigation on phones and tablets: a floating bar within thumb reach. */
 export function TabBar({ hidden }: { hidden: boolean }) {
   const [location] = useLocation()
-  const [home, settings] = NAV_ITEMS
+  // Pages, then search, with settings at the end: Home · Log · Search · Settings.
+  const pages = NAV_ITEMS.slice(0, -1)
+  const settings = NAV_ITEMS.at(-1)!
+  const link = (item: NavItem) => (
+    <Link
+      key={item.href}
+      href={item.href}
+      aria-current={item.isActive(location) ? 'page' : undefined}
+      className={tabClass(item.isActive(location))}
+    >
+      <TabContent icon={item.icon} label={item.label} />
+    </Link>
+  )
   return (
     <nav
       aria-label="Main"
@@ -38,13 +50,7 @@ export function TabBar({ hidden }: { hidden: boolean }) {
           !hidden && 'pointer-events-auto',
         )}
       >
-        <Link
-          href={home.href}
-          aria-current={home.isActive(location) ? 'page' : undefined}
-          className={tabClass(home.isActive(location))}
-        >
-          <TabContent icon={home.icon} label={home.label} />
-        </Link>
+        {pages.map(link)}
         <button
           type="button"
           onClick={togglePalette}
@@ -52,13 +58,7 @@ export function TabBar({ hidden }: { hidden: boolean }) {
         >
           <TabContent icon={<SearchIcon />} label="Search" />
         </button>
-        <Link
-          href={settings.href}
-          aria-current={settings.isActive(location) ? 'page' : undefined}
-          className={tabClass(settings.isActive(location))}
-        >
-          <TabContent icon={settings.icon} label={settings.label} />
-        </Link>
+        {link(settings)}
       </div>
     </nav>
   )

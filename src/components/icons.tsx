@@ -342,6 +342,15 @@ export function AlertIcon(props: IconProps) {
   )
 }
 
+export function BookIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 5.5A2.5 2.5 0 017.5 3H19v15H7.5A2.5 2.5 0 005 20.5v-15z" />
+      <path d="M5 20.5A2.5 2.5 0 017.5 18H19v3H7.5M9 7.5h6" />
+    </Icon>
+  )
+}
+
 export function TimerIcon(props: IconProps) {
   return (
     <Icon {...props}>

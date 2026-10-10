@@ -156,8 +156,8 @@ export interface RestoreReport {
   restored: string[]
   skipped: string[]
   photos: number
-  /** Collection records that were new or newer than what's here. */
-  records: number
+  /** Per collection: records that were new or newer than what's here. */
+  records: Record<string, number>
   secrets: number
 }
 
@@ -177,7 +177,7 @@ export async function restoreBackup(
     restored: [],
     skipped: [],
     photos: 0,
-    records: 0,
+    records: {},
     secrets: 0,
   }
   for (const [key, envelope] of Object.entries(backup.stores)) {
@@ -189,7 +189,8 @@ export async function restoreBackup(
     report.photos++
   }
   for (const [name, records] of Object.entries(backup.collections)) {
-    report.records += await sources.importCollection(name, records)
+    const count = await sources.importCollection(name, records)
+    if (count > 0) report.records[name] = count
   }
   if (options.includeSecrets && backup.secrets) {
     for (const [name, value] of Object.entries(backup.secrets)) {

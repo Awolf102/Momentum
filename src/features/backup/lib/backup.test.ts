@@ -60,13 +60,22 @@ function device() {
         : null,
     registry: collections,
   })
+  const log = createCollection<Session>({
+    name: 'logEntries',
+    parse: (value) =>
+      typeof (value as Session | null)?.minutes === 'number'
+        ? (value as Session)
+        : null,
+    registry: collections,
+  })
   const photos = new Map<string, Blob>()
   const secrets: Record<string, string> = {}
   const sources: BackupSources = {
     registry,
     listPhotos: async () => [...photos].map(([key, blob]) => ({ key, blob })),
     putPhoto: async (key, blob) => void photos.set(key, blob),
-    exportCollections: () => collections.exportAll(['focusSessions']),
+    exportCollections: () =>
+      collections.exportAll(['focusSessions', 'logEntries']),
     importCollection: (name, records) =>
       collections.importRecords(name, records),
     getSecrets: async () => ({ ...secrets }),
@@ -83,6 +92,7 @@ function device() {
     streak,
     settings,
     sessions,
+    log,
     photos,
     secrets,
     sources,
@@ -136,6 +146,7 @@ describe('backups', () => {
     await source.hydrate()
     await source.sessions.add(session('a', 25))
     await source.sessions.add(session('b', 50))
+    await source.log.put(session('2026-10-10', 0))
     const backup = parseBackup(
       JSON.stringify(
         await createBackup(source.sources, { includeSecrets: false }),
@@ -154,7 +165,8 @@ describe('backups', () => {
     const report = await restoreBackup(backup, target.sources, {
       includeSecrets: false,
     })
-    expect(report.records).toBe(1)
+    expect(report.records).toEqual({ focusSessions: 1, logEntries: 1 })
+    expect(target.log.find('2026-10-10')).toBeDefined()
     expect(
       Object.fromEntries(
         target.sessions.get().map((record) => [record.id, record.minutes]),
@@ -193,7 +205,7 @@ describe('backups', () => {
     const report = await restoreBackup(backup, target.sources, {
       includeSecrets: false,
     })
-    expect(report.records).toBe(0)
+    expect(report.records).toEqual({})
   })
 
   it('still reads version 1 backups (streak only)', () => {

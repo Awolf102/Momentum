@@ -8,7 +8,7 @@ phase at a time ([ROADMAP.md](ROADMAP.md)). Phase 1 laid the foundations: a
 routed app shell, IndexedDB storage with migrations, full backups, and an
 optional bring-your-own-key AI layer. Phase 2 starts with a focus timer:
 Pomodoro sessions with subjects, which check you in when the day's first one
-finishes.
+finishes, and a daily log: one line a day about what you did.
 
 ## Guiding principles
 
@@ -55,6 +55,7 @@ src/
 │   ├── Header.tsx, Footer.tsx, Logo.tsx, ShortcutsSheet.tsx
 ├── pages/
 │   ├── DashboardPage.tsx     Home: composes features into the dashboard
+│   ├── LogPage.tsx           The log: each day's line, check-in and focus (lazy)
 │   └── SettingsPage.tsx      Settings sections (lazy-loaded)
 ├── features/
 │   ├── ai/                   Optional AI: providers, client, Settings → AI, AiGate
@@ -72,6 +73,9 @@ src/
 │   │   ├── components/       FocusCard, TimerDial, FocusTodayTile, FocusPill
 │   │   └── settings.ts       Settings → Focus (its own entry point, lazy-loaded)
 │   ├── subjects/             Labels for sessions: Calculus, Reading… (editable)
+│   ├── log/                  The daily log: one line per day, editable in place
+│   │   ├── entries.ts        The logEntries collection; setLine (tested)
+│   │   └── lib/timeline.ts   Days with a line, check-in or focus (pure, tested)
 │   ├── calendar/             Generic GitHub-style activity grid, with views
 │   ├── motivation/           Daily and milestone messages
 │   ├── appearance/           Theme, light, backgrounds, rewards, user photos
@@ -97,6 +101,7 @@ src/
 │   ├── storage.ts            IndexedDB backends, localStorage migration, fallback
 │   ├── secrets.ts            API keys, in their own object store
 │   ├── notify.ts             System notifications (reminder, focus timer)
+│   ├── duration.ts           "1 h 15 min"
 │   ├── routes.ts             Paths and navigation (usable outside React)
 │   ├── progress.ts           Streak progress context (see dependency rules)
 │   ├── overlays.ts           Palette and shortcuts dialogs' open state
@@ -179,6 +184,15 @@ The subject, start, length and day are everything per-subject streaks need
 later, and the store is indexed `by-day` and `by-subject`, so they can be built
 without a migration. Cancelled sessions are never stored.
 
+A log line is a record whose id is its day, so "one line per day" holds in the
+store itself, and two devices writing the same day merge to the later edit:
+
+```ts
+// object store "logEntries"
+{ "id": "2026-10-10", "day": "2026-10-10", "text": "Finished the DFA lab",
+  "createdAt": "…", "updatedAt": "…" }   // deletedAt once emptied
+```
+
 Everything persisted, and where:
 
 | Where                         | Holds                                                                  |
@@ -195,18 +209,20 @@ Everything persisted, and where:
 | `kv` › `momentum.ai`          | AI providers, model per task, compatible server address, prices        |
 | `kv` › `momentum.ai.usage`    | Tokens and requests per model per month (13 months kept)               |
 | `focusSessions`               | Finished focus sessions (above)                                        |
+| `logEntries`                  | The daily log, one line per day (above)                                |
 | `photos`                      | Uploaded photos as Blobs (2560 px + 360 px thumbnail)                  |
 | `secrets`                     | API keys: `anthropic`, `openai`, `compatible`                          |
 | `meta`                        | Housekeeping, e.g. when localStorage data was migrated                 |
 | IndexedDB `momentum-reminder` | What the service worker needs for reminders (a mirror)                 |
 | localStorage `momentum.theme` | A copy of the theme, read before the first paint to avoid a flash      |
 
-These are object stores in the `momentum` database (version 3). Its schema
+These are object stores in the `momentum` database (version 4). Its schema
 lives in `lib/db/schema.ts` as one `upgrade` function with a step per version,
 so a browser on any older version upgrades in order: version 1 (photos only,
 from v2 of the app) gains `kv`, `secrets` and `meta`; version 2 (Phase 1) gains
-`focusSessions` and its indexes. Existing streaks, settings, keys and photos
-are untouched — both paths are tested against `fake-indexeddb`.
+`focusSessions` and its indexes; version 3 (the timer) gains `logEntries`.
+Existing streaks, sessions, settings, keys and photos are untouched — each path
+is tested against `fake-indexeddb`.
 
 Fields added after the first release are optional in each store's `parse` and
 filled with defaults, so older saved data loads without a version bump. A bump
@@ -299,7 +315,8 @@ database version.
 ## Routing and the shell
 
 `wouter` (about 2 KB) maps paths to pages: `/` is the dashboard, and
-`/settings/:section` the settings (appearance, focus, app, AI, data). Pages other than
+`/log` the daily log, and `/settings/:section` the settings (appearance,
+focus, app, AI, data). Pages other than
 the dashboard load on first visit, behind an error boundary that explains a
 failed load instead of showing a blank screen. Real paths, not `#` routes: the
 service worker answers every navigation with the app shell, so deep links work
@@ -308,9 +325,9 @@ offline; a static host needs the usual single-page-app fallback to `index.html`.
 The shell keeps the existing look:
 
 - **Wide screens (≥ 1024 px):** a glass sidebar with the logo, search (⌘K), the
-  pages, today's date and the sound control.
+  pages (Home, Log, Settings), today's date and the sound control.
 - **Phones and tablets:** the header stays, and a floating glass tab bar (Home,
-  Search, Settings) sits within thumb reach. Toasts move above it.
+  Log, Search, Settings) sits within thumb reach. Toasts move above it.
 - The climb view still clears everything away. The fade is applied to each
   layer separately, because a `filter` on a shared wrapper would re-anchor the
   fixed sidebar and tab bar mid-transition.
@@ -624,6 +641,28 @@ panel (the background redrawn with `ctx.filter = blur()`), the flame from the
 same path data as the UI, the number and a first-person line. It's shared with
 the Web Share API where files are supported, otherwise downloaded or copied.
 
+## Daily log
+
+`features/log` keeps one line per day — what you did, how it went — in the
+`logEntries` collection (see Data model). `setLine(day, text)` tidies the text
+into one line (at most 200 characters, never splitting an emoji), keeps the
+time it was first written, and soft-deletes a line saved empty.
+
+- **On the dashboard,** once you've checked in, the hero offers "Add a line
+  about today" under the day's message, through a `footer` slot, so the streak
+  feature doesn't know the log exists. The line is written in place: Enter or
+  leaving the field saves, Escape cancels.
+- **The Log page** lists every day with a line, a check-in or focus time,
+  newest first and grouped by month (60 days at a time). Past days without a
+  line show what happened with a quiet "Add a line"; any day's line can be
+  written or changed later. The page composes three features — the log, the
+  streak's check-ins and focus totals — with `buildTimeline` (pure, tested)
+  doing the joining, so none of them depends on the others.
+- **L** writes today's line: in place if it's on screen (the dashboard after
+  checking in), otherwise on the Log page with the field focused.
+  `lineRequestStore` carries the request to whichever editor is showing that
+  day.
+
 ## Ambient sound
 
 No audio files: `ambience/lib/sounds.ts` builds each soundscape from looped
@@ -636,8 +675,8 @@ created on the first play, which always follows a click or key press.
 
 `app/commands.tsx` lists every action once (title, section, keywords, optional
 hotkey). The ⌘K / Ctrl K palette searches it; the same list drives the keyboard
-shortcuts and the shortcuts sheet. Single-key shortcuts (C, F, M, S, A, T, `,`,
-`?`) are ignored while typing or while a dialog (`aria-modal`) is open. F starts,
+shortcuts and the shortcuts sheet. Single-key shortcuts (C, F, L, M, S, A, T,
+`,`, `?`) are ignored while typing or while a dialog (`aria-modal`) is open. F starts,
 pauses or resumes the focus timer; the palette also offers "Start focus on
 <subject>" for each subject, skip break and cancel, as they apply.
 
@@ -648,6 +687,10 @@ pauses or resumes the focus timer; the palette also offers "Start focus on
   every navigation, so the app — including check-ins — works offline. The AI
   SDKs are the exception (see AI).
 - Updates are offered with a toast rather than applied silently.
+- **Chunks.** React and Motion are a `vendor` chunk, which rarely changes, so an
+  update re-downloads only Momentum's own code. Code the bundler splits out
+  because several chunks share it is named `shared-*.js` (rather than after
+  whichever module came first). Everything the dashboard needs is preloaded.
 - The **evening reminder** fires at a chosen time, once a day, only if you haven't
   checked in. While Momentum is open (even in a background tab) a timer handles
   it: a toast if you're looking at the app, a notification otherwise. The
@@ -681,7 +724,8 @@ collections (atomic add, soft delete, merge), the database upgrade paths (v1
 and v2 to v3, data kept), backups (round trip, opt-in keys, sessions, v1 and v2
 files), the focus timer (remaining time across pause and resume, resuming after
 a reload, sessions that ended while the app was closed, midnight crossing, auto
-check-in once per day, two wake-ups at once, daily totals and levels), the AI
+check-in once per day, two wake-ups at once, daily totals and levels), the
+daily log (one line per day, edits, deletion, tidying, the timeline), the AI
 layer (retries, Retry-After, the gate, error mapping, both adapters, usage and
 cost, settings parsing), light blending, climb progress, trail geometry and
 skyline detection (on synthetic images), command search and hotkey matching,

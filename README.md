@@ -16,6 +16,9 @@ day, keep the flame lit, and watch your streak grow.
   tab reloads, and a session that ends while Momentum is closed still counts.
   A chime and a notification when a phase ends, the countdown in the tab title,
   today's focus minutes, and a calendar view shaded by focus time.
+- **Daily log:** one line a day about what you did — right after you check in,
+  or any time with L. The Log page shows each day's line beside its check-in
+  and focus time, and earlier days can get a line too.
 - **The climb:** a marker walks up the ridge in your background, reaching a summit
   at 7, 14, 30, 60, 100, 200 and 365 days. Mountains in photos are found
   automatically, or you can trace the trail yourself.
@@ -26,14 +29,14 @@ day, keep the flame lit, and watch your streak grow.
 - **Ambient sound** for studying: wind, rain and a quiet fire, generated live —
   optionally only while a focus session runs.
 - **Shareable streak card**: an image of your streak over your background.
-- **Keyboard first:** C to check in, F to start or pause focus, ⌘K for the
-  command palette.
+- **Keyboard first:** C to check in, F to start or pause focus, L to write
+  today's line, ⌘K for the command palette.
 - **Installable and offline**, with an optional evening reminder if you haven't
   checked in.
 - **Your own photographs as backgrounds**, behind frosted-glass cards, dark mode
   by default with a light theme.
 - **Local-first:** everything is saved in your browser's database (IndexedDB),
-  with one-file backups of all of it, focus sessions included.
+  with one-file backups of all of it, focus sessions and the log included.
 - **Optional AI, with your own key:** Anthropic, OpenAI, or a server such as
   Ollama. Momentum works fully without it. (The AI features themselves arrive
   in later phases; see [docs/ROADMAP.md](docs/ROADMAP.md).)
@@ -112,6 +115,7 @@ minutes.
 | ⌘K / Ctrl K | Command palette              |
 | C           | Check in for today           |
 | F           | Start / pause / resume focus |
+| L           | Write today's log line       |
 | M           | View the climb               |
 | S           | Share streak card            |
 | A           | Play / pause ambient sound   |
@@ -142,9 +146,10 @@ Anthropic and OpenAI SDKs (loaded on demand) · Web Audio · Workbox (vite-plugi
 ```
 src/
 ├── app/          App shell: routes, sidebar, tab bar, header, commands
-├── pages/        Pages composed from features (dashboard, settings)
-├── features/     streak · focus · subjects · calendar · motivation · appearance
-│                 climb · share · ambience · reminder · pwa · backup · ai
+├── pages/        Pages composed from features (dashboard, log, settings)
+├── features/     streak · focus · subjects · log · calendar · motivation
+│                 appearance · climb · share · ambience · reminder · pwa
+│                 backup · ai
 ├── components/   Shared UI (glass card, sheet, settings card, icons…)
 ├── lib/          Dates, the database and stores, secrets, routes, hooks
 └── styles/       Tailwind, design tokens, glass utility

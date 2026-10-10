@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import type { Command } from '@/lib/commands'
 import {
   BellIcon,
+  BookIcon,
   CheckIcon,
   DatabaseIcon,
   DownloadIcon,
@@ -49,6 +50,7 @@ import {
   startFocus,
   toggleFocus,
 } from '@/features/focus'
+import { writeLine } from '@/features/log'
 import { installStore, promptInstall } from '@/features/pwa'
 import { reminderStore } from '@/features/reminder'
 import { openShare } from '@/features/share'
@@ -57,6 +59,7 @@ import { checkIn } from '@/features/streak'
 import { openShortcuts } from '@/lib/overlays'
 import { useProgress } from '@/lib/progress'
 import { navigate, openSettings, paths } from '@/lib/routes'
+import { toDateKey } from '@/lib/date'
 import { useStore } from '@/lib/store'
 import { toast } from '@/lib/toast'
 
@@ -158,6 +161,15 @@ export function useAppCommands(): Command[] {
           }))
         : []),
       {
+        id: 'log-today',
+        title: "Write today's line",
+        section: 'Log',
+        icon: <PencilIcon />,
+        keywords: ['log', 'journal', 'diary', 'note', 'reflect', 'today'],
+        hotkey: { key: 'l' },
+        run: () => writeLine(toDateKey(new Date())),
+      },
+      {
         id: 'climb',
         title: 'View the climb',
         section: 'Streak',
@@ -190,6 +202,14 @@ export function useAppCommands(): Command[] {
         icon: <HomeIcon />,
         keywords: ['dashboard', 'today', 'streak'],
         run: () => navigate(paths.home),
+      },
+      {
+        id: 'go-log',
+        title: 'Go to Log',
+        section: 'Go to',
+        icon: <BookIcon />,
+        keywords: ['journal', 'diary', 'history', 'lines', 'days'],
+        run: () => navigate(paths.log),
       },
       {
         id: 'settings',

@@ -7,6 +7,7 @@ import {
   FocusTodayTile,
   useFocusCalendarView,
 } from '@/features/focus'
+import { TodayLine } from '@/features/log'
 import { openShare } from '@/features/share'
 import {
   StreakHero,
@@ -25,6 +26,7 @@ export function DashboardPage() {
     <div className="flex flex-col items-center gap-4 pt-4 pb-6 sm:gap-5 sm:pt-8">
       <StreakHero
         streak={streak}
+        footer={<TodayLine day={streak.today} />}
         corner={
           <IconButton
             label="Share streak card"

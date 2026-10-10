@@ -173,11 +173,11 @@ versions and the flame stages could go in earlier.
 
 ## Progress
 
-| Phase | Status      | Notes                                                                                                                               |
-| ----- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | In review   | Branch `claude/v3-phase-1-foundations` (PR #2), stacked on the v2 branch (PR #1)                                                    |
-| 2     | In progress | Focus timer, subjects and collections in review on `feature/focus-timer`, stacked on Phase 1. Daily log, tasks and the rest to come |
-| 3–7   | Planned     |                                                                                                                                     |
+| Phase | Status      | Notes                                                                                                                                 |
+| ----- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | In review   | Branch `claude/v3-phase-1-foundations` (PR #2), stacked on the v2 branch (PR #1)                                                      |
+| 2     | In progress | In review: focus timer, subjects and collections (`feature/focus-timer`); daily log (`feature/daily-log`). Tasks and the rest to come |
+| 3–7   | Planned     |                                                                                                                                       |
 
 ### What Phase 1 changed in the plan
 
