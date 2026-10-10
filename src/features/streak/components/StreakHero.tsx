@@ -31,15 +31,18 @@ export function StreakHero({
   const checkedIn = useMemo(() => new Set(streak.dates), [streak.dates])
   const lit = streak.checkedInToday
 
-  // Celebrate every check-in, however it happened (button, shortcut, palette).
+  // Celebrate every check-in for today, however it happened (button,
+  // shortcut, palette, or finishing the day's first focus session).
+  const today = streak.today
   useEffect(
     () =>
-      onCheckIn(() => {
+      onCheckIn((day) => {
+        if (day !== today) return
         setJustCheckedIn(true)
         if (!reduceMotion) setBurst({ id: Date.now(), embers: createEmbers() })
         navigator.vibrate?.(12)
       }),
-    [reduceMotion],
+    [reduceMotion, today],
   )
 
   return (

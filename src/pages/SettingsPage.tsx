@@ -8,6 +8,7 @@ import {
   KeyboardIcon,
   PaletteIcon,
   SparkleIcon,
+  TimerIcon,
 } from '@/components/icons'
 import { SettingsCard } from '@/components/SettingsCard'
 import { AiSettingsPanel } from '@/features/ai'
@@ -17,6 +18,7 @@ import {
   ThemeSetting,
 } from '@/features/appearance'
 import { DataSettings } from '@/features/backup'
+import { FocusSettings } from '@/features/focus/settings'
 import { InstallSetting } from '@/features/pwa'
 import { ReminderSetting } from '@/features/reminder'
 import { cn } from '@/lib/cn'
@@ -31,6 +33,7 @@ import {
 
 const SECTIONS: Record<SettingsSection, { label: string; icon: ReactNode }> = {
   appearance: { label: 'Appearance', icon: <PaletteIcon /> },
+  focus: { label: 'Focus', icon: <TimerIcon /> },
   app: { label: 'App', icon: <AppIcon /> },
   ai: { label: 'AI', icon: <SparkleIcon /> },
   data: { label: 'Data', icon: <DatabaseIcon /> },
@@ -115,6 +118,8 @@ function SectionContent({ section }: { section: SettingsSection }) {
           </SettingsCard>
         </>
       )
+    case 'focus':
+      return <FocusSettings />
     case 'app':
       return (
         <>

@@ -1,9 +1,10 @@
-export { StreakCalendar } from './components/StreakCalendar'
 export { StreakHero } from './components/StreakHero'
-export { StreakStats } from './components/StreakStats'
+export { StreakStatTiles } from './components/StreakStats'
 export { useStreak, type StreakState } from './hooks/useStreak'
+export { useStreakCalendarView } from './hooks/useStreakCalendarView'
 export {
   checkIn,
+  isCheckedIn,
   mergeCheckIns,
   onCheckIn,
   resetStreak,

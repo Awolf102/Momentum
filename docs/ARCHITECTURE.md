@@ -6,7 +6,9 @@ identity and adds polish (light, rewards, the climb, sound, sharing, offline,
 shortcuts). Version 3 grows it into a personal productivity platform, one
 phase at a time ([ROADMAP.md](ROADMAP.md)). Phase 1 laid the foundations: a
 routed app shell, IndexedDB storage with migrations, full backups, and an
-optional bring-your-own-key AI layer.
+optional bring-your-own-key AI layer. Phase 2 starts with a focus timer:
+Pomodoro sessions with subjects, which check you in when the day's first one
+finishes.
 
 ## Guiding principles
 
@@ -20,16 +22,21 @@ optional bring-your-own-key AI layer.
    (`toDateKey`) reads the clock; all date arithmetic is done on pure calendar
    dates in UTC, so daylight-saving changes and midnight edge cases can't break
    a streak.
-3. **Pure logic, thin React.** Streak rules, calendar layout and message
-   selection are plain TypeScript functions with unit tests. Components only
-   render what those functions return.
-4. **Features are vertical slices.** Each feature owns its components, hooks,
+3. **Clocks, not counters.** Anything that runs over time stores when it
+   started and paused, and works out the rest from the clock. The focus timer
+   never counts `setInterval` ticks, so a sleeping phone or a throttled
+   background tab can't put it wrong.
+4. **Pure logic, thin React.** Streak rules, timer transitions, calendar layout
+   and message selection are plain TypeScript functions with unit tests.
+   Components only render what those functions return.
+5. **Features are vertical slices.** Each feature owns its components, hooks,
    storage and logic, and exposes a small public API through `index.ts`.
    Adding a feature means adding a folder, not editing ten.
-5. **Persistence behind an interface.** Stores write through a
-   `StorageBackend` (IndexedDB today; a sync server could be another one).
-   Components never touch storage directly.
-6. **Local-first, AI optional.** Everything works offline and without keys.
+6. **Persistence behind an interface.** Stores write through a
+   `StorageBackend`, and collections through a `CollectionBackend` (IndexedDB
+   today; a sync server could be another one). Components never touch storage
+   directly.
+7. **Local-first, AI optional.** Everything works offline and without keys.
    AI is reached only through `features/ai`, only when the user acts, with the
    user's own keys, which never leave the device except to their provider.
 
@@ -54,9 +61,18 @@ src/
 │   │   ├── client.ts         The one entry point features use (chat, embed…)
 │   │   ├── providers/        Anthropic, OpenAI(-compatible) adapters; mock
 │   │   └── lib/              Retries, rate-limit gate, error mapping, usage (tested)
-│   ├── backup/               Backup v2 (all data, opt-in keys) and Settings → Data
+│   ├── backup/               Backup v3 (all data, opt-in keys) and Settings → Data
 │   ├── streak/               Check-ins, streak rules, hero card, stats, flame
-│   ├── calendar/             Generic GitHub-style activity grid
+│   ├── focus/                Focus timer: Pomodoro sessions, auto check-in
+│   │   ├── lib/timer.ts      Phases, pause/resume, catching up (pure, tested)
+│   │   ├── lib/stats.ts      Minutes per day and subject, calendar levels (tested)
+│   │   ├── engine.ts         Ends due phases, saves sessions, checks in (tested)
+│   │   ├── actions.ts        Start, pause, resume, cancel, skip break
+│   │   ├── sessions.ts       The focusSessions collection
+│   │   ├── components/       FocusCard, TimerDial, FocusTodayTile, FocusPill
+│   │   └── settings.ts       Settings → Focus (its own entry point, lazy-loaded)
+│   ├── subjects/             Labels for sessions: Calculus, Reading… (editable)
+│   ├── calendar/             Generic GitHub-style activity grid, with views
 │   ├── motivation/           Daily and milestone messages
 │   ├── appearance/           Theme, light, backgrounds, rewards, user photos
 │   │   ├── components/       BackgroundLayer, BackgroundPicker, MountainScene…
@@ -71,18 +87,20 @@ src/
 │   ├── ambience/             Procedural wind / rain / fire (Web Audio)
 │   ├── reminder/             Evening reminder (shared with the service worker)
 │   └── pwa/                  Install prompt, service worker registration
-├── components/               Shared UI: GlassCard, Sheet, SettingsCard, Switch…
+├── components/               Shared UI: GlassCard, StatTile, Sheet, SettingsCard…
 ├── lib/                      Shared infrastructure
 │   ├── date.ts               DateKey helpers (pure, tested)
 │   ├── store.ts              Tiny observable store + useStore
 │   ├── persistentStore.ts    Versioned stores + the registry that persists them
+│   ├── collection.ts         Record collections (sessions, later tasks…) (tested)
 │   ├── db/                   The IndexedDB database: schema, upgrades, connection
-│   ├── storage.ts            IndexedDB backend, localStorage migration, fallback
+│   ├── storage.ts            IndexedDB backends, localStorage migration, fallback
 │   ├── secrets.ts            API keys, in their own object store
+│   ├── notify.ts             System notifications (reminder, focus timer)
 │   ├── routes.ts             Paths and navigation (usable outside React)
 │   ├── progress.ts           Streak progress context (see dependency rules)
 │   ├── overlays.ts           Palette and shortcuts dialogs' open state
-│   ├── hotkeys.ts, commands.ts, toast.ts, color.ts, cover.ts, brand.ts
+│   ├── hotkeys.ts, commands.ts, toast.ts, color.ts, cover.ts, brand.ts, id.ts
 │   └── useToday.ts, useClock.ts, useViewport.ts, useMediaQuery.ts
 ├── assets/backgrounds/       Drop photos here → built-in backgrounds
 │   └── unlocks/<days>/       …or here → rewards unlocked at that streak
@@ -94,10 +112,18 @@ src/
 - `app` → `pages` → `features` → `components` / `lib`. Never the other way
   around.
 - Features import each other only through their `index.ts`. The calendar, for
-  example, knows nothing about streaks: it renders a map of `DateKey → level`.
-  The dashboard is what turns streak data into calendar levels. That keeps the
-  calendar reusable for multiple habits, study sessions or task completion later.
-- **No cycles between features.** Lower-level features that need streak numbers
+  example, knows nothing about streaks or timers: it renders a map of
+  `DateKey → level`. Each feature with something to show supplies a
+  `CalendarView` (levels, labels, a summary line) — `useStreakCalendarView()`
+  and `useFocusCalendarView()` — and the dashboard hands the calendar both.
+  Multiple habits or task completion later are just more views.
+- Settings UI that only the Settings page needs has its own entry point
+  (`features/focus/settings.ts`, `features/subjects/settings.ts`), so the
+  dashboard's bundle doesn't carry it.
+- **No cycles between features.** Focus uses the streak (to check in), subjects
+  and ambience through their `index.ts`; none of them knows focus exists. The
+  hero hears about check-ins through `onCheckIn`, whoever made them. Lower-level
+  features that need streak numbers
   (appearance for rewards and streak warmth, climb for the marker) read them
   from `ProgressContext` in `lib/progress.ts`, which `AppShell` provides from
   `useStreak()`. Where a feature needs to put a control inside another's
@@ -133,6 +159,26 @@ src/
   function will move this V1 history into a `habits.default` entry. Nothing in
   V1 needs to anticipate that shape — the versioning is what makes it safe.
 
+A finished focus session is a record of its own (in the `focusSessions` object
+store, keyed by `id`):
+
+```ts
+{
+  "id": "m1x2…",
+  "subjectId": "calculus",            // null when no subject was chosen
+  "startedAt": "2026-10-10T08:00:00.000Z",
+  "endedAt": "2026-10-10T08:31:00.000Z",
+  "durationMs": 1500000,               // time focused: the planned 25 min
+  "pausedMs": 360000,                  // paused for 6 min in between
+  "day": "2026-10-10",                 // the local day it started
+  "createdAt": "…", "updatedAt": "…"   // deletedAt when removed
+}
+```
+
+The subject, start, length and day are everything per-subject streaks need
+later, and the store is indexed `by-day` and `by-subject`, so they can be built
+without a migration. Cancelled sessions are never stored.
+
 Everything persisted, and where:
 
 | Where                         | Holds                                                                  |
@@ -142,19 +188,25 @@ Everything persisted, and where:
 | `kv` › `momentum.climb`       | Trails you traced, per background                                      |
 | `kv` › `momentum.ambience`    | Sound mix and volume (playback never auto-starts)                      |
 | `kv` › `momentum.reminder`    | Reminder on/off and time                                               |
+| `kv` › `momentum.focus`       | Session and break lengths, ambient sound on/off, last subject          |
+| `kv` › `momentum.focus.timer` | The phase on the clock (timestamps), place in the cycle                |
+| `kv` › `momentum.subjects`    | Subjects: name, colour, deleted (kept for old sessions)                |
+| `kv` › `momentum.calendar`    | Which calendar view is showing                                         |
 | `kv` › `momentum.ai`          | AI providers, model per task, compatible server address, prices        |
 | `kv` › `momentum.ai.usage`    | Tokens and requests per model per month (13 months kept)               |
+| `focusSessions`               | Finished focus sessions (above)                                        |
 | `photos`                      | Uploaded photos as Blobs (2560 px + 360 px thumbnail)                  |
 | `secrets`                     | API keys: `anthropic`, `openai`, `compatible`                          |
 | `meta`                        | Housekeeping, e.g. when localStorage data was migrated                 |
 | IndexedDB `momentum-reminder` | What the service worker needs for reminders (a mirror)                 |
 | localStorage `momentum.theme` | A copy of the theme, read before the first paint to avoid a flash      |
 
-`kv`, `photos`, `secrets` and `meta` are object stores in the `momentum`
-database (version 2). Its schema lives in `lib/db/schema.ts` as one `upgrade`
-function with a step per version, so a browser on any older version upgrades
-in order: version 1 (photos only, from v2 of the app) gains the other stores
-without losing photos. This is tested against `fake-indexeddb`.
+These are object stores in the `momentum` database (version 3). Its schema
+lives in `lib/db/schema.ts` as one `upgrade` function with a step per version,
+so a browser on any older version upgrades in order: version 1 (photos only,
+from v2 of the app) gains `kv`, `secrets` and `meta`; version 2 (Phase 1) gains
+`focusSessions` and its indexes. Existing streaks, settings, keys and photos
+are untouched — both paths are tested against `fake-indexeddb`.
 
 Fields added after the first release are optional in each store's `parse` and
 filled with defaults, so older saved data loads without a version bump. A bump
@@ -176,6 +228,12 @@ The flame stays unlit until you check in, which gives a gentle nudge.
 The **longest streak** is computed from history in a single pass, so it can never
 disagree with the calendar.
 
+There is one way to check in — `checkIn()` in `features/streak` — whether it's
+the button, the C shortcut, a notification's action or a finished focus
+session. It records a day at most once and tells `onCheckIn` listeners which
+day; the hero plays its animation when that day is today. A focus session that
+started before midnight checks in the day it started (`checkIn(at, { day })`).
+
 ## State management
 
 No Redux or Zustand. `createPersistentStore` gives each feature a small store
@@ -192,7 +250,10 @@ which owns persistence:
   migration is recorded in `meta`. The old copy is left in place as a safety
   net; IndexedDB wins from then on.
 - **Write-through, batched.** `set` updates memory synchronously and schedules
-  a write; writes in the same tick are batched.
+  a write for straight after the code that made the change (a microtask), so
+  changes made together are saved together. Each IndexedDB transaction is
+  committed at once (`commit()`) rather than when the page next hears back, so
+  starting a timer and immediately closing or leaving the page doesn't lose it.
 - **Corruption-safe.** Data that can't be read is kept under a `.unreadable` key
   instead of being overwritten by defaults.
 - **Cross-tab sync** over `BroadcastChannel`: after saving, a tab announces
@@ -210,10 +271,35 @@ which owns persistence:
 `navigator.storage.persist()` is requested after the first render, and Settings
 → Data shows whether the browser granted it.
 
+### Collections
+
+Stores suit settings and small documents. Things that grow — focus sessions
+now; tasks, notes and routines later — are **collections** (`lib/collection.ts`):
+one IndexedDB object store each, records keyed by `id`, so saving one session
+writes one record rather than rewriting a list.
+
+- Every record carries `createdAt`, `updatedAt` and an optional `deletedAt`.
+  Deleting is a soft delete, so history and a future sync can see it.
+- The whole collection is loaded before the first render (with the stores) and
+  kept in memory as a sorted list, read in React through `useStore`.
+- `add` writes only if no record has that id, in one IndexedDB request, so two
+  tabs finishing the same session record it once — the tab that wrote it is the
+  one that announces it.
+- Changes are announced over a `BroadcastChannel`; other tabs reload just those
+  records.
+- Backups export every record, deleted ones included. Importing merges: new
+  records are added, and where both sides have a record the later `updatedAt`
+  wins.
+- If IndexedDB is unavailable, collections live in memory for the session.
+
+A collection is declared with a name and a `parse` (records that can't be read
+are skipped, not fatal); adding one means adding its object store in a new
+database version.
+
 ## Routing and the shell
 
 `wouter` (about 2 KB) maps paths to pages: `/` is the dashboard, and
-`/settings/:section` the settings (appearance, app, AI, data). Pages other than
+`/settings/:section` the settings (appearance, focus, app, AI, data). Pages other than
 the dashboard load on first visit, behind an error boundary that explains a
 failed load instead of showing a blank screen. Real paths, not `#` routes: the
 service worker answers every navigation with the app shell, so deep links work
@@ -229,6 +315,9 @@ The shell keeps the existing look:
   layer separately, because a `filter` on a shared wrapper would re-anchor the
   fixed sidebar and tab bar mid-transition.
 - Pages fade in when you move between them, and start at the top.
+- While a focus phase runs and you're on another page, a small countdown pill
+  (`FocusPill`) sits under the sidebar's pages, or in the phone header; it
+  links back home.
 
 ## AI
 
@@ -288,13 +377,20 @@ feature ─► ai.chat / ai.complete / ai.embed
 
 ## Backups
 
-Backup v2 is one JSON file: every store's envelope (including stores whose page
-hasn't been opened this session, read straight from IndexedDB), every photo as
-base64, and API keys only when "Include API keys" is on — for export and for
-import. Restoring uses each store's `merge` when it has one: the streak combines
-check-ins, so a restore never erases progress. Data for stores this version
-doesn't know is saved for when it does; data from a newer version of a store is
-left alone. v1 backups (streak only) still import.
+Backup v3 is one JSON file: every store's envelope (including stores whose page
+hasn't been opened this session, read straight from IndexedDB), every
+collection's records (focus sessions), every photo as base64, and API keys only
+when "Include API keys" is on — for export and for import. Restoring uses each
+store's `merge` when it has one: the streak combines check-ins and subjects
+combine by id, so a restore never erases progress; the timer keeps whatever is
+on this device's clock. Collections merge record by record. Data for stores
+this version doesn't know is saved for when it does; data from a newer version
+of a store is left alone. v1 (streak only) and v2 (no collections) backups
+still import.
+
+Settings → Data can reset the streak history and the focus history separately;
+resetting focus clears the sessions and the timer but keeps settings and
+subjects.
 
 ## Day rollover
 
@@ -302,6 +398,81 @@ left alone. v1 backups (streak only) still import.
 again whenever the tab regains focus or visibility (browsers throttle timers in
 background tabs). The check-in action reads the clock at the moment of the
 click, so even a stale screen can't record the wrong day.
+
+## Focus timer
+
+`features/focus` is a Pomodoro timer: 25-minute focus sessions with 5-minute
+breaks, and a 15-minute break after every fourth session. All three lengths are
+set in Settings → Focus; a change applies from the next phase.
+
+**Timestamps, not ticks.** The saved timer (`momentum.focus.timer`) is the
+phase on the clock — its kind, `startedAt`, a `durationMs` fixed when it
+started, `pausedAt` and the total `pausedMs` — plus how far into the cycle you
+are. The time left is always `durationMs − (now − startedAt − pausedMs)`, worked
+out from the clock when it's needed. It stays right while a tab sleeps or a
+phone locks, and a reload resumes it exactly, running or paused. The
+transitions (`start`, `pause`, `resume`, `cancel`, `skipBreak`, `advance`) are
+pure functions in `lib/timer.ts`.
+
+```
+ idle ──start──► focus ──time up──► short break ──time up──► idle
+                 │  ▲                (long break after the 4th)
+           pause │  │ resume         skip break ──► next focus
+                 ▼  │
+                paused ──cancel──► idle (nothing recorded)
+```
+
+**Catching up.** `advance(state, durations, now)` ends every phase whose time
+is up at its _scheduled_ end, even if Momentum was closed then, and starts what
+follows from that moment. Open the app an hour after a session should have
+ended and the session is recorded at its proper end time, its break has run
+its course too, and a toast says it finished while you were away.
+
+**The engine.** `useFocusEngine()`, mounted once in `AppShell`, calls
+`settle()` on load, at the moment the current phase is due (one `setTimeout`,
+not a ticking interval), and whenever the tab becomes visible again. `settle`
+saves the advanced state first — so two wake-ups at once can't double-count —
+then saves each finished session and handles the check-in. The countdown on
+screen comes from `useNow`, a shared ticker lined up with the countdown's
+seconds; it only redraws, the timer never depends on it.
+
+**Sessions** go into the `focusSessions` collection (see Data model) with their
+subject, start and end, and the day they count toward: the local day they
+_started_, so a session that runs past midnight counts for the evening you sat
+down. Cancelled sessions are never stored.
+
+**Auto check-in.** Finishing the day's first full session calls the streak's own
+`checkIn()`, so its rules hold (one check-in per calendar day, the hero's
+animation, the toast says so). `lastAutoCheckIn` remembers the last day that
+was considered, so later sessions that day leave the streak alone — even if you
+reset your history in between. Manual check-in works as before.
+
+**When a phase ends:** a soft two-note chime (Web Audio, unlocked by the click
+that started the session), a toast if you're looking at Momentum or a system
+notification if you're not and have allowed them (`lib/notify.ts`, shared with
+the evening reminder). While a phase runs, the countdown is in the tab title.
+
+**Subjects** (`features/subjects`) are labels you pick before starting:
+Calculus, Digital Logic, Programming and Reading to begin with. Add one from
+the picker on the dashboard; rename, recolour and delete them in Settings →
+Focus. Deleting hides a subject but keeps it, so past sessions keep their name
+and colour.
+
+**Ambient sound.** With "Ambient sound" on in Settings → Focus (off by
+default), starting or resuming a session plays your ambient mix, and a pause or
+break stops it. It follows your actions rather than the clock, because browsers
+only start audio after a click or key press: a session resumed by a reload
+starts silent.
+
+**More than one tab.** Every tab runs the engine. The timer store syncs between
+tabs, break ids derive from their session's id (`<id>:break`) so every tab
+arrives at the same state, and `add` is atomic, so only the tab that saved a
+session announces it.
+
+**On screen:** `FocusCard` (dial, subject, controls) and `FocusTodayTile`
+(today's minutes and sessions) on the dashboard, `FocusPill` elsewhere, and a
+Focus view for the activity calendar, shaded at 1, 50, 100 and 150 minutes —
+roughly one, two, four and six sessions.
 
 ## Backgrounds
 
@@ -375,13 +546,22 @@ On a phone (wide screens put the navigation in the sidebar):
 │                │                              │              │
 │                │   [  Check in for today  ]   │              │
 │                ╰──────────────────────────────╯              │
-│      ╭───────────────────────╮  ╭───────────────────────╮    │
-│      │ LONGEST STREAK        │  │ TOTAL DAYS            │    │
-│      │ 21 days               │  │ 48 days               │    │
-│      ╰───────────────────────╯  ╰───────────────────────╯    │
 │      ╭──────────────────────────────────────────────────╮    │
-│      │ Activity                48 check-ins in the past │    │
-│      │      Jun     Jul     Aug     Sep     Oct          │    │
+│      │ ⏱ FOCUS                                  ● ● ○ ○ │    │
+│      │   ╭───────╮   What are you working on?           │    │
+│      │   │ 25:00 │   (● Calculus) (● Reading) (+ Add)   │    │
+│      │   ╰───────╯   [ ▷ Start focus  F ]               │    │
+│      ╰──────────────────────────────────────────────────╯    │
+│      ╭────────────────╮ ╭─────────────╮ ╭───────────────╮    │
+│      │ LONGEST STREAK │ │ TOTAL DAYS  │ │ FOCUS TODAY   │    │
+│      │ 21 days        │ │ 48 days     │ │ 50 min        │    │
+│      ╰────────────────╯ ╰─────────────╯ ╰───────────────╯    │
+│      ╭──────────────────────────────────────────────────╮    │
+│      │ (the climb)                                      │    │
+│      ╰──────────────────────────────────────────────────╯    │
+│      ╭──────────────────────────────────────────────────╮    │
+│      │ Activity             ( Check-ins | Focus )       │    │
+│      │      Jun     Jul     Aug     Sep     Oct         │    │
 │      │ Mon  ▪▪▫▪▪▪▪▫▫▪▪▪▪▪▪▪▪▫▪▪▪▪▪▪▪▪▪▪▫▪▪▪▪▪▪         │    │
 │      │      (GitHub-style grid, 7 rows × N weeks)       │    │
 │      ╰──────────────────────────────────────────────────╯    │
@@ -400,10 +580,20 @@ On a phone (wide screens put the navigation in the sidebar):
   number rolls up, the button folds into a "Checked in" confirmation, today's dot
   and calendar cell pop, and the day's motivational line fades in. Screen readers
   get the same news through a live region.
-- **Activity calendar:** cells get brighter the deeper a day sits in a streak, so
-  long runs visibly glow. The grid measures its container and shows as many weeks
-  as fit — a year on desktop, a few months on a phone — without horizontal
-  scrolling.
+- **The focus card** sits under the hero: a large serif countdown in the
+  streak number's typeface inside a thin progress ring (amber while you focus,
+  teal on breaks), the subject, and the controls — one primary action (start,
+  resume, skip break), pause, and a cancel that asks for a second tap ("it
+  won't count"). Dots in the corner show where you are in the four-session
+  cycle.
+- **Tiles:** longest streak, total days and focus today share one `StatTile`
+  (two columns on a phone, with focus today across both; three on wider
+  screens).
+- **Activity calendar:** in the check-ins view, cells get brighter the deeper a
+  day sits in a streak, so long runs visibly glow; in the focus view, the more
+  minutes you focused. The choice is remembered. The grid measures its
+  container and shows as many weeks as fit — a year on desktop, a few months on
+  a phone — without horizontal scrolling.
 
 ## The climb
 
@@ -446,8 +636,10 @@ created on the first play, which always follows a click or key press.
 
 `app/commands.tsx` lists every action once (title, section, keywords, optional
 hotkey). The ⌘K / Ctrl K palette searches it; the same list drives the keyboard
-shortcuts and the shortcuts sheet. Single-key shortcuts (C, M, S, A, T, `,`, `?`)
-are ignored while typing or while a dialog (`aria-modal`) is open.
+shortcuts and the shortcuts sheet. Single-key shortcuts (C, F, M, S, A, T, `,`,
+`?`) are ignored while typing or while a dialog (`aria-modal`) is open. F starts,
+pauses or resumes the focus timer; the palette also offers "Start focus on
+<subject>" for each subject, skip break and cancel, as they apply.
 
 ## Offline, install and reminders
 
@@ -464,23 +656,32 @@ are ignored while typing or while a dialog (`aria-modal`) is open.
   wakes the worker at the browser's discretion.
 - Notifications offer a **Check in** action that opens `/?checkin=1`, as does the
   home-screen shortcut.
+- `lib/notify.ts` is the one way to show a notification (through the service
+  worker when there is one) and to ask for permission; the reminder and the
+  focus timer both use it.
 - Limits: without a push server, reminders can't be guaranteed while the app is
   fully closed. iOS only allows notifications for apps added to the Home Screen.
 
 ## Where future features plug in
 
 [ROADMAP.md](ROADMAP.md) maps every planned feature to a folder and a phase.
-In short: each is a new `features/<name>/` with its own stores or IndexedDB
-collections, a lazily loaded page under `pages/`, commands in the palette, and
-`AiGate` + the `ai` client if it uses AI.
+In short: each is a new `features/<name>/` with its own stores or collections
+(a collection is an object store in a new database version), a lazily loaded
+page under `pages/`, commands in the palette, a `CalendarView` if it has days
+to show, subjects if its records belong to one, and `AiGate` + the `ai` client
+if it uses AI. The focus timer is the worked example.
 
 ## Testing
 
 Vitest covers the parts where bugs hide: date arithmetic (month, year, leap-day
 and DST boundaries — tests run in `Australia/Sydney`), streak rules, calendar
 layout, message selection, the store registry (hydration, localStorage
-migration, corruption, write-through, lazy stores, restore and merge), the
-database upgrade path, backups (round trip, opt-in keys, v1 files), the AI
+migration, corruption, write-through, lazy stores, restore and merge),
+collections (atomic add, soft delete, merge), the database upgrade paths (v1
+and v2 to v3, data kept), backups (round trip, opt-in keys, sessions, v1 and v2
+files), the focus timer (remaining time across pause and resume, resuming after
+a reload, sessions that ended while the app was closed, midnight crossing, auto
+check-in once per day, two wake-ups at once, daily totals and levels), the AI
 layer (retries, Retry-After, the gate, error mapping, both adapters, usage and
 cost, settings parsing), light blending, climb progress, trail geometry and
 skyline detection (on synthetic images), command search and hotkey matching,

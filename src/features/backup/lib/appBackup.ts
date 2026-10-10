@@ -1,5 +1,7 @@
 import { listAllPhotos, putPhoto } from '@/features/appearance'
+import { collectionRegistry } from '@/lib/collection'
 import { toDateKey } from '@/lib/date'
+import { COLLECTION_STORES } from '@/lib/db/schema'
 import { storeRegistry } from '@/lib/persistentStore'
 import { getAllSecrets, setSecret } from '@/lib/secrets'
 import {
@@ -14,6 +16,11 @@ const appSources: BackupSources = {
   registry: storeRegistry,
   listPhotos: listAllPhotos,
   putPhoto,
+  exportCollections: () => collectionRegistry.exportAll(COLLECTION_STORES),
+  importCollection: (name, records) =>
+    (COLLECTION_STORES as readonly string[]).includes(name)
+      ? collectionRegistry.importRecords(name, records)
+      : Promise.resolve(0),
   getSecrets: getAllSecrets,
   setSecret,
 }

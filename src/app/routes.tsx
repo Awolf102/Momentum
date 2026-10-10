@@ -7,6 +7,7 @@ import {
 } from 'react'
 import { Redirect, Route, Switch, useLocation } from 'wouter'
 import { GlassCard } from '@/components/GlassCard'
+import { collectionRegistry } from '@/lib/collection'
 import { storeRegistry } from '@/lib/persistentStore'
 import { paths } from '@/lib/routes'
 import { DashboardPage } from '@/pages/DashboardPage'
@@ -18,7 +19,7 @@ import { DashboardPage } from '@/pages/DashboardPage'
 function lazyPage(load: () => Promise<{ default: ComponentType }>) {
   return lazy(async () => {
     const page = await load()
-    await storeRegistry.settled()
+    await Promise.all([storeRegistry.settled(), collectionRegistry.settled()])
     return page
   })
 }

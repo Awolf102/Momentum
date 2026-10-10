@@ -25,31 +25,40 @@ export const streakStore = createPersistentStore<StreakData>({
   }),
 })
 
-const checkInListeners = new Set<() => void>()
+const checkInListeners = new Set<(day: DateKey) => void>()
 
 /**
  * Runs `listener` whenever a check-in is recorded in this tab — from the
- * button, a keyboard shortcut or the command palette. Returns an unsubscribe.
+ * button, a keyboard shortcut, the command palette or a finished focus
+ * session — with the day it was for. Returns an unsubscribe.
  */
-export function onCheckIn(listener: () => void): () => void {
+export function onCheckIn(listener: (day: DateKey) => void): () => void {
   checkInListeners.add(listener)
   return () => checkInListeners.delete(listener)
 }
 
 /**
- * Records a check-in for the current local day.
- * Reads the clock at call time, so a screen left open past midnight still
- * records the right day. Returns `false` if today was already checked in.
+ * Records a check-in. By default for the current local day, reading the
+ * clock at call time, so a screen left open past midnight still records the
+ * right day. `day` names another day (a focus session that crossed midnight
+ * counts for the day it started). Returns `false` if that day was already
+ * checked in: one check-in per calendar day.
  */
-export function checkIn(now: Date = new Date()): boolean {
-  const today = toDateKey(now)
-  if (streakStore.get().checkIns[today]) return false
+export function checkIn(
+  now: Date = new Date(),
+  { day = toDateKey(now) }: { day?: DateKey } = {},
+): boolean {
+  if (streakStore.get().checkIns[day]) return false
   streakStore.set((previous) => ({
     ...previous,
-    checkIns: { ...previous.checkIns, [today]: { at: now.toISOString() } },
+    checkIns: { ...previous.checkIns, [day]: { at: now.toISOString() } },
   }))
-  for (const listener of checkInListeners) listener()
+  for (const listener of checkInListeners) listener(day)
   return true
+}
+
+export function isCheckedIn(day: DateKey): boolean {
+  return Boolean(streakStore.get().checkIns[day])
 }
 
 /** Adds check-ins from another history (e.g. a backup) without removing any. Returns how many were new. */

@@ -12,12 +12,16 @@ import {
   MoonIcon,
   MountainIcon,
   PaletteIcon,
+  PauseIcon,
+  PlayIcon,
   PencilIcon,
   ShareIcon,
+  SkipIcon,
   SlidersIcon,
   SparkleIcon,
   SunIcon,
   SunriseIcon,
+  TimerIcon,
   VolumeIcon,
 } from '@/components/icons'
 import {
@@ -38,9 +42,17 @@ import {
   type SoundId,
 } from '@/features/ambience'
 import { startTracing, toggleClimb } from '@/features/climb'
+import {
+  cancelFocus,
+  focusTimerStore,
+  skipBreak,
+  startFocus,
+  toggleFocus,
+} from '@/features/focus'
 import { installStore, promptInstall } from '@/features/pwa'
 import { reminderStore } from '@/features/reminder'
 import { openShare } from '@/features/share'
+import { liveSubjects, subjectsStore } from '@/features/subjects'
 import { checkIn } from '@/features/streak'
 import { openShortcuts } from '@/lib/overlays'
 import { useProgress } from '@/lib/progress'
@@ -77,6 +89,8 @@ export function useAppCommands(): Command[] {
   const { sounds } = useStore(ambienceStore)
   const { canPrompt } = useStore(installStore)
   const reminder = useStore(reminderStore)
+  const { phase } = useStore(focusTimerStore)
+  const subjects = useStore(subjectsStore)
 
   return useMemo(() => {
     const backgrounds = listBackgrounds(photos).filter((background) =>
@@ -92,6 +106,57 @@ export function useAppCommands(): Command[] {
         hotkey: { key: 'c' },
         run: checkInFromShortcut,
       },
+      {
+        id: 'focus',
+        title: !phase
+          ? 'Start a focus session'
+          : phase.pausedAt !== null
+            ? phase.kind === 'focus'
+              ? 'Resume focus session'
+              : 'Resume break'
+            : phase.kind === 'focus'
+              ? 'Pause focus session'
+              : 'Pause break',
+        section: 'Focus',
+        icon: !phase || phase.pausedAt !== null ? <PlayIcon /> : <PauseIcon />,
+        keywords: ['pomodoro', 'timer', 'study', 'work', 'session'],
+        hotkey: { key: 'f' },
+        run: toggleFocus,
+      },
+      ...(phase && phase.kind !== 'focus'
+        ? [
+            {
+              id: 'focus-skip-break',
+              title: 'Skip break and start focusing',
+              section: 'Focus',
+              icon: <SkipIcon />,
+              keywords: ['pomodoro', 'timer', 'next'],
+              run: skipBreak,
+            },
+          ]
+        : []),
+      ...(phase?.kind === 'focus'
+        ? [
+            {
+              id: 'focus-cancel',
+              title: "Cancel focus session (it won't count)",
+              section: 'Focus',
+              icon: <TimerIcon />,
+              keywords: ['stop', 'abandon', 'pomodoro'],
+              run: cancelFocus,
+            },
+          ]
+        : []),
+      ...(!phase
+        ? liveSubjects(subjects).map((subject) => ({
+            id: `focus-on-${subject.id}`,
+            title: `Focus on ${subject.name}`,
+            section: 'Focus',
+            icon: <TimerIcon />,
+            keywords: ['start', 'pomodoro', 'timer', 'study', 'subject'],
+            run: () => startFocus(subject.id),
+          }))
+        : []),
       {
         id: 'climb',
         title: 'View the climb',
@@ -142,6 +207,14 @@ export function useAppCommands(): Command[] {
         icon: <PaletteIcon />,
         keywords: ['theme', 'background', 'photo', 'light'],
         run: () => openSettings('appearance'),
+      },
+      {
+        id: 'settings-focus',
+        title: 'Focus settings: lengths, sound and subjects',
+        section: 'Go to',
+        icon: <TimerIcon />,
+        keywords: ['pomodoro', 'break', 'timer', 'subjects', 'labels'],
+        run: () => openSettings('focus'),
       },
       {
         id: 'settings-ai',
@@ -263,5 +336,15 @@ export function useAppCommands(): Command[] {
         run: () => setBackground(background.id),
       })),
     ]
-  }, [theme, photos, longest, playing, sounds, canPrompt, reminder])
+  }, [
+    theme,
+    photos,
+    longest,
+    playing,
+    sounds,
+    canPrompt,
+    reminder,
+    phase,
+    subjects,
+  ])
 }
