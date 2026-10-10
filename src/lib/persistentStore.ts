@@ -242,8 +242,17 @@ export class StoreRegistry {
     return report
   }
 
+  private changeListeners = new Set<(key: string) => void>()
+
+  /** Hears about every change made in this tab (sync uses it). */
+  onChange(listener: (key: string) => void): () => void {
+    this.changeListeners.add(listener)
+    return () => this.changeListeners.delete(listener)
+  }
+
   schedule(key: string, operation: 'write' | 'remove'): void {
     this.pending.set(key, operation)
+    for (const listener of this.changeListeners) listener(key)
     if (!this.backend || this.flushQueued) return // Written once hydration has picked a backend.
     // Changes made together are written together, straight after the code
     // that made them: soon enough that leaving the page doesn't lose them.

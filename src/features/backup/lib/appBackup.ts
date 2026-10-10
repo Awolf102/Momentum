@@ -14,6 +14,20 @@ import {
 } from './backup'
 import { encryptBackup, unlockBackupText } from './crypto'
 
+/** Sync's session and key belong to this device: never in a backup. */
+const deviceOnly = (name: string) => name.startsWith('sync:')
+
+/** The secrets a backup with keys carries. */
+export async function backupSecrets(): Promise<Record<string, string>> {
+  return Object.fromEntries(
+    Object.entries(await getAllSecrets()).filter(([name]) => !deviceOnly(name)),
+  )
+}
+
+/** Restores a secret from a backup (a device's own ones are left alone). */
+export const restoreSecret = (name: string, value: string): Promise<void> =>
+  deviceOnly(name) ? Promise.resolve() : setSecret(name, value)
+
 const appSources: BackupSources = {
   registry: storeRegistry,
   listPhotos: listAllPhotos,
@@ -25,8 +39,8 @@ const appSources: BackupSources = {
     (COLLECTION_STORES as readonly string[]).includes(name)
       ? collectionRegistry.importRecords(name, records)
       : Promise.resolve(0),
-  getSecrets: getAllSecrets,
-  setSecret,
+  getSecrets: backupSecrets,
+  setSecret: restoreSecret,
 }
 
 /**

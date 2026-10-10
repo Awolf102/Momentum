@@ -32,6 +32,7 @@ import {
   PlayIcon,
   PlusIcon,
   QuizIcon,
+  RefreshIcon,
   ShareIcon,
   SkipIcon,
   SlidersIcon,
@@ -698,6 +699,21 @@ export function useAppCommands(): Command[] {
             },
           ]
         : []),
+      {
+        id: 'sync-now',
+        title: 'Sync now',
+        section: 'General',
+        icon: <RefreshIcon />,
+        keywords: ['sync', 'devices', 'server', 'upload', 'download'],
+        // Loaded on demand; without an account it opens Settings → Sync.
+        run: () =>
+          void import('@/features/sync/manager').then(
+            async ({ loadAccount, syncNow }) => {
+              if (await loadAccount()) await syncNow()
+              else openSettings('sync')
+            },
+          ),
+      },
       {
         id: 'export',
         title: 'Export backup',

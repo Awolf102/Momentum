@@ -119,8 +119,17 @@ export class CollectionRegistry {
     await Promise.all(this.loading)
   }
 
+  private changeListeners = new Set<(name: string) => void>()
+
+  /** Hears about every change made in this tab (sync uses it). */
+  onChange(listener: (name: string) => void): () => void {
+    this.changeListeners.add(listener)
+    return () => this.changeListeners.delete(listener)
+  }
+
   announce(name: string, change: { ids?: string[]; cleared?: boolean }): void {
     this.channel?.postMessage({ name, ...change })
+    for (const listener of this.changeListeners) listener(name)
   }
 
   private listen() {

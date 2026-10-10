@@ -4,6 +4,7 @@ export const SETTINGS_SECTIONS = [
   'appearance',
   'focus',
   'app',
+  'sync',
   'ai',
   'data',
 ] as const

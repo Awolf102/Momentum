@@ -7,6 +7,7 @@ import {
   DatabaseIcon,
   KeyboardIcon,
   PaletteIcon,
+  RefreshIcon,
   SparkleIcon,
   TimerIcon,
 } from '@/components/icons'
@@ -23,6 +24,7 @@ import { FocusSettings } from '@/features/focus/settings'
 import { InstallSetting } from '@/features/pwa'
 import { ReminderSetting } from '@/features/reminder'
 import { WeekReviewSetting } from '@/features/review/settings'
+import { SyncSettings } from '@/features/sync/settings'
 import { cn } from '@/lib/cn'
 import { formatHotkey } from '@/lib/hotkeys'
 import { openShortcuts } from '@/lib/overlays'
@@ -37,6 +39,7 @@ const SECTIONS: Record<SettingsSection, { label: string; icon: ReactNode }> = {
   appearance: { label: 'Appearance', icon: <PaletteIcon /> },
   focus: { label: 'Focus', icon: <TimerIcon /> },
   app: { label: 'App', icon: <AppIcon /> },
+  sync: { label: 'Sync', icon: <RefreshIcon /> },
   ai: { label: 'AI', icon: <SparkleIcon /> },
   data: { label: 'Data', icon: <DatabaseIcon /> },
 }
@@ -69,7 +72,8 @@ function SectionNav({ current }: { current: SettingsSection }) {
   return (
     <nav
       aria-label="Settings sections"
-      className="mt-6 flex rounded-full glass p-1"
+      // Six sections fit a phone; if a font runs wide, the row scrolls.
+      className="mt-6 flex [scrollbar-width:none] overflow-x-auto rounded-full glass p-1"
     >
       {SETTINGS_SECTIONS.map((id) => {
         const active = id === current
@@ -79,7 +83,7 @@ function SectionNav({ current }: { current: SettingsSection }) {
             href={paths.settings(id)}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'relative flex flex-auto items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors sm:flex-1 sm:px-4',
+              'relative flex flex-auto items-center justify-center gap-2 rounded-full px-2 py-2 text-[13px] font-medium whitespace-nowrap transition-colors sm:flex-1 sm:px-4 sm:text-sm',
               active ? 'text-fg' : 'text-fg-subtle hover:text-fg-muted',
             )}
           >
@@ -146,6 +150,12 @@ function SectionContent({ section }: { section: SettingsSection }) {
             />
           </SettingsCard>
         </>
+      )
+    case 'sync':
+      return (
+        <SettingsCard title="Sync between devices">
+          <SyncSettings />
+        </SettingsCard>
       )
     case 'ai':
       return <AiSettingsPanel afterEmbeddings={<MeaningIndexCard />} />
