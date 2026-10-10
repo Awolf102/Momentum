@@ -1,4 +1,5 @@
 import type { CardDraft } from '../types'
+import { MAX_SIDE } from './limits'
 
 /** A card a model suggested, with the page it's from when it says. */
 export interface SuggestedCard {
@@ -6,9 +7,6 @@ export interface SuggestedCard {
   back: string
   page?: number
 }
-
-/** A side longer than this is cut (a card is one idea). */
-export const MAX_SIDE = 2000
 
 const LIST_MARKER = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/
 

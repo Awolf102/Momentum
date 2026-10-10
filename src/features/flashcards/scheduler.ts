@@ -1,5 +1,5 @@
 import { fsrs } from 'ts-fsrs'
-import { fromFsrs, toFsrs } from './lib/schedule'
+import { fromFsrs, toFsrs } from './lib/fsrs'
 import type { Rating, Schedule } from './types'
 
 // FSRS comes with the Cards page (it's small), so studying never waits for

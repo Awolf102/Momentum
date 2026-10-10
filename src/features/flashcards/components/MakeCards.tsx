@@ -21,7 +21,7 @@ import { createId } from '@/lib/id'
 import { navigate, openSettings, paths } from '@/lib/routes'
 import { useStore } from '@/lib/store'
 import { toast } from '@/lib/toast'
-import { addCards, findSimilar } from '../cards'
+import { addCards, findSimilar } from '../actions'
 import {
   estimateTokens,
   fitSource,

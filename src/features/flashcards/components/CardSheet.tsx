@@ -14,15 +14,15 @@ import { useClock } from '@/lib/useClock'
 import { toast } from '@/lib/toast'
 import {
   addCards,
-  cards,
   deleteCards,
   editCard,
   resetCard,
   restoreCards,
-} from '../cards'
+} from '../actions'
+import { cards } from '../cards'
 import { editCardStore, newCardSubjectStore } from '../editing'
 import { describeWhen } from '../lib/format'
-import { MAX_SIDE } from '../lib/text'
+import { MAX_SIDE } from '../lib/limits'
 import type { FlashCard } from '../types'
 
 const close = () => editCardStore.set(null)

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { FlashCard, Schedule } from '../types'
 import { describeInterval, describeWhen } from './format'
 import { buildQueue, dueCounts, endOfDay, newLeft, nextDue } from './queue'
-import { fromFsrs, newSchedule, parseSchedule, toFsrs } from './schedule'
+import { fromFsrs, toFsrs } from './fsrs'
+import { newSchedule, parseSchedule } from './schedule'
 import { cardsInNote, parseSuggestedCards } from './text'
 
 const NOW = new Date('2026-10-10T09:00:00+11:00')

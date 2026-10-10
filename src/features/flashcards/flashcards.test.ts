@@ -4,14 +4,8 @@ import { addHabit, habitCheckIns, habitsStore, isDone } from '@/features/habits'
 import { closeDb } from '@/lib/db/db'
 import { COLLECTION_STORES, DB_NAME } from '@/lib/db/schema'
 import { indexedDbCollectionBackend } from '@/lib/storage'
-import {
-  addCards,
-  cards,
-  editCard,
-  findSimilar,
-  parseCard,
-  resetCard,
-} from './cards'
+import { addCards, editCard, findSimilar, resetCard } from './actions'
+import { cards, parseCard } from './cards'
 import { buildQueue } from './lib/queue'
 import { markHabit, recordRating, undoRating } from './review'
 import { reviewsBetween } from './reviews'

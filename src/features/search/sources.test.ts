@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto'
 import { afterEach, describe, expect, it } from 'vitest'
-import { addCards, cards } from '@/features/flashcards'
+import { cards } from '@/features/flashcards'
+import { addCards } from '@/features/flashcards/actions'
 import { addHabit, habitsStore } from '@/features/habits'
 import { capture, inboxItems } from '@/features/inbox'
 import { documents, loadDocumentTexts } from '@/features/library'

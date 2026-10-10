@@ -1332,8 +1332,10 @@ Scheduler, through `ts-fsrs`, its reference implementation).
 - **Elsewhere**: the dashboard shows what's due once there are cards, ⌘K
   finds cards by either side and opens them, R starts studying, and
   Settings → Data can delete every card with its reviews.
-- **Size**: the Cards page is 52 kB (16 kB compressed) with FSRS, loaded when
-  it's opened.
+- **Size**: the Cards page is 54 kB (17 kB compressed) with FSRS, loaded when
+  it's opened. The first load carries only what the dashboard card needs
+  (the collection and what's due: 6 kB); card actions stay with the page, so
+  the feature's `index.ts` doesn't re-export them.
 
 ## Routines
 
