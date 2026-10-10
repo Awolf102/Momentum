@@ -159,6 +159,11 @@ src/
 │   │   ├── blocks.ts, calendars.ts   The collections (tested)
 │   │   ├── components/       The timeline, the block sheet, tasks waiting, calendars
 │   │   └── page.ts           The Plan page (only the lazy page loads it)
+│   ├── goals/                Long-term goals: milestones, linked tasks and habits
+│   │   ├── lib/progress.ts   Steps, pace against the target, tasks by series (tested)
+│   │   ├── goals.ts, actions.ts   The collection; milestones, links, status (tested)
+│   │   ├── components/       The list, a goal's page, its sheets, the dashboard card
+│   │   └── page.ts           The Goals page (only the lazy page loads it)
 │   ├── log/                  The daily log: one line per day, editable in place
 │   │   ├── entries.ts        The logEntries collection; setLine (tested)
 │   │   ├── lib/timeline.ts   Days with a line, check-in or focus (pure, tested)
@@ -214,7 +219,12 @@ src/
   (`features/focus/settings.ts`, `features/subjects/settings.ts`), so the
   dashboard's bundle doesn't carry it. So does code that only lazy pages
   share: the notes' rendered markdown (`features/notes/view.ts`), which the
-  assistant shows too, would otherwise be in the first load.
+  assistant shows too, would otherwise be in the first load. And lazy code
+  that only reads a feature's records can take them without its dashboard
+  card: search and Settings import goals from `features/goals/data.ts`.
+  Through the index, the card's habits and tasks were tied into those
+  chunks, and the bundler split the first load into three more files that
+  compressed 5 kB worse.
 - **No cycles between features.** Focus uses the streak (to check in), subjects
   and ambience through their `index.ts`; none of them knows focus exists. The
   hero hears about check-ins through `onCheckIn`, whoever made them. Lower-level
@@ -468,6 +478,7 @@ Everything persisted, and where:
 | `quizzes`                              | Practice quizzes, their questions and every go at them (above)         |
 | `blocks`                               | The plan: time set aside on a day (below); read by day                 |
 | `calendars`                            | Calendars imported from .ics files, with their events (below)          |
+| `goals`                                | Goals, with their milestones and the tasks and habits linked (below)   |
 | `kv` › `momentum.tasks`                | List or board                                                          |
 | `photos`                               | Uploaded photos as Blobs (2560 px + 360 px thumbnail)                  |
 | `secrets`                              | API keys: `anthropic`, `openai`, `compatible`                          |
@@ -475,7 +486,7 @@ Everything persisted, and where:
 | IndexedDB `momentum-reminder`          | What the service worker needs for reminders (a mirror)                 |
 | localStorage `momentum.theme`          | A copy of the theme, read before the first paint to avoid a flash      |
 
-These are object stores in the `momentum` database (version 15). Its schema
+These are object stores in the `momentum` database (version 16). Its schema
 lives in `lib/db/schema.ts` as one `upgrade` function with a step per version,
 so a browser on any older version upgrades in order: version 1 (photos only,
 from v2 of the app) gains `kv`, `secrets` and `meta`; version 2 (Phase 1) gains
@@ -489,7 +500,8 @@ gains the library's `documents`, `highlights`, `documentFiles` and
 `embeddingSources` and `embeddingVectors`; version 11 (search by meaning)
 gains `conversations`; version 12 (the assistant) gains `cards` and
 `cardReviews`; version 13 (flashcards) gains `quizzes`; version 14 (quizzes)
-gains `blocks`, indexed by day, and `calendars`.
+gains `blocks`, indexed by day, and `calendars`; version 15 (the plan) gains
+`goals`.
 Existing streaks, sessions, settings, keys and photos are untouched — each path
 is tested against `fake-indexeddb`.
 
@@ -755,7 +767,10 @@ subjects.
 `useToday()` returns today's `DateKey` and re-renders at local midnight, and
 again whenever the tab regains focus or visibility (browsers throttle timers in
 background tabs). The check-in action reads the clock at the moment of the
-click, so even a stale screen can't record the wrong day.
+click, so even a stale screen can't record the wrong day. The day a record
+was made or finished is `localDay(timestamp)`, never the timestamp's first ten
+characters: those are the day in UTC, which in Sydney is yesterday until 10 or
+11 in the morning.
 
 ## Focus timer
 
@@ -1083,6 +1098,52 @@ day**), around calendars imported from .ics files.
   reads (both collections, repeats, a day's events, times) add 12 kB (4 kB
   compressed) to the first load.
 
+## Goals
+
+`features/goals` keeps long-term goals (`/goals`, the sidebar, ⌘K **New
+goal** and **Go to Goals**, and the dashboard), each with the milestones on
+the way and the tasks and habits that get you there.
+
+- **A goal** (the `goals` collection: one record each, with its milestones
+  inside): a title, why it matters, a subject, a day to reach it by, its
+  milestones in order (a title, a day, when it was done), the tasks and
+  habits linked to it, and whether it's on the go, reached or put away. At
+  most 50 milestones and 100 links of each kind; damaged records are tidied
+  when read (repeated milestones and links dropped, a status it doesn't know
+  read as on the go).
+- **Steps** (`lib/progress.ts`): milestones and one-off tasks. Tasks are
+  linked by series, so a repeating one stays linked as it moves on: it shows
+  its next time and how often it's been done, like a habit, and isn't a step,
+  since it never finishes. A deleted task or habit drops out, and comes back
+  if it's restored.
+- **Progress:** the share of steps done fills the bar. With a day to reach
+  it by, a mark on the bar shows the share of time gone since the goal was
+  made, and the pace compares the two: ten points or more ahead of the time
+  is ahead, within ten is on track, further back is behind, and past the day
+  without every step done is behind. With no steps there's no bar; with no
+  day, no pace. Linked habits show their streaks and their share of
+  scheduled days done over four weeks, and the goal the average.
+- **A goal's page** (`components/GoalDetail.tsx`): the bar, its milestones
+  (ticked off, opened to change the title or day, moved up or down, removed
+  with Undo, added with a day), its tasks (ticked off; added with the tasks'
+  quick add, taking the goal's subject unless one is typed; or linked from
+  the tasks you have, open ones or any found by searching; unlinked with
+  Undo, the task kept) and its habits (ticked off for today; linked, or made
+  and linked at once; unlinked with Undo). The details (title, why, subject,
+  day) are changed in a sheet. Reaching a goal, putting it away and deleting
+  it each have Undo; reached and put-away goals keep their page, with a way
+  to reopen them. Every step done offers to mark it reached.
+- **The list** (`components/GoalsHome.tsx`): goals on the go in their order
+  (moved up and down), each with its bar, steps, pace, next milestone and
+  habits, then the reached and put-away ones, folded away.
+- **Elsewhere**: the dashboard shows the first three goals on the go (and
+  nothing while there are none); ⌘K search finds goals by their title, why,
+  milestones and subject; Settings → Data deletes them all, keeping their
+  tasks and habits; backups include them.
+- **Size**: the Goals page is 35 kB (9 kB compressed), loaded when it's
+  opened. The dashboard card, the collection and progress add 8.5 kB
+  (2.4 kB compressed) to the first load.
+
 ## Habits
 
 The daily check-in stays the headline streak. `features/habits` adds others —
@@ -1228,8 +1289,8 @@ between notes.
 ## Search
 
 The ⌘K palette (Search in the phone tab bar) finds things as well as
-commands: notes, documents, tasks, habits, routines, log lines and inbox
-items.
+commands: notes, documents, cards, goals, tasks, habits, routines, log lines
+and inbox items.
 
 - **Matching** (`search/lib/engine.ts`, pure): text is folded — lowercase,
   accents removed, so "godel" finds "Gödel" — and split into words. Each query
@@ -1238,10 +1299,11 @@ items.
   or it would match nearly everything.
 - **Ranking:** a word in the title counts three times one in the text, a whole
   word more than a prefix, and a title that is, starts with or contains the
-  whole query gets a bonus. Pinned notes are nudged up and finished tasks well
-  down, so open ones come first unless a finished one is a far better match.
-  Ties go to notes, then tasks, habits, routines, the log and the inbox, then
-  to the latest.
+  whole query gets a bonus. Pinned notes are nudged up, and finished tasks
+  and reached or put-away goals well down, so open ones come first unless a
+  finished one is a far better match. Ties go to notes, then documents,
+  cards, goals, tasks, habits, routines, the log and the inbox, then to the
+  latest.
 - **The index** is each record's words, sorted, so a prefix is a binary
   search. It's built the first time a record is searched and cached by the
   record itself (records are replaced, never changed, when edited), with a
@@ -1253,13 +1315,14 @@ items.
   marks gone, maths as readable text, code included — and its subject; a
   document's title, subject and text (one line per page, so the matching line
   is the page; the text loads when the palette first opens); a
-  task's title and subject; a habit's name; a routine's name and steps; a log
+  goal's title, why it matters, milestones and subject; a task's title and
+  subject; a habit's name; a routine's name and steps; a log
   line and its date; an inbox item's text and link. Empty notes are left out.
 - **Results** are grouped by kind (at most five each, thirty in all), the kind
   with the best match first, under the commands that match. Matched words are
   marked in titles, and a line of context (cut around the first match, marked
-  too) shows why something matched on its text. A note opens on its page; a
-  task, habit or routine in its sheet; a log line on the Log page, scrolled to
+  too) shows why something matched on its text. A note or a goal opens on
+  its page; a task, habit or routine in its sheet; a log line on the Log page, scrolled to
   its day (showing earlier days if needed) with a brief glow; an inbox item on
   the Inbox page.
 - **Loading:** the search code loads the first time the palette opens; until
@@ -1705,7 +1768,8 @@ shortcuts are handled first: studying cards (Space, 1–4, Z, E), taking a
 quiz (1–4 to choose, 1–3 to mark, G for AI's mark, Enter to move on) and the
 plan (← → for the day before and after; on a block, ↑ ↓ to move it, with
 Shift to change its length, Enter to open it, Delete to take it off). P opens
-the plan from anywhere.
+the plan from anywhere. Goals have no key of their own (G is the quiz's AI
+mark): New goal and Go to Goals are in the palette.
 
 ## Offline, install and reminders
 
@@ -1799,7 +1863,14 @@ time, an all-day exam period, an Outlook lab, an overnight event, a hidden
 calendar; nth and last weekdays, short months, 29 February, intervals with
 the week's first day, counts and ends; the day's layout; quarter hours,
 clock times and the next free time; blocks kept within the day; calendars
-read back), the
+read back), goals (damaged records read back tidily; adding with first
+milestones, editing, reaching, putting away and reopening, moving up and
+down, deleting and Undo; milestones added, changed, ticked, moved, removed
+and put back where they were, and the most a goal can have; tasks linked by
+series, a repeating one followed from one time to the next, tasks added
+with the goal's subject, habits linked once; steps, overdue milestones, pace
+against the time gone, past the day, no day or no steps, the habits'
+average), the local day of a timestamp, the
 assistant (keyword ranking and fusion, joining neighbouring passages, the request and
 its history, citations, the plans snapshot and its parts, keeping to one
 document, answers saved with what was sent, failures, Ask again, Stop
@@ -1842,5 +1913,13 @@ ticking it off, editing, removing and Undo, hiding, renaming and
 recolouring a calendar, a file that isn't one, dropping one, a focus block
 starting the timer, the dashboard card, ⌘K, clearing the plan; and touch on
 an emulated phone: a swipe over a block scrolls the day, a hold then a drag
-moves it, its edge stretches it, a tap opens it) — are checked in a headless
-browser at desktop and phone sizes.
+moves it, its edge stretches it, a tap opens it), and goals (a goal from ⌘K
+with a subject added inside the sheet and first milestones; milestones
+ticked, changed, moved, removed and put back; a task from quick add with the
+goal's subject and day; tasks linked, done ones found by searching; a
+repeating one moving on and keeping count; unlinking and Undo; a habit made,
+linked and ticked; editing; behind past the day; reordering; the dashboard
+card; ⌘K search; reaching, putting away, reopening and Undo; every step
+done; deleting and Undo; a reload; a backup restored in a fresh browser;
+deleting them all) — are checked in a headless browser at desktop and phone
+sizes.
