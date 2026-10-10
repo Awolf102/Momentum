@@ -9,6 +9,7 @@ import { ActionRow } from '@/components/ActionRow'
 import {
   CheckIcon,
   DownloadIcon,
+  LockIcon,
   TrashIcon,
   UploadIcon,
 } from '@/components/icons'
@@ -21,6 +22,7 @@ import { resetStreak } from '@/features/streak'
 import { cn } from '@/lib/cn'
 import { requestPersistentStorage } from '@/lib/storage'
 import { downloadBackup, importBackupFile } from '../lib/appBackup'
+import { MIN_PASSWORD_LENGTH, PasswordNeededError } from '../lib/crypto'
 import {
   formatBytes,
   readStorageStatus,
@@ -120,18 +122,42 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 function BackupCard() {
   const fileInput = useRef<HTMLInputElement>(null)
   const [includeKeys, setIncludeKeys] = useState(false)
+  const [protect, setProtect] = useState(false)
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  /** A protected backup waiting for its password. */
+  const [locked, setLocked] = useState<File | null>(null)
+  const [unlockWith, setUnlockWith] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<Message>(null)
+  // Keys only ever leave the device encrypted.
+  const protecting = protect || includeKeys
+  const passwordProblem = !protecting
+    ? null
+    : password.length < MIN_PASSWORD_LENGTH
+      ? `Use at least ${MIN_PASSWORD_LENGTH} characters.`
+      : password !== confirm
+        ? "The passwords don't match yet."
+        : null
 
   async function handleExport() {
+    if (passwordProblem) return
     setBusy(true)
+    setMessage(null)
     try {
-      await downloadBackup({ includeSecrets: includeKeys })
+      await downloadBackup({
+        includeSecrets: includeKeys,
+        password: protecting ? password : undefined,
+      })
+      setPassword('')
+      setConfirm('')
       setMessage({
         tone: 'ok',
         text: includeKeys
-          ? 'Backup saved, including your API keys. Keep the file somewhere private.'
-          : 'Backup saved.',
+          ? 'Backup saved with your API keys, protected by your password.'
+          : protecting
+            ? 'Backup saved, protected by your password.'
+            : 'Backup saved.',
       })
     } catch {
       setMessage({ tone: 'error', text: "The backup couldn't be created." })
@@ -140,15 +166,16 @@ function BackupCard() {
     }
   }
 
-  async function handleImport(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) return
+  async function runImport(file: File, withPassword?: string) {
     setBusy(true)
+    setMessage(null)
     try {
       const report = await importBackupFile(file, {
         includeSecrets: includeKeys,
+        password: withPassword,
       })
+      setLocked(null)
+      setUnlockWith('')
       const parts = [
         `Restored ${report.restored.length} ${report.restored.length === 1 ? 'section' : 'sections'}`,
       ]
@@ -173,6 +200,10 @@ function BackupCard() {
       }
       setMessage({ tone: 'ok', text })
     } catch (error) {
+      if (error instanceof PasswordNeededError) {
+        setLocked(file)
+        return
+      }
       setMessage({
         tone: 'error',
         text: error instanceof Error ? error.message : 'Import failed.',
@@ -182,6 +213,12 @@ function BackupCard() {
     }
   }
 
+  function handleFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (file) void runImport(file)
+  }
+
   return (
     <SettingsCard
       title="Backup"
@@ -189,24 +226,51 @@ function BackupCard() {
     >
       <div className="space-y-2">
         {/* Chosen before exporting or importing, so it's never a surprise. */}
-        <div className="flex items-center justify-between gap-4 px-1 pb-2">
-          <div>
-            <p className="text-sm font-medium">Include API keys</p>
-            <p className="text-xs text-fg-subtle">
-              Off by default. A backup with keys must be kept private.
+        <SwitchRow
+          label="Include API keys"
+          hint="Off by default. Keys only leave this device encrypted."
+          checked={includeKeys}
+          onChange={setIncludeKeys}
+        />
+        <SwitchRow
+          label="Protect with a password"
+          hint={
+            includeKeys
+              ? 'Always on for a backup with API keys.'
+              : 'Encrypted on this device; the file is unreadable without it.'
+          }
+          checked={protecting}
+          onChange={setProtect}
+          disabled={includeKeys}
+        />
+        {protecting && (
+          <div className="space-y-2 rounded-2xl bg-tint p-3">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <PasswordField
+                label="Password"
+                value={password}
+                onChange={setPassword}
+                autoComplete="new-password"
+              />
+              <PasswordField
+                label="Confirm password"
+                value={confirm}
+                onChange={setConfirm}
+                autoComplete="new-password"
+              />
+            </div>
+            <p className="px-1 text-xs leading-relaxed text-fg-subtle">
+              {password && passwordProblem
+                ? passwordProblem
+                : "Keep it somewhere safe: there's no way to open the backup without it."}
             </p>
           </div>
-          <Switch
-            checked={includeKeys}
-            onChange={setIncludeKeys}
-            label="Include API keys"
-          />
-        </div>
+        )}
         <ActionRow
           icon={<DownloadIcon />}
-          label="Export backup"
+          label={busy ? 'Working…' : 'Export backup'}
           onClick={() => void handleExport()}
-          disabled={busy}
+          disabled={busy || Boolean(passwordProblem)}
         />
         <ActionRow
           icon={<UploadIcon />}
@@ -219,8 +283,54 @@ function BackupCard() {
           type="file"
           accept="application/json,.json"
           className="hidden"
-          onChange={(event) => void handleImport(event)}
+          onChange={handleFile}
         />
+        {locked && (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              void runImport(locked, unlockWith)
+            }}
+            className="space-y-2 rounded-2xl bg-tint p-3"
+          >
+            <p className="flex items-center gap-2 px-1 text-sm">
+              <LockIcon className="shrink-0 text-base text-fg-muted" />
+              <span>
+                <span className="font-medium break-all">{locked.name}</span> is
+                protected. Enter its password to import it.
+              </span>
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="w-full min-w-0 sm:w-auto sm:flex-1">
+                <PasswordField
+                  label="Backup password"
+                  value={unlockWith}
+                  onChange={setUnlockWith}
+                  autoComplete="current-password"
+                  autoFocus
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={busy || !unlockWith}
+                className="rounded-xl bg-linear-to-br from-amber-300 to-orange-500 px-4 py-2.5 text-sm font-semibold text-orange-950 disabled:opacity-40"
+              >
+                {busy ? 'Unlocking…' : 'Unlock and import'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLocked(null)
+                  setUnlockWith('')
+                  setMessage(null)
+                }}
+                className="rounded-xl px-3 py-2.5 text-sm font-semibold text-fg-muted transition hover:bg-line"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
         {message && (
           <p
             role="status"
@@ -236,6 +346,65 @@ function BackupCard() {
         )}
       </div>
     </SettingsCard>
+  )
+}
+
+function SwitchRow({
+  label,
+  hint,
+  checked,
+  onChange,
+  disabled,
+}: {
+  label: string
+  hint: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+  disabled?: boolean
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-1 pb-2">
+      <div>
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-xs text-fg-subtle">{hint}</p>
+      </div>
+      <Switch
+        checked={checked}
+        onChange={onChange}
+        label={label}
+        disabled={disabled}
+      />
+    </div>
+  )
+}
+
+function PasswordField({
+  label,
+  value,
+  onChange,
+  autoComplete,
+  autoFocus,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  autoComplete: string
+  autoFocus?: boolean
+}) {
+  return (
+    <label className="block">
+      <span className="sr-only">{label}</span>
+      <input
+        type="password"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={label}
+        autoComplete={autoComplete}
+        autoFocus={autoFocus}
+        spellCheck={false}
+        className="h-10 w-full rounded-xl bg-tint px-3 text-sm outline-none placeholder:text-fg-subtle focus-visible:outline-2"
+      />
+    </label>
   )
 }
 

@@ -103,7 +103,10 @@ needed.
 **Cost:** usage is counted per model each month. Prices aren't built in, because
 they change; add your provider's price per million tokens to see an estimate.
 
-**Backups** leave API keys out unless you turn on **Include API keys**.
+**Backups** leave API keys out unless you turn on **Include API keys**, and a
+backup with keys is always protected with a password (AES-GCM, with the key
+derived from your password; nothing is readable without it). You can protect
+any backup this way in **Settings → Data**.
 
 ## Tasks
 
