@@ -29,7 +29,7 @@ import {
 } from '@/features/library'
 import { logEntries } from '@/features/log'
 import { notes } from '@/features/notes'
-import { goals } from '@/features/goals'
+import { goals } from '@/features/goals/data'
 import { blocks, calendars } from '@/features/planner'
 import { quizzes } from '@/features/quizzes'
 import { routineRuns, routinesStore } from '@/features/routines'

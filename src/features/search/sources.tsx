@@ -17,7 +17,7 @@ import {
   liveHabits,
 } from '@/features/habits'
 import { cards, openCard } from '@/features/flashcards'
-import { goals } from '@/features/goals'
+import { goals } from '@/features/goals/data'
 import { inboxItems } from '@/features/inbox'
 import { documents, documentTexts, loadDocumentTexts } from '@/features/library'
 import { logEntries } from '@/features/log'
