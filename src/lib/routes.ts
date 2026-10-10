@@ -29,6 +29,8 @@ export const paths = {
   note: (id: string) => `/notes/${encodeURIComponent(id)}`,
   /** A note from photos of handwritten notes, a whiteboard or slides. */
   photoNote: '/capture/photo',
+  /** A note from speech: recorded, or a recording chosen. */
+  voiceNote: '/capture/voice',
   assistant: '/assistant',
   conversation: (id: string) => `/assistant/${encodeURIComponent(id)}`,
   /** A new conversation: about one document, or about your plans. */

@@ -211,6 +211,35 @@ export function createOpenAiProvider(options: {
       }
     },
 
+    async transcribe(request) {
+      const { sdk, client } = await connect()
+      try {
+        const file = new File([request.audio], request.fileName, {
+          type: request.audio.type || 'application/octet-stream',
+        })
+        const result = await client.audio.transcriptions.create(
+          {
+            model: request.model,
+            file,
+            response_format: 'json',
+            ...(request.language ? { language: request.language } : {}),
+          },
+          { signal: request.signal },
+        )
+        // Whisper is billed by the minute, the GPT transcribers by token.
+        const usage =
+          result.usage?.type === 'tokens'
+            ? {
+                inputTokens: result.usage.input_tokens,
+                outputTokens: result.usage.output_tokens,
+              }
+            : undefined
+        return { text: result.text, ...(usage ? { usage } : {}) }
+      } catch (error) {
+        throw normalizeSdkError(error, sdk, secrets)
+      }
+    },
+
     async listModels(signal) {
       const { sdk, client } = await connect()
       try {

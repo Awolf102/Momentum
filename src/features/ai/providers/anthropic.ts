@@ -196,6 +196,13 @@ export function createAnthropicProvider(options: {
       )
     },
 
+    async transcribe() {
+      throw new AiError(
+        'unsupported',
+        "Anthropic doesn't turn speech into text. Choose OpenAI or an OpenAI-compatible server for transcription.",
+      )
+    },
+
     async listModels(signal) {
       const { sdk, client } = await connect()
       try {

@@ -9,7 +9,12 @@ import {
   type UsageTotals,
 } from './lib/usage'
 import { DEFAULT_LOCAL_MODEL } from './local/models'
-import { CHAT_PROVIDER_IDS, EMBEDDING_PROVIDER_IDS } from './providers/meta'
+import {
+  CHAT_PROVIDER_IDS,
+  EMBEDDING_PROVIDER_IDS,
+  TASK_PROVIDER_IDS,
+  TRANSCRIPTION_PROVIDER_IDS,
+} from './providers/meta'
 import type {
   AiTask,
   ChatProviderId,
@@ -17,6 +22,7 @@ import type {
   ModelPrice,
   ProviderId,
   TokenUsage,
+  TranscriptionProviderId,
 } from './types'
 
 interface TaskSettings<P extends ProviderId> {
@@ -28,6 +34,8 @@ interface TaskSettings<P extends ProviderId> {
 export interface AiSettings {
   chat: TaskSettings<ChatProviderId>
   embeddings: TaskSettings<EmbeddingProviderId>
+  /** Speech to text, for voice notes. */
+  transcription: TaskSettings<TranscriptionProviderId>
   /** The OpenAI-compatible server, e.g. a local Ollama. */
   compatibleBaseUrl: string
   /** What each model costs, keyed `provider:model`. Entered by the user. */
@@ -39,6 +47,7 @@ export const DEFAULT_COMPATIBLE_URL = 'http://localhost:11434/v1'
 export const DEFAULT_AI_SETTINGS: AiSettings = {
   chat: { provider: 'anthropic', models: {} },
   embeddings: { provider: 'openai', models: {} },
+  transcription: { provider: 'openai', models: {} },
   compatibleBaseUrl: DEFAULT_COMPATIBLE_URL,
   prices: {},
 }
@@ -94,6 +103,12 @@ export function parseAiSettings(data: unknown): AiSettings | null {
       EMBEDDING_PROVIDER_IDS,
       DEFAULT_AI_SETTINGS.embeddings,
     ),
+    // Added with voice notes: older settings simply don't have it yet.
+    transcription: parseTask(
+      data.transcription,
+      TRANSCRIPTION_PROVIDER_IDS,
+      DEFAULT_AI_SETTINGS.transcription,
+    ),
     compatibleBaseUrl:
       typeof data.compatibleBaseUrl === 'string'
         ? data.compatibleBaseUrl
@@ -123,9 +138,7 @@ export function selection(
 }
 
 export function setTaskProvider(task: AiTask, provider: ProviderId): void {
-  const allowed: readonly ProviderId[] =
-    task === 'chat' ? CHAT_PROVIDER_IDS : EMBEDDING_PROVIDER_IDS
-  if (!allowed.includes(provider)) return
+  if (!TASK_PROVIDER_IDS[task].includes(provider)) return
   aiSettingsStore.set((settings) => ({
     ...settings,
     [task]: { ...settings[task], provider },

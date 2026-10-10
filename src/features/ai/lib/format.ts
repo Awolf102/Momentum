@@ -29,15 +29,25 @@ export function formatLatency(ms: number): string {
   return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`
 }
 
-/** Model-list entries that suit a task: embedding models for embeddings, the rest for chat. */
+/**
+ * Model-list entries that suit a task: embedding models for embeddings,
+ * transcribers (Whisper, the GPT transcribe models) for transcription, the
+ * rest for chat.
+ */
 export function modelsForTask<T extends { id: string }>(
   models: readonly T[],
-  task: 'chat' | 'embeddings',
+  task: 'chat' | 'embeddings' | 'transcription',
 ): T[] {
   const isEmbedding = (model: T) => /embed/i.test(model.id)
-  if (task === 'chat') return models.filter((model) => !isEmbedding(model))
-  const embedding = models.filter(isEmbedding)
-  return embedding.length > 0 ? embedding : [...models]
+  const isTranscriber = (model: T) => /whisper|transcri/i.test(model.id)
+  if (task === 'chat')
+    return models.filter(
+      (model) => !isEmbedding(model) && !isTranscriber(model),
+    )
+  const matching = models.filter(
+    task === 'embeddings' ? isEmbedding : isTranscriber,
+  )
+  return matching.length > 0 ? matching : [...models]
 }
 
 /** A download's size, e.g. "38 MB". */

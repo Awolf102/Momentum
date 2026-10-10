@@ -30,6 +30,9 @@ day, keep the flame lit, and watch your streak grow.
 - **Note from a photo** (optional): photograph handwritten notes, a whiteboard
   or slides, and AI writes them out as a note — markdown, with maths in LaTeX —
   for you to check and edit before saving. The photos aren't kept.
+- **Voice notes** (optional): say it, or use a recording of a lecture, and
+  it's written out as a note, to edit or have AI tidy into headings and
+  points before saving. The recording isn't kept.
 - **Library:** add PDFs — lecture slides, papers, chapters — and read them
   here: highlight in four colours with a note in the margin, pick up where you
   left off, and turn your highlights into a note. Search finds the words
@@ -137,10 +140,12 @@ Open **Settings → AI**.
    [OpenAI](https://platform.openai.com/api-keys), or enter the address of an
    OpenAI-compatible server. Keys are stored only on this device and sent only
    to their own provider.
-2. **Choose models** for chat and for embeddings (they can come from different
-   providers). Type a model name, or **Load list** to pick from the models your
-   key can use. Anthropic doesn't offer embeddings.
-3. **Test connection** sends one short test message and shows the reply.
+2. **Choose models** for chat, for embeddings and for transcription (they can
+   come from different providers). Type a model name, or **Load list** to pick
+   from the models your key can use. Anthropic doesn't offer embeddings or
+   transcription.
+3. **Test connection** sends one short test message and shows the reply (for
+   transcription, a second of silence).
 
 **Ollama on your computer:** start it so the browser may reach it, e.g.
 `OLLAMA_ORIGINS=http://localhost:5173 ollama serve` (use the address you open
@@ -247,6 +252,24 @@ can).
 - The note comes back as you watch, with its title, maths in LaTeX and `[?]`
   for words it couldn't read. Edit it, give it a subject, and **Save as a
   note**. Stop keeps what came so far. The photos aren't kept.
+
+### Voice notes
+
+The microphone button on Notes (or ⌘K → **Voice note**) turns speech into a
+note. Transcription needs OpenAI or a compatible server, chosen in
+**Settings → AI → Transcription** (Anthropic doesn't offer it); recording
+doesn't.
+
+- **Record** up to an hour, with Pause and Resume, or **Choose a recording**
+  you have: MP3, M4A, WAV, WebM or OGG, up to 25 MB. Play it back first if
+  you like.
+- **Make the note…** shows what will be sent: the recording, how long it is,
+  and where it goes. Nothing is sent before **Send**.
+- The transcript opens as the note, to read and edit. **Tidy it into
+  notes…** has the chat model organise it into headings and points (its own
+  preview first, and a click takes you back to the transcript as it was).
+  Give it a title and a subject, and **Save as a note**. The recording isn't
+  kept.
 
 ## Library
 

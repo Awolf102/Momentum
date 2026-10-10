@@ -7,11 +7,17 @@ type Sdk = typeof OpenAiSdk
 
 /** A stand-in for the OpenAI client: same shape, no network. */
 function fakeSdk(
-  options: { chunks?: object[]; embeddings?: object; models?: object[] } = {},
+  options: {
+    chunks?: object[]
+    embeddings?: object
+    transcription?: object
+    models?: object[]
+  } = {},
 ) {
   const constructed: Array<Record<string, unknown>> = []
   const chatBodies: Array<Record<string, unknown>> = []
   const embedBodies: Array<Record<string, unknown>> = []
+  const transcribeBodies: Array<Record<string, unknown>> = []
   const controller = new AbortController()
 
   class FakeOpenAI {
@@ -48,6 +54,14 @@ function fakeSdk(
         return options.embeddings
       },
     }
+    audio = {
+      transcriptions: {
+        create: async (body: Record<string, unknown>) => {
+          transcribeBodies.push(body)
+          return options.transcription
+        },
+      },
+    }
     models = {
       list: () =>
         (async function* () {
@@ -62,6 +76,7 @@ function fakeSdk(
     constructed,
     chatBodies,
     embedBodies,
+    transcribeBodies,
     controller,
   }
 }
@@ -285,6 +300,62 @@ describe('OpenAI provider', () => {
       encoding_format: 'float',
       input: ['first', 'second'],
     })
+  })
+
+  it('sends a recording for transcription, with its name and type', async () => {
+    const fake = fakeSdk({
+      transcription: {
+        text: 'Gray code',
+        usage: {
+          type: 'tokens',
+          input_tokens: 40,
+          output_tokens: 3,
+          total_tokens: 43,
+        },
+      },
+    })
+    const provider = createOpenAiProvider({
+      id: 'openai',
+      apiKey: 'k',
+      loadSdk: fake.loadSdk,
+    })
+    const result = await provider.transcribe({
+      model: 'gpt-test-transcribe',
+      audio: new Blob(['sound'], { type: 'audio/webm' }),
+      fileName: 'recording.webm',
+      language: 'en',
+    })
+    expect(result).toEqual({
+      text: 'Gray code',
+      usage: { inputTokens: 40, outputTokens: 3 },
+    })
+    const [body] = fake.transcribeBodies
+    expect(body).toMatchObject({
+      model: 'gpt-test-transcribe',
+      response_format: 'json',
+      language: 'en',
+    })
+    const file = body.file as File
+    expect([file.name, file.type, await file.text()]).toEqual([
+      'recording.webm',
+      'audio/webm',
+      'sound',
+    ])
+    // Billed by the minute (Whisper): no tokens to count.
+    const whisper = fakeSdk({
+      transcription: { text: 'Hi', usage: { type: 'duration', seconds: 3 } },
+    })
+    expect(
+      await createOpenAiProvider({
+        id: 'openai',
+        apiKey: 'k',
+        loadSdk: whisper.loadSdk,
+      }).transcribe({
+        model: 'whisper-test',
+        audio: new Blob(['x']),
+        fileName: 'a.wav',
+      }),
+    ).toEqual({ text: 'Hi' })
   })
 
   it('lists models alphabetically', async () => {

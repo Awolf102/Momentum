@@ -80,7 +80,7 @@ export function TestConnection({
       </div>
       <p className="text-xs text-fg-subtle" role="status">
         {result ? (
-          <ResultLine result={result} />
+          <ResultLine result={result} task={task} />
         ) : readiness.ready && meta.local ? (
           waiting ? (
             'Download the model above first.'
@@ -90,6 +90,8 @@ export function TestConnection({
         ) : readiness.ready ? (
           task === 'chat' ? (
             `Sends a one-line test message to ${label}.`
+          ) : task === 'transcription' ? (
+            `Sends a second of silence to ${label}.`
           ) : (
             `Sends one short test phrase to ${label}.`
           )
@@ -101,7 +103,13 @@ export function TestConnection({
   )
 }
 
-function ResultLine({ result }: { result: ConnectionTest }) {
+function ResultLine({
+  result,
+  task,
+}: {
+  result: ConnectionTest
+  task: AiTask
+}) {
   if (!result.ok) {
     return (
       <span className="inline-flex items-start gap-1.5 text-rose-300 light:text-rose-600">
@@ -113,9 +121,13 @@ function ResultLine({ result }: { result: ConnectionTest }) {
   const detail =
     result.dimensions !== undefined
       ? `${result.dimensions}-number vectors`
-      : result.reply
-        ? `replied “${result.reply}”`
-        : 'replied'
+      : task === 'transcription'
+        ? result.reply
+          ? `heard “${result.reply}”`
+          : 'heard the silence'
+        : result.reply
+          ? `replied “${result.reply}”`
+          : 'replied'
   return (
     <span className="inline-flex items-start gap-1.5 text-fg-muted">
       <CheckIcon className="mt-px shrink-0 text-orange-300 light:text-orange-500" />

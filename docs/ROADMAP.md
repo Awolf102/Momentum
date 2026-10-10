@@ -179,7 +179,7 @@ versions and the flame stages could go in earlier.
 | 2     | In review | Focus timer, subjects and collections (`feature/focus-timer`); daily log (`feature/daily-log`); tasks with quick add, repeats and the board (`feature/tasks`); password-protected backups (`feature/encrypted-backup`); more habits (`feature/habits`); routines (`feature/routines`); the inbox (`feature/inbox`). Each its own PR, stacked in that order |
 | 3     | In review | Notes with maths, code and links (`feature/notes`, PR #10); search in ⌘K (`feature/search`), stacked on notes                                                                                                                                                                                                                                              |
 | 4     | In review | Document library and PDF viewer with highlights (`feature/library`), stacked on search; search by meaning (`feature/embeddings`), stacked on the library; chat with documents and the assistant (`feature/assistant`), stacked on search by meaning                                                                                                        |
-| 5     | Building  | Flashcards with FSRS (`feature/flashcards`, PR #15), stacked on the assistant; practice quizzes (`feature/quizzes`, PR #16), stacked on flashcards; image to notes (`feature/image-notes`), stacked on quizzes                                                                                                                                             |
+| 5     | In review | Flashcards with FSRS (`feature/flashcards`, PR #15), stacked on the assistant; practice quizzes (`feature/quizzes`, PR #16), stacked on flashcards; image to notes (`feature/image-notes`, PR #17), stacked on quizzes; voice notes (`feature/voice-notes`), stacked on image to notes                                                                     |
 | 6–7   | Planned   |                                                                                                                                                                                                                                                                                                                                                            |
 
 ### What Phase 1 changed in the plan
@@ -393,3 +393,26 @@ versions and the flame stages could go in earlier.
   note.
 - **Next:** voice notes (record, transcribe with a speech-to-text API,
   save as a note), the last of Phase 5.
+
+### What voice notes changed in the plan
+
+- **Transcription is a third AI task,** beside chat and embeddings, with
+  its own provider and model: OpenAI (Whisper or a GPT transcribe model) or
+  a compatible server. It's a call of its own (`ai.transcribe`) rather than
+  audio inside chat messages, the way pictures went: that's what OpenAI and
+  compatible servers offer, and Anthropic's models don't take audio.
+- **The Web Speech API is left out.** In Chrome it sends audio to Google,
+  which the send preview couldn't honestly describe.
+- **The transcript is the note; tidying is a choice.** What was said comes
+  back as said, to read and edit. **Tidy it into notes** is a second send,
+  to the chat model, that organises it into headings and points, and can
+  be undone. A lecture's words aren't rewritten unless you ask.
+- **Length and size in the preview, not tokens.** Whisper is priced by
+  the minute, so a token count would mislead.
+- **One request per recording.** Recording speech at 32 kbps keeps an hour
+  to about 15 MB, inside the 25 MB providers take at once, so nothing is
+  split; a bigger file is turned away with the reason.
+- **No attachments, again.** The recording isn't kept with the note, as
+  with photos.
+- **Phase 5 is complete.** Next is Phase 6: time blocking with .ics
+  import, goals, the AI planner and weekly review, and analytics.

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { Link, Redirect, useParams } from 'wouter'
-import { ArrowLeftIcon, CameraIcon } from '@/components/icons'
+import { ArrowLeftIcon, CameraIcon, MicIcon } from '@/components/icons'
 import { useAiReadiness } from '@/features/ai'
 import { isEmptyNote, tidyEmptyNotes, useNotes } from '@/features/notes'
 import {
@@ -46,6 +46,14 @@ export default function NotesPage() {
             </h1>
             {listed.length > 0 && (
               <div className="flex items-center gap-2">
+                <Link
+                  href={paths.voiceNote}
+                  aria-label="Voice note"
+                  title="Voice note"
+                  className="flex size-9 items-center justify-center rounded-full glass text-lg transition hover:bg-tint"
+                >
+                  <MicIcon />
+                </Link>
                 <Link
                   href={paths.photoNote}
                   aria-label="Note from a photo"

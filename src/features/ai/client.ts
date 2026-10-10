@@ -1,4 +1,5 @@
 import { AiError } from './errors'
+import { silentWav } from './lib/audio'
 import { RequestGate } from './lib/gate'
 import {
   streamWithRetry,
@@ -59,6 +60,12 @@ export interface ConnectionTest {
   error?: AiError
 }
 
+const TASK_NAMES: Record<AiTask, string> = {
+  chat: 'a chat',
+  embeddings: 'an embeddings',
+  transcription: 'a transcription',
+}
+
 /** Texts per embeddings request. */
 export const EMBED_BATCH = 64
 /** Requests per provider at once. */
@@ -107,7 +114,7 @@ export function createAiClient(deps: AiClientDeps) {
     if (!model) {
       throw new AiError(
         'no-model',
-        `Choose a${task === 'chat' ? ' chat' : 'n embeddings'} model in Settings → AI.`,
+        `Choose ${TASK_NAMES[task]} model in Settings → AI.`,
       )
     }
     return {
@@ -181,6 +188,38 @@ export function createAiClient(deps: AiClientDeps) {
     return vectors
   }
 
+  async function transcribeWith(
+    audio: Blob,
+    options: {
+      fileName: string
+      language?: string
+      signal?: AbortSignal
+      onRetry?: (info: RetryInfo) => void
+    },
+    overrides: Partial<RetryOptions> = {},
+  ): Promise<string> {
+    const { connection, model, provider, gate } = await target('transcription')
+    const result = await withRetry(
+      () =>
+        provider.transcribe({
+          model,
+          audio,
+          fileName: options.fileName,
+          language: options.language,
+          signal: options.signal,
+        }),
+      {
+        ...deps.retry,
+        ...overrides,
+        gate,
+        signal: options.signal,
+        onRetry: options.onRetry,
+      },
+    )
+    if (result.usage) deps.recordUsage(connection.provider, model, result.usage)
+    return result.text
+  }
+
   return {
     /** Streams a reply from the chat model chosen in Settings. Stop reading to cancel. */
     chat: (options: ChatOptions) => streamChat(options),
@@ -197,6 +236,18 @@ export function createAiClient(deps: AiClientDeps) {
       }
       return { text, stopReason, usage }
     },
+
+    /** Speech as text, from the transcription model chosen in Settings. */
+    transcribe: (
+      audio: Blob,
+      options: {
+        /** With the right extension: providers tell the format by it. */
+        fileName: string
+        language?: string
+        signal?: AbortSignal
+        onRetry?: (info: RetryInfo) => void
+      },
+    ) => transcribeWith(audio, options),
 
     /** One vector per text, from the embeddings model chosen in Settings. */
     embed: (
@@ -251,6 +302,20 @@ export function createAiClient(deps: AiClientDeps) {
             model,
             latencyMs: Math.round(performance.now() - started),
             reply: reply.trim().slice(0, 80),
+          }
+        }
+        if (task === 'transcription') {
+          const heard = await transcribeWith(
+            silentWav(),
+            { fileName: 'silence.wav', signal },
+            { attempts: 1 },
+          )
+          return {
+            ok: true,
+            provider,
+            model,
+            latencyMs: Math.round(performance.now() - started),
+            reply: heard.trim().slice(0, 80),
           }
         }
         const [vector] = await embedWith(

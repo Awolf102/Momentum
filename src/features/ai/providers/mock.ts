@@ -8,6 +8,7 @@ import type {
   ModelInfo,
   StopReason,
   TokenUsage,
+  TranscribeRequest,
 } from '../types'
 
 export interface MockReply {
@@ -26,12 +27,16 @@ export interface MockProviderOptions {
   /** Vector for one text. Defaults to a small deterministic hash. */
   embed?: (text: string) => number[]
   embedError?: AiError
+  /** What speech becomes; or the error transcribing gives. */
+  transcript?: string
+  transcribeError?: AiError
   models?: ModelInfo[]
 }
 
 export interface MockProvider extends AiProvider {
   readonly calls: ChatRequest[]
   readonly embedCalls: EmbedRequest[]
+  readonly transcribeCalls: TranscribeRequest[]
 }
 
 function hashVector(text: string, size = 8): number[] {
@@ -49,6 +54,7 @@ export function createMockProvider(
 ): MockProvider {
   const calls: ChatRequest[] = []
   const embedCalls: EmbedRequest[] = []
+  const transcribeCalls: TranscribeRequest[] = []
 
   function replyFor(request: ChatRequest, call: number): MockReply {
     const { replies } = options
@@ -62,6 +68,7 @@ export function createMockProvider(
     id: 'mock',
     calls,
     embedCalls,
+    transcribeCalls,
 
     async *chat(request): AsyncGenerator<ChatEvent> {
       const reply = replyFor(request, calls.length)
@@ -99,6 +106,13 @@ export function createMockProvider(
         vectors: request.input.map((text) => embed(text)),
         usage: { inputTokens: request.input.join(' ').length, outputTokens: 0 },
       }
+    },
+
+    async transcribe(request) {
+      transcribeCalls.push(request)
+      if (options.transcribeError) throw options.transcribeError
+      if (request.signal?.aborted) throw abortError()
+      return { text: options.transcript ?? 'Mock transcript' }
     },
 
     async listModels() {

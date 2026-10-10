@@ -1,6 +1,6 @@
 import { Link } from 'wouter'
 import { GlassCard } from '@/components/GlassCard'
-import { CameraIcon, NoteIcon } from '@/components/icons'
+import { CameraIcon, MicIcon, NoteIcon } from '@/components/icons'
 import { paths } from '@/lib/routes'
 import { NewNoteButton } from './NewNoteButton'
 
@@ -47,6 +47,12 @@ export function NotesWelcome({ empty }: { empty: boolean }) {
           className="inline-flex items-center gap-1.5 rounded-full bg-tint px-4 py-2 text-sm font-semibold transition hover:bg-line"
         >
           <CameraIcon /> From a photo
+        </Link>
+        <Link
+          href={paths.voiceNote}
+          className="inline-flex items-center gap-1.5 rounded-full bg-tint px-4 py-2 text-sm font-semibold transition hover:bg-line"
+        >
+          <MicIcon /> Voice note
         </Link>
       </div>
     </GlassCard>

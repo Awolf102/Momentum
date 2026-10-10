@@ -43,7 +43,11 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: paths.notes,
     label: 'Notes',
     icon: <NoteIcon />,
-    isActive: (location) => location.startsWith(paths.notes),
+    // Notes from photos and speech are made here too.
+    isActive: (location) =>
+      [paths.notes, paths.photoNote, paths.voiceNote].some((path) =>
+        location.startsWith(path),
+      ),
   },
   {
     href: paths.library,
