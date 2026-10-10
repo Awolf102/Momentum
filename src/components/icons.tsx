@@ -520,3 +520,28 @@ export function FitWidthIcon(props: IconProps) {
     </Icon>
   )
 }
+
+export function ChatIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 5.5h14a1.5 1.5 0 011.5 1.5v8a1.5 1.5 0 01-1.5 1.5h-8l-4.5 3.5v-3.5H5A1.5 1.5 0 013.5 15V7A1.5 1.5 0 015 5.5z" />
+      <path d="M8 10h8M8 13h5" />
+    </Icon>
+  )
+}
+
+export function StopIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="6.5" y="6.5" width="11" height="11" rx="2" />
+    </Icon>
+  )
+}
+
+export function SendIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 19V5M6 11l6-6 6 6" />
+    </Icon>
+  )
+}

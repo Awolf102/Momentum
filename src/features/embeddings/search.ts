@@ -112,6 +112,8 @@ async function queryVector(
 interface NearestOptions {
   /** Leave this source out (the one you're looking from). */
   exclude?: string
+  /** Only this source (asking about one document). */
+  only?: string
   perSource: number
   limit: number
 }
@@ -123,11 +125,16 @@ interface NearestOptions {
 function nearest(
   entries: ReadonlyMap<string, Entry>,
   vector: Float32Array,
-  { exclude, perSource, limit }: NearestOptions,
+  { exclude, only, perSource, limit }: NearestOptions,
 ): MeaningHit[] {
   const top = new TopK<{ entry: Entry; row: number }>(limit * 8)
   for (const entry of entries.values()) {
-    if (entry.record.key === exclude || entry.rows.dims !== vector.length)
+    const { key } = entry.record
+    if (
+      key === exclude ||
+      (only !== undefined && key !== only) ||
+      entry.rows.dims !== vector.length
+    )
       continue
     const count = entry.rows.scales.length
     for (let row = 0; row < count; row++) {
@@ -177,6 +184,16 @@ export interface MeaningResults {
   searched: number
 }
 
+export interface MeaningOptions {
+  signal?: AbortSignal
+  /** Only passages from this source (`document:<id>`). */
+  only?: string
+  /** At most this many (8). */
+  limit?: number
+  /** And this many from one source (3). */
+  perSource?: number
+}
+
 /**
  * Passages that mean something like the query. With a provider, the query
  * itself is sent to be turned into a vector; with the model on this
@@ -184,7 +201,7 @@ export interface MeaningResults {
  */
 export async function searchByMeaning(
   query: string,
-  signal?: AbortSignal,
+  { signal, only, limit = 8, perSource = 3 }: MeaningOptions = {},
 ): Promise<MeaningResults> {
   const target = currentTarget()
   if (!target) return { hits: [], searched: 0 }
@@ -193,7 +210,7 @@ export async function searchByMeaning(
   const vector = await queryVector(query.trim(), target, signal)
   return {
     hits: closeEnough(
-      nearest(entries, vector, { perSource: 3, limit: 8 }),
+      nearest(entries, vector, { only, perSource, limit }),
       target,
     ),
     searched: entries.size,

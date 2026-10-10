@@ -11,5 +11,6 @@ export {
   streakStore,
 } from './store'
 export { describeStreak } from './lib/copy'
+export { sortedCheckInDates, summarizeStreak } from './lib/streak'
 export { FLAME_INNER, FLAME_OUTER, FLAME_VIEWBOX } from './lib/flame'
 export type { StreakData, StreakStatus, StreakSummary } from './types'

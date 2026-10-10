@@ -39,6 +39,11 @@ day, keep the flame lit, and watch your streak grow.
   pages — with a small model that runs on your device (a one-time 38 MB
   download; nothing is sent), or your OpenAI or compatible server. Each note
   lists the notes and pages related to it.
+- **Ask** (optional): ask about your notes and PDFs and get answers that cite
+  them — each number opens the note, or the PDF at that page. Before you
+  send, you see exactly which passages go with your question, and can take
+  any out. Or ask about your plans ("what should I do today?"), sharing only
+  the parts you choose. It reads; it never changes anything.
 - **Inbox:** catch a thought or a link in a second (I, or share to Momentum
   from another app on Android), then make it a task or a note, add it to
   today's log, or let it go.
@@ -67,11 +72,12 @@ day, keep the flame lit, and watch your streak grow.
   by default with a light theme.
 - **Local-first:** everything is saved in your browser's database (IndexedDB),
   with one-file backups of all of it: notes, your library, habits, routines,
-  tasks, the inbox, focus sessions and the log included.
+  tasks, the inbox, conversations, focus sessions and the log included.
 - **Optional AI, with your own key:** Anthropic, OpenAI, or a server such as
   Ollama — or, for search by meaning, nothing but this device. Momentum works
-  fully without it. Before anything is sent, you see exactly what, to whom,
-  and roughly what it costs. (More AI features arrive in later phases; see
+  fully without it. Before anything is sent, you see exactly what goes and
+  to whom (and, before indexing, roughly what it costs); afterwards, how many
+  tokens it used. (More AI features arrive in later phases; see
   [docs/ROADMAP.md](docs/ROADMAP.md).)
 
 ## Getting started
@@ -149,6 +155,30 @@ Under **Embeddings**, choose where vectors come from:
 Results appear under **By meaning** in ⌘K, with the page for PDFs. To host the
 model files yourself, build with `VITE_MODEL_HOST=https://your.server`, using
 the same paths as Hugging Face (`/<repo>/resolve/main/<file>`).
+
+### Ask
+
+Open **Ask** in the sidebar, or ⌘K → **Ask your notes and documents**; on a
+PDF, **Ask about this document** keeps to that one. It uses your chat model.
+
+- **Your notes and documents:** as you type, the passages that best match
+  your question appear under it, found on this device. Take out any you'd
+  rather not send; **Send** sends your question with exactly those, and the
+  conversation so far. The answer cites them by number: click one to open the
+  note, or the PDF at that page. **Stop** keeps what has arrived; **Ask
+  again** tries once more with the same passages. With search by meaning on
+  this device, passages are found by meaning as you type too; with a
+  provider's index, **Also find passages by meaning** sends just your question
+  to find more.
+- **Your plans:** choose what to share — tasks, habits, routines, focus time,
+  the daily log — and ask "what should I do today?" or "which habits am I
+  letting slip?". **Show exactly what's sent** shows the summary that goes
+  with your question. It can't change anything.
+
+Notes and PDFs you've kept out of search by meaning are left out of the
+passages too, unless you ask about that PDF itself. Conversations are kept on
+this device and in backups. Delete one from its page (with Undo), or all of
+them in **Settings → Data**.
 
 **Backups** leave API keys out unless you turn on **Include API keys**, and a
 backup with keys is always protected with a password (AES-GCM, with the key
@@ -260,9 +290,9 @@ Anthropic and OpenAI SDKs (all loaded on demand) · Web Audio · Workbox (vite-p
 src/
 ├── app/          App shell: routes, sidebar, tab bar, header, commands
 ├── pages/        Pages composed from features (dashboard, tasks, notes,
-│                 library, inbox, log, settings)
+│                 library, ask, inbox, log, settings)
 ├── features/     streak · habits · routines · focus · subjects · tasks · notes
-│                 library · search · embeddings · inbox · log · calendar
+│                 library · search · embeddings · assistant · inbox · log · calendar
 │                 motivation · appearance · climb · share · ambience
 │                 reminder · pwa · backup · ai
 ├── components/   Shared UI (glass card, sheet, settings card, icons…)

@@ -4,7 +4,7 @@ import type {
   StopReason as SdkStopReason,
   Usage,
 } from '@anthropic-ai/sdk/resources/messages'
-import { AiError } from '../errors'
+import { abortError, AiError } from '../errors'
 import { normalizeSdkError } from '../lib/sdkErrors'
 import type {
   AiProvider,
@@ -150,6 +150,9 @@ export function createAnthropicProvider(options: {
             yield { type: 'usage', usage }
           }
         }
+        // A stream cancelled between reads ends quietly, as if the reply
+        // were done.
+        if (request.signal?.aborted) throw abortError()
         finished = true
         yield { type: 'done', stopReason }
       } catch (error) {

@@ -3,7 +3,7 @@ import type {
   ChatCompletionChunk,
   ChatCompletionMessageParam,
 } from 'openai/resources/chat/completions'
-import { AiError } from '../errors'
+import { abortError, AiError } from '../errors'
 import { normalizeSdkError } from '../lib/sdkErrors'
 import type {
   AiProvider,
@@ -137,6 +137,8 @@ export function createOpenAiProvider(options: {
             yield { type: 'usage', usage }
           }
         }
+        // The SDK ends a cancelled stream quietly, as if the reply were done.
+        if (request.signal?.aborted) throw abortError()
         finished = true
         yield { type: 'done', stopReason: refused ? 'refusal' : stopReason }
       } catch (error) {

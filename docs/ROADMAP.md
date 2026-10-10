@@ -178,7 +178,7 @@ versions and the flame stages could go in earlier.
 | 1     | In review | Branch `claude/v3-phase-1-foundations` (PR #2), stacked on the v2 branch (PR #1)                                                                                                                                                                                                                                                                           |
 | 2     | In review | Focus timer, subjects and collections (`feature/focus-timer`); daily log (`feature/daily-log`); tasks with quick add, repeats and the board (`feature/tasks`); password-protected backups (`feature/encrypted-backup`); more habits (`feature/habits`); routines (`feature/routines`); the inbox (`feature/inbox`). Each its own PR, stacked in that order |
 | 3     | In review | Notes with maths, code and links (`feature/notes`, PR #10); search in ⌘K (`feature/search`), stacked on notes                                                                                                                                                                                                                                              |
-| 4     | Building  | Document library and PDF viewer with highlights (`feature/library`), stacked on search; search by meaning (`feature/embeddings`), stacked on the library                                                                                                                                                                                                   |
+| 4     | In review | Document library and PDF viewer with highlights (`feature/library`), stacked on search; search by meaning (`feature/embeddings`), stacked on the library; chat with documents and the assistant (`feature/assistant`), stacked on search by meaning                                                                                                        |
 | 5–7   | Planned   |                                                                                                                                                                                                                                                                                                                                                            |
 
 ### What Phase 1 changed in the plan
@@ -310,3 +310,29 @@ versions and the flame stages could go in earlier.
   rebuilt after a restore (the preview shows what that sends).
 - **Next:** chat with documents, citing pages, using this index to find the
   passages to send; then the read-only assistant.
+
+### What the assistant changed in the plan
+
+- **One page for both.** Chat with documents and the read-only assistant are
+  one **Ask** page: a conversation is about your notes and documents (citing
+  pages) or about your plans. Conversations, streaming, Stop and Ask again
+  are shared; what differs is what goes with the question.
+- **Passages are found by words too, on the device.** Questions often name
+  the terms in the notes ("Karnaugh map"), so a keyword ranking (BM25) over
+  the same passages finds them with no index and nothing sent, and works
+  before search by meaning is set up. With an index, the two are combined.
+- **The composer is the send preview.** Rather than a sheet before every
+  question, the passages appear as you type, each one removable, with a
+  line saying where they go; Send sends exactly that. The send preview sheet
+  stays for indexing, where there's a lot to review at once.
+- **What's kept out of search by meaning is kept out of questions too,**
+  unless it's the document being asked about: unticking a note once keeps it
+  out of both.
+- **The assistant sees a snapshot, not tools.** Your plans are summed up on
+  the device as plain text, from the parts you choose, and can be read in
+  full before sending. With no tools it can't change anything. Tools (adding
+  a task, say), each confirmed, can come with the AI planner in Phase 6.
+- **Cancelled answers were reported as finished.** Both SDKs end a cancelled
+  stream quietly; the Phase 1 adapters now report it as cancelled.
+- **Next:** Phase 5, learning: flashcards with FSRS and a review queue,
+  practice quizzes, image to notes, voice notes.

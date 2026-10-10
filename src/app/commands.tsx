@@ -3,6 +3,7 @@ import type { Command } from '@/lib/commands'
 import {
   BellIcon,
   BookIcon,
+  ChatIcon,
   ChecklistIcon,
   ColumnsIcon,
   ListIcon,
@@ -282,6 +283,22 @@ export function useAppCommands(): Command[] {
           'book',
         ],
         run: choosePdfs,
+      },
+      {
+        id: 'ask',
+        title: 'Ask your notes and documents',
+        section: 'Assistant',
+        icon: <ChatIcon />,
+        keywords: ['ai', 'chat', 'question', 'assistant', 'explain', 'cite'],
+        run: () => navigate(paths.assistant),
+      },
+      {
+        id: 'ask-plans',
+        title: 'Ask about your plans',
+        section: 'Assistant',
+        icon: <ChatIcon />,
+        keywords: ['ai', 'chat', 'tasks', 'week', 'today', 'plan', 'focus'],
+        run: () => navigate(paths.ask('planner')),
       },
       {
         id: 'log-today',

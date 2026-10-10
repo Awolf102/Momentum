@@ -27,6 +27,13 @@ export const paths = {
   document: (id: string, page?: number) =>
     `/library/${encodeURIComponent(id)}${page ? `?page=${page}` : ''}`,
   note: (id: string) => `/notes/${encodeURIComponent(id)}`,
+  assistant: '/assistant',
+  conversation: (id: string) => `/assistant/${encodeURIComponent(id)}`,
+  /** A new conversation: about one document, or about your plans. */
+  ask: (about: { document: string } | 'planner') =>
+    about === 'planner'
+      ? '/assistant?mode=planner'
+      : `/assistant?document=${encodeURIComponent(about.document)}`,
   settings: (section?: SettingsSection) =>
     section ? `/settings/${section}` : '/settings',
 }
