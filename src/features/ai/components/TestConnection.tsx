@@ -1,0 +1,112 @@
+import { useEffect, useRef, useState } from 'react'
+import { AlertIcon, CheckIcon } from '@/components/icons'
+import { ai } from '../ai'
+import type { ConnectionTest } from '../client'
+import { describeAiError } from '../errors'
+import { formatLatency } from '../lib/format'
+import type { AiReadiness } from '../lib/readiness'
+import { PROVIDERS } from '../providers/meta'
+import type { AiTask } from '../types'
+
+const NOT_READY: Record<
+  Exclude<AiReadiness, { ready: true }>['reason'],
+  (label: string) => string
+> = {
+  'no-key': (label) => `Add your ${label} key above first.`,
+  'no-model': () => 'Choose a model first.',
+  'no-address': () => 'Add the server address above first.',
+}
+
+/** Sends one tiny request with the current settings and reports how it went. */
+export function TestConnection({
+  task,
+  readiness,
+}: {
+  task: AiTask
+  readiness: AiReadiness
+}) {
+  const [outcome, setOutcome] = useState<{
+    target: string
+    result: ConnectionTest
+  } | null>(null)
+  const [testing, setTesting] = useState(false)
+  const controller = useRef<AbortController | null>(null)
+  const label = PROVIDERS[readiness.provider].label
+  const target = readiness.ready
+    ? `${readiness.provider}:${readiness.model}`
+    : ''
+  // A result only describes the settings it was run with.
+  const result = outcome?.target === target ? outcome.result : null
+
+  useEffect(() => () => controller.current?.abort(), [])
+
+  async function run() {
+    controller.current = new AbortController()
+    setTesting(true)
+    setOutcome(null)
+    const tested = target
+    const next = await ai.testConnection(task, controller.current.signal)
+    setOutcome({ target: tested, result: next })
+    setTesting(false)
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={!readiness.ready || testing}
+          onClick={() => void run()}
+          className="rounded-full glass px-4 py-2 text-sm font-semibold transition hover:scale-[1.02] active:scale-95 disabled:pointer-events-none disabled:opacity-40"
+        >
+          {testing ? 'Testing…' : 'Test connection'}
+        </button>
+        {testing && (
+          <button
+            type="button"
+            onClick={() => controller.current?.abort()}
+            className="rounded-full px-3 py-2 text-xs font-semibold text-fg-muted transition hover:bg-tint"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+      <p className="text-xs text-fg-subtle" role="status">
+        {result ? (
+          <ResultLine result={result} />
+        ) : readiness.ready ? (
+          task === 'chat' ? (
+            `Sends a one-line test message to ${label}.`
+          ) : (
+            `Sends one short test phrase to ${label}.`
+          )
+        ) : (
+          NOT_READY[readiness.reason](label)
+        )}
+      </p>
+    </div>
+  )
+}
+
+function ResultLine({ result }: { result: ConnectionTest }) {
+  if (!result.ok) {
+    return (
+      <span className="inline-flex items-start gap-1.5 text-rose-300 light:text-rose-600">
+        <AlertIcon className="mt-px shrink-0" />
+        {describeAiError(result.error)}
+      </span>
+    )
+  }
+  const detail =
+    result.dimensions !== undefined
+      ? `${result.dimensions}-number vectors`
+      : result.reply
+        ? `replied “${result.reply}”`
+        : 'replied'
+  return (
+    <span className="inline-flex items-start gap-1.5 text-fg-muted">
+      <CheckIcon className="mt-px shrink-0 text-orange-300 light:text-orange-500" />
+      Connected: {detail} in {formatLatency(result.latencyMs ?? 0)}.
+    </span>
+  )
+}

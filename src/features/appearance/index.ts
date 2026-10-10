@@ -17,7 +17,7 @@ export {
   resolveBackground,
 } from './backgrounds'
 export { drawGradient, type GradientLayer } from './lib/gradients'
-export { loadPhoto } from './lib/photoStorage'
+export { listAllPhotos, loadPhoto, putPhoto } from './lib/photoStorage'
 export {
   PHASE_LABELS,
   type Light,

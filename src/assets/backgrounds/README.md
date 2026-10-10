@@ -10,7 +10,7 @@ and they become built-in backgrounds the next time the app builds.
 
 Photos added here are committed to the repository and bundled with the app.
 To keep a photo private to one browser instead, add it from
-**Settings → Background → Your photo**.
+**Settings → Appearance → Your photo**.
 
 ## Rewards
 

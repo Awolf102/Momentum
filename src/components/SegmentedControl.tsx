@@ -38,7 +38,7 @@ export function SegmentedControl<T extends string>({
             aria-checked={selected}
             onClick={() => onChange(option.value)}
             className={cn(
-              'relative flex flex-1 items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+              'relative flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition-colors sm:px-4',
               selected ? 'text-fg' : 'text-fg-subtle hover:text-fg-muted',
             )}
           >
@@ -49,7 +49,7 @@ export function SegmentedControl<T extends string>({
                 transition={{ type: 'spring', stiffness: 500, damping: 38 }}
               />
             )}
-            <span className="relative flex items-center gap-2">
+            <span className="relative flex min-w-0 items-center gap-2 truncate">
               {option.icon}
               {option.label}
             </span>

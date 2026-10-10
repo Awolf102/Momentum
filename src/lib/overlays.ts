@@ -1,4 +1,4 @@
-import { createStore } from '@/lib/store'
+import { createStore } from './store'
 
 /** App-level dialogs that aren't owned by a single feature. */
 export const paletteOpenStore = createStore(false)
