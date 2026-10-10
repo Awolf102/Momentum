@@ -497,7 +497,7 @@ function CardsSection({ data, within }: { data: Analytics; within: string }) {
               ? `of ${plural(total.reviewed, 'review')} due`
               : 'no reviews due',
           ],
-          ['Aiming for', percent(target), 'set in Settings'],
+          ['Aiming for', percent(target), 'set on the Cards page'],
           ['Ratings', String(counts.ratings), 'new cards too'],
           ['Days studied', String(counts.days), `of ${daysIn(range)}`],
         ]}
