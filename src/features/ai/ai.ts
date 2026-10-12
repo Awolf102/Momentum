@@ -1,5 +1,6 @@
 import { getSecret } from '@/lib/secrets'
 import { createAiClient } from './client'
+import { currentPage } from './lib/reach'
 import { createProvider } from './providers'
 import { aiSettingsStore, recordUsage } from './store'
 
@@ -9,4 +10,5 @@ export const ai = createAiClient({
   getKey: (provider) => getSecret(provider),
   createProvider,
   recordUsage,
+  page: currentPage,
 })
