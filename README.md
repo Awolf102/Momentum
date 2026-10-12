@@ -175,6 +175,16 @@ Open **Settings → AI**.
 Momentum at), then use `http://localhost:11434` as the server address. No key
 needed.
 
+**Thinking and reply length:** under **Replies**, each AI feature (Ask,
+flashcards, quizzes, summaries, Plan my day, notes from photos) has a
+**Think before answering** switch, off by default. Small local models such
+as Qwen think for a minute or more before a simple answer; off, Momentum
+asks an OpenAI-compatible server not to (Ollama's `reasoning_effort: "none"`),
+so they answer straight away. While a model works on a reply, the feature
+shows "Thinking…" with the time so far. **Longest reply** caps every
+request (8K tokens unless you change it), so no reply runs on for ever; one
+that reaches it is kept and marked as cut off.
+
 **Cost:** usage is counted per model each month. Prices aren't built in, because
 they change; add your provider's price per million tokens to see an estimate.
 

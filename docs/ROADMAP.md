@@ -547,3 +547,91 @@ The sync server and sync in the app are built, in one PR (#23) stacked on
 analytics. What didn't fit is noted in the PR: files don't sync, a password
 can't be changed or recovered, clearing everything stays on the device, and
 times come from each device's clock. That's the last phase in this plan.
+
+## Local AI improvements
+
+Version 3 is built. This plan is about running AI on your own machines:
+small local models (Ollama on a laptop and a gaming PC, reached over
+Tailscale), a model in the browser for an 8 GB MacBook Air, and falling
+back between them when one is off, asleep or busy. Four phases, each its
+own branch and PR, each stacked on the one before.
+
+| Phase | Branch                     | What                                                       |
+| ----- | -------------------------- | ---------------------------------------------------------- |
+| 1     | `feature/thinking-control` | Thinking on or off per feature; a cap on every reply       |
+| 2     | `fix/desktop-local-ai`     | The installed (Dock) app reaching a server on `localhost`  |
+| 3     | `feature/on-device-chat`   | A chat model in the browser, on the GPU, with no server    |
+| 4     | `feature/ai-fallback`      | An ordered list of chat providers, falling through in turn |
+
+**How it fits.** Everything stays behind `features/ai`: features call
+`ai.chat` and `ai.complete` as they do now, and the client decides how the
+request goes out. Settings stay in `momentum.ai` (new fields are optional
+in `parse`, so no version bump), keys stay in `secrets`, and models are
+still never hardcoded for servers: they come from each provider's model
+list. The model on this device is the exception it already is (a short
+built-in list, like MiniLM).
+
+1. **Thinking and reply limits.** A feature says which it is (Ask, cards,
+   quizzes, summaries, planning or photos) and the client looks up that
+   feature's Thinking switch (off by default) and the reply cap. Off, an OpenAI-compatible server gets Ollama's documented
+   `reasoning_effort: "none"` (OpenRouter its `reasoning.effort`); it's
+   dropped and remembered if a server refuses it, and never sent to
+   Anthropic or OpenAI, whose models don't think unless asked. Every
+   request's `maxTokens` becomes the smaller of what the feature needs and
+   the cap in Settings (with room added for thinking when it's on). Streams
+   gain a `thinking` event (from the `reasoning` deltas Ollama sends, or a
+   `<think>` block in the text), so every feature can show "Thinking… 14 s"
+   until the reply starts, and each says when a reply was cut off.
+2. **The desktop app.** There's no wrapper: the Dock app is the PWA,
+   installed from wherever it was opened. Find what stops it reaching
+   `http://localhost` from the code and the browsers' rules, fix what the
+   app controls (saying exactly what's blocked, before sending, and from
+   which origin), and document how to install and launch it so it can.
+3. **Chat on this device.** `browser` becomes a chat provider too. A
+   worker (over `lib/rpc.ts`, like the embeddings worker) runs Qwen3.5
+   0.8B, 2B or 4B on WebGPU, downloaded once on request into Cache Storage,
+   loaded on first use and unloaded after ten minutes idle. The adapter
+   turns its stream into the same events as the other providers, so every
+   feature, Phase 1's switches and the cap work unchanged.
+4. **A chain of chat providers.** Chat's single provider becomes an
+   ordered list of entries, each with its own address, key and model (the
+   shape one provider has today, kept per entry rather than shared). The
+   client checks each network entry's health (a `GET /models`, 2.5 s,
+   remembered for a minute), tries them in order, and falls through on
+   errors that are about that provider (unreachable, timed out, 5xx, no
+   such model, no first token in time), never on ones that would fail
+   anywhere. Cloud entries are skipped unless allowed as a fallback.
+   Answers record which entry and model wrote them; usage is counted per
+   entry. Embeddings never fall back (vectors from different models can't
+   be compared): their jobs wait and retry, and searches fall back to
+   keywords, saying so.
+
+**Testing** stays as it is: the mock provider and fake SDKs for the
+client and adapters, a stand-in worker for the model on this device, and a
+stand-in OpenAI-compatible server (which streams thinking, then an answer)
+for click-throughs at desktop and phone sizes. What can't be checked here —
+real Ollama, the Dock app, WebGPU, downloads from Hugging Face — gets
+step-by-step checks in each PR.
+
+### What thinking control changed in the plan
+
+- **Every feature has its own switch,** not just the four in the brief:
+  Plan my day and notes from photos think too, so they got one each
+  (off). "Summaries" covers the weekly write-up and tidying a voice note.
+- **Off means asking, on means leaving it be.** Thinking off sends Ollama's
+  documented `reasoning_effort: "none"` (OpenRouter's `reasoning.effort`
+  there). On sends nothing, so a model thinks as it would anyway. A server
+  that turns the field away is asked again without it.
+- **Claude and OpenAI's models aren't asked.** Claude doesn't think unless
+  told to, and OpenAI's models that don't reason refuse the field, so the
+  switches apply to OpenAI-compatible servers (and, in Phase 3, the model
+  on this device).
+- **The cap sits on top of each feature's own.** Features already asked
+  for a length (an answer 4,096 tokens, a mark 400); the cap in Settings is
+  a ceiling over them, 8K by default so nothing that worked before is cut
+  short. With thinking on, 4,096 more is allowed, since servers count
+  thinking towards `max_tokens`: a mark of 400 tokens would otherwise be
+  used up thinking.
+- **Cut off is kept everywhere,** not only in Ask: cards and quizzes keep
+  their whole items, and the weekly write-up and Plan my day read a JSON
+  object closed where it stopped.

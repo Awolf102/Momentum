@@ -1,7 +1,7 @@
 import * as OpenAiSdk from 'openai'
 import { describe, expect, it } from 'vitest'
 import type { ChatEvent } from '../types'
-import { createOpenAiProvider, normalizeBaseUrl } from './openai'
+import { createOpenAiProvider, isOpenRouter, normalizeBaseUrl } from './openai'
 
 type Sdk = typeof OpenAiSdk
 
@@ -9,6 +9,8 @@ type Sdk = typeof OpenAiSdk
 function fakeSdk(
   options: {
     chunks?: object[]
+    /** Turns a chat request away, as a server can. */
+    chatError?: (body: Record<string, unknown>) => Error | undefined
     embeddings?: object
     transcription?: object
     models?: object[]
@@ -31,6 +33,8 @@ function fakeSdk(
           requestOptions: { signal?: AbortSignal } = {},
         ) => {
           chatBodies.push(body)
+          const refusal = options.chatError?.(body)
+          if (refusal) throw refusal
           // Like the SDK: the caller's signal cancels the stream, which then
           // ends without an error.
           requestOptions.signal?.addEventListener('abort', () =>
@@ -383,5 +387,169 @@ describe('normalizeBaseUrl', () => {
     expect(normalizeBaseUrl('http://192.168.1.5:1234/v1')).toBe(
       'http://192.168.1.5:1234/v1',
     )
+  })
+})
+
+describe('thinking', () => {
+  const ask = {
+    model: 'qwen3.5:4b',
+    messages: [{ role: 'user' as const, content: 'Hi' }],
+    maxTokens: 100,
+  }
+  const answer = [chunk('Hi'), chunk(null, 'stop')]
+
+  it('asks a compatible server not to think, the way Ollama documents', async () => {
+    const fake = fakeSdk({ chunks: answer })
+    const provider = createOpenAiProvider({
+      id: 'compatible',
+      baseUrl: 'http://localhost:11434/v1',
+      loadSdk: fake.loadSdk,
+    })
+    await collect(provider.chat({ ...ask, thinking: false }))
+    expect(fake.chatBodies[0]).toMatchObject({
+      reasoning_effort: 'none',
+      max_tokens: 100,
+    })
+    // On: left to the model.
+    await collect(provider.chat({ ...ask, thinking: true }))
+    expect(fake.chatBodies[1]).not.toHaveProperty('reasoning_effort')
+  })
+
+  it('uses OpenRouter’s own switch with OpenRouter', async () => {
+    const fake = fakeSdk({ chunks: answer })
+    const provider = createOpenAiProvider({
+      id: 'compatible',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      loadSdk: fake.loadSdk,
+    })
+    await collect(provider.chat({ ...ask, thinking: false }))
+    expect(fake.chatBodies[0]).toMatchObject({ reasoning: { effort: 'none' } })
+    expect(fake.chatBodies[0]).not.toHaveProperty('reasoning_effort')
+    expect(isOpenRouter('https://openrouter.ai/api/v1')).toBe(true)
+    expect(isOpenRouter('http://localhost:11434')).toBe(false)
+    expect(isOpenRouter('not a url')).toBe(false)
+  })
+
+  it('never sends it to OpenAI, whose models decide for themselves', async () => {
+    const fake = fakeSdk({ chunks: answer })
+    const provider = createOpenAiProvider({
+      id: 'openai',
+      apiKey: 'sk-test',
+      loadSdk: fake.loadSdk,
+    })
+    await collect(provider.chat({ ...ask, thinking: false }))
+    expect(fake.chatBodies[0]).not.toHaveProperty('reasoning_effort')
+    expect(fake.chatBodies[0]).not.toHaveProperty('reasoning')
+  })
+
+  it('drops the switch for a server that refuses it, and remembers', async () => {
+    const fake = fakeSdk({
+      chunks: answer,
+      chatError: (body) =>
+        'reasoning_effort' in body
+          ? OpenAiSdk.APIError.generate(
+              400,
+              { error: { message: 'Unrecognized field: reasoning_effort' } },
+              undefined,
+              new Headers(),
+            )
+          : undefined,
+    })
+    const provider = createOpenAiProvider({
+      id: 'compatible',
+      baseUrl: 'http://old-server.test/v1',
+      loadSdk: fake.loadSdk,
+    })
+    const events = await collect(provider.chat({ ...ask, thinking: false }))
+    expect(events).toContainEqual({ type: 'text', text: 'Hi' })
+    expect(fake.chatBodies).toHaveLength(2)
+    expect(fake.chatBodies[1]).not.toHaveProperty('reasoning_effort')
+    // Not sent to that server and model again.
+    await collect(provider.chat({ ...ask, thinking: false }))
+    expect(fake.chatBodies).toHaveLength(3)
+    expect(fake.chatBodies[2]).not.toHaveProperty('reasoning_effort')
+  })
+
+  it('passes on other bad requests as they are', async () => {
+    const fake = fakeSdk({
+      chatError: () =>
+        OpenAiSdk.APIError.generate(
+          400,
+          { error: { message: 'The prompt is too long' } },
+          undefined,
+          new Headers(),
+        ),
+    })
+    const provider = createOpenAiProvider({
+      id: 'compatible',
+      baseUrl: 'http://localhost:11434/v1',
+      loadSdk: fake.loadSdk,
+    })
+    await expect(
+      collect(provider.chat({ ...ask, thinking: false })),
+    ).rejects.toMatchObject({ kind: 'bad-request' })
+    expect(fake.chatBodies).toHaveLength(1)
+  })
+
+  it('says when the model is thinking, and keeps it out of the reply', async () => {
+    const fake = fakeSdk({
+      chunks: [
+        // Ollama and OpenRouter send thinking as `reasoning`…
+        chunk(null, null, { reasoning: 'The user said hi.' }),
+        // …vLLM and LM Studio as `reasoning_content`.
+        chunk(null, null, { reasoning_content: 'So I should greet them.' }),
+        chunk('Hello!'),
+        chunk(null, 'stop'),
+      ],
+    })
+    const provider = createOpenAiProvider({
+      id: 'compatible',
+      baseUrl: 'http://localhost:11434/v1',
+      loadSdk: fake.loadSdk,
+    })
+    const events = await collect(provider.chat({ ...ask, thinking: true }))
+    expect(events).toEqual([
+      { type: 'thinking' },
+      { type: 'thinking' },
+      { type: 'text', text: 'Hello!' },
+      { type: 'done', stopReason: 'end' },
+    ])
+  })
+
+  it('takes a <think> block out of the text, and keeps a reply cut off while thinking empty', async () => {
+    const fake = fakeSdk({
+      chunks: [
+        chunk('<thi'),
+        chunk('nk>Hmm, a greeting.</th'),
+        chunk('ink>\n\nHel'),
+        chunk('lo', 'stop'),
+      ],
+    })
+    const provider = createOpenAiProvider({
+      id: 'compatible',
+      baseUrl: 'http://localhost:8000/v1',
+      loadSdk: fake.loadSdk,
+    })
+    const events = await collect(provider.chat({ ...ask, thinking: true }))
+    expect(
+      events
+        .filter((event) => event.type === 'text')
+        .map((event) => (event as { text: string }).text)
+        .join(''),
+    ).toBe('Hello')
+    // The opening tag is held until it's whole, so two pieces were thinking.
+    expect(events.filter((event) => event.type === 'thinking')).toHaveLength(2)
+
+    const cut = fakeSdk({
+      chunks: [chunk('<think>Let me think about'), chunk(' this', 'length')],
+    })
+    const thinkingOnly = createOpenAiProvider({
+      id: 'compatible',
+      baseUrl: 'http://localhost:8000/v1',
+      loadSdk: cut.loadSdk,
+    })
+    const cutEvents = await collect(thinkingOnly.chat(ask))
+    expect(cutEvents.some((event) => event.type === 'text')).toBe(false)
+    expect(cutEvents.at(-1)).toEqual({ type: 'done', stopReason: 'max-tokens' })
   })
 })

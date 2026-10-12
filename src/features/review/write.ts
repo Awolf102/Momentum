@@ -1,4 +1,4 @@
-import { ai, type RetryInfo } from '@/features/ai'
+import { ai, type ReplyPhase, type RetryInfo } from '@/features/ai'
 import type { WeekSummary } from './lib/week'
 import {
   readWriteUp,
@@ -13,8 +13,12 @@ const WRITE_UP_TOKENS = 700
 
 /** The reply had no write-up in it. */
 export class NoWriteUpError extends Error {
-  constructor() {
-    super('Nothing usable came back. Try again in a moment.')
+  constructor(cutOff = false) {
+    super(
+      cutOff
+        ? 'The reply was cut off at the length limit before any of the write-up came. Try a longer limit in Settings → AI.'
+        : 'Nothing usable came back. Try again in a moment.',
+    )
     this.name = 'NoWriteUpError'
   }
 }
@@ -23,16 +27,24 @@ export class NoWriteUpError extends Error {
 export async function writeUpWeek(
   summary: WeekSummary,
   parts: ReadonlySet<ReviewPart>,
-  options: { signal?: AbortSignal; onRetry?: (info: RetryInfo) => void } = {},
+  options: {
+    signal?: AbortSignal
+    onRetry?: (info: RetryInfo) => void
+    onProgress?: (phase: ReplyPhase) => void
+  } = {},
 ): Promise<WrittenReview> {
-  const { text } = await ai.complete({
+  const { text, stopReason } = await ai.complete({
     system: REVIEW_SYSTEM,
     messages: [{ role: 'user', content: reviewRequest(summary, parts) }],
     maxTokens: WRITE_UP_TOKENS,
+    feature: 'summaries',
     signal: options.signal,
     onRetry: options.onRetry,
+    onProgress: options.onProgress,
   })
-  const writeUp = readWriteUp(text)
-  if (!writeUp) throw new NoWriteUpError()
-  return saveWriteUp(summary.start, writeUp)
+  const cutOff = stopReason === 'max-tokens'
+  // A reply cut off at the length limit keeps what it got to.
+  const writeUp = readWriteUp(text, { cutOff })
+  if (!writeUp) throw new NoWriteUpError(cutOff)
+  return saveWriteUp(summary.start, cutOff ? { ...writeUp, cutOff } : writeUp)
 }

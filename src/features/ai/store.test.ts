@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { aiReadiness } from './lib/readiness'
 import {
   DEFAULT_AI_SETTINGS,
+  DEFAULT_MAX_REPLY_TOKENS,
+  DEFAULT_THINKING,
   parseAiSettings,
   parseUsage,
   selection,
@@ -64,12 +66,39 @@ describe('AI settings', () => {
       },
       compatibleBaseUrl: DEFAULT_AI_SETTINGS.compatibleBaseUrl,
       prices: { 'openai:gpt-x': { input: 1, output: 2 } },
+      thinking: DEFAULT_THINKING,
+      maxReplyTokens: DEFAULT_MAX_REPLY_TOKENS,
     })
     expect(parseAiSettings('nope')).toBeNull()
     // Settings saved before voice notes have no transcription yet.
     expect(parseAiSettings({})?.transcription).toEqual(
       DEFAULT_AI_SETTINGS.transcription,
     )
+  })
+
+  it('keeps thinking off unless it was turned on, and the reply cap in range', () => {
+    // Settings saved before thinking control: off everywhere, the default cap.
+    expect(parseAiSettings({})).toMatchObject({
+      thinking: {
+        ask: false,
+        cards: false,
+        quizzes: false,
+        summaries: false,
+        planning: false,
+        photos: false,
+      },
+      maxReplyTokens: 8192,
+    })
+    const parsed = parseAiSettings({
+      thinking: { ask: true, cards: 'yes', nonsense: true },
+      maxReplyTokens: 4096,
+    })
+    expect(parsed?.thinking).toEqual({ ...DEFAULT_THINKING, ask: true })
+    expect(parsed?.maxReplyTokens).toBe(4096)
+    for (const broken of [0, 100, 1e9, 4096.5, '4096', null])
+      expect(parseAiSettings({ maxReplyTokens: broken })?.maxReplyTokens).toBe(
+        DEFAULT_MAX_REPLY_TOKENS,
+      )
   })
 
   it('drops malformed usage entries', () => {

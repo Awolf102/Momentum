@@ -12,6 +12,8 @@ import type {
 } from '../types'
 
 export interface MockReply {
+  /** How many times the model says it's thinking before the text. */
+  thinking?: number
   /** Text chunks, streamed in order. */
   chunks?: string[]
   /** Fails instead of replying, or after `failAfter` chunks. */
@@ -85,6 +87,11 @@ export function createMockProvider(
       yield {
         type: 'usage',
         usage: { inputTokens: usage.inputTokens, outputTokens: 0 },
+      }
+      for (let step = 0; step < (reply.thinking ?? 0); step++) {
+        await Promise.resolve()
+        if (request.signal?.aborted) throw abortError()
+        yield { type: 'thinking' }
       }
       for (const [index, text] of chunks.entries()) {
         await Promise.resolve()

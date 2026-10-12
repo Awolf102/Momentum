@@ -1,4 +1,4 @@
-import { ai, type RetryInfo } from '@/features/ai'
+import { ai, type ReplyPhase, type RetryInfo } from '@/features/ai'
 import { focusSettingsStore } from '@/features/focus'
 import { goals, sortGoals } from '@/features/goals/data'
 import {
@@ -175,16 +175,22 @@ export function gatherPlanContext(
 /** Asks the chat model to draft the day. Nothing else is sent. */
 export async function draftPlan(
   context: PlanContext,
-  options: { signal?: AbortSignal; onRetry?: (info: RetryInfo) => void } = {},
+  options: {
+    signal?: AbortSignal
+    onRetry?: (info: RetryInfo) => void
+    onProgress?: (phase: ReplyPhase) => void
+  } = {},
 ): Promise<PlanDraft> {
-  const { text } = await ai.complete({
+  const { text, stopReason } = await ai.complete({
     system: PLAN_SYSTEM,
     messages: [{ role: 'user', content: planRequest(context) }],
     maxTokens: PLAN_REPLY_TOKENS,
+    feature: 'planning',
     signal: options.signal,
     onRetry: options.onRetry,
+    onProgress: options.onProgress,
   })
-  return readPlan(text, context)
+  return readPlan(text, context, { cutOff: stopReason === 'max-tokens' })
 }
 
 /** A draft being looked over, for one day, with the blocks to keep. */
@@ -195,6 +201,8 @@ export interface DraftOnPlan {
   blocks: Array<DraftBlock & { keep: boolean }>
   note: string
   dropped: number
+  /** The reply was cut off at the length limit. */
+  cutOff?: boolean
 }
 
 /** The draft on the plan (one at a time), until it's added or put aside. */
@@ -207,6 +215,7 @@ export function showDraft(day: DateKey, draft: PlanDraft): void {
     blocks: draft.blocks.map((block) => ({ ...block, keep: true })),
     note: draft.note,
     dropped: draft.dropped,
+    cutOff: draft.cutOff,
   })
 }
 

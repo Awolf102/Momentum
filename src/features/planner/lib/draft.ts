@@ -1,4 +1,4 @@
-import { jsonObject } from '@/features/ai/material'
+import { cutOffObject, jsonObject } from '@/features/ai/material'
 import { daysBetween, dayOfWeek, type DateKey } from '@/lib/date'
 import { DAY_MINUTES, MIN_BLOCK, parseClock, STEP } from './time'
 
@@ -75,6 +75,8 @@ export interface PlanDraft {
   note: string
   /** Suggestions left out: over something busy, outside the time, unreadable. */
   dropped: number
+  /** The reply was cut off at the length limit: these are what came. */
+  cutOff?: boolean
 }
 
 /** The most tasks sent, and the most blocks taken from a reply. */
@@ -263,8 +265,17 @@ const nearest = (minutes: number) => Math.round(minutes / STEP) * STEP
  * other (the first one wins), tasks by their number. What doesn't fit is
  * left out and counted.
  */
-export function readPlan(reply: string, context: PlanContext): PlanDraft {
-  const object = jsonObject(reply)
+export function readPlan(
+  reply: string,
+  context: PlanContext,
+  { cutOff = false }: { cutOff?: boolean } = {},
+): PlanDraft {
+  // A reply cut off at the length limit keeps the blocks it got to.
+  // Cut off, the outer object isn't whole, and the first whole one in it
+  // would be read instead.
+  const object = cutOff
+    ? (cutOffObject(reply) ?? jsonObject(reply))
+    : jsonObject(reply)
   const raw = Array.isArray(object?.blocks) ? object.blocks : []
   const subjects = new Map(
     context.subjects.map((subject) => [subject.name.toLowerCase(), subject.id]),
@@ -326,5 +337,10 @@ export function readPlan(reply: string, context: PlanContext): PlanDraft {
     })
   }
   blocks.sort((a, b) => a.start - b.start)
-  return { blocks, note: text(object?.note, 400), dropped }
+  return {
+    blocks,
+    note: text(object?.note, 400),
+    dropped,
+    ...(cutOff ? { cutOff } : {}),
+  }
 }

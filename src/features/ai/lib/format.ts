@@ -64,3 +64,10 @@ export function formatTokenEstimate(count: number): string {
       : Math.round(count / 1000) * 1000
   return `about ${rounded.toLocaleString()} tokens`
 }
+
+/** Time a reply has taken so far: "8 s", "1 min 05 s". */
+export function formatElapsed(ms: number): string {
+  const seconds = Math.max(0, Math.floor(ms / 1000))
+  if (seconds < 60) return `${seconds} s`
+  return `${Math.floor(seconds / 60)} min ${String(seconds % 60).padStart(2, '0')} s`
+}

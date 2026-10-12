@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createAiClient, EMBED_BATCH, type AiClientDeps } from './client'
+import {
+  createAiClient,
+  EMBED_BATCH,
+  replyLength,
+  THINKING_ROOM,
+  type AiClientDeps,
+} from './client'
 import { AiError } from './errors'
 import { createMockProvider, type MockProviderOptions } from './providers/mock'
 import { DEFAULT_AI_SETTINGS, type AiSettings } from './store'
@@ -278,5 +284,95 @@ describe('AI client', () => {
       { id: 'one' },
       { id: 'two' },
     ])
+  })
+})
+
+describe('thinking and the reply cap', () => {
+  const ask = { messages: [{ role: 'user' as const, content: 'Hi' }] }
+
+  it('asks models not to think, unless the feature’s switch is on', async () => {
+    const { client, provider } = setup({
+      settings: {
+        thinking: { ...DEFAULT_AI_SETTINGS.thinking, quizzes: true },
+      },
+    })
+    await client.complete({ ...ask, feature: 'ask' })
+    await client.complete({ ...ask, feature: 'quizzes' })
+    // A request that doesn't say what it's for is treated as off.
+    await client.complete(ask)
+    expect(provider.calls.map((call) => call.thinking)).toEqual([
+      false,
+      true,
+      false,
+    ])
+  })
+
+  it('caps every reply at the limit in Settings, with room to think', async () => {
+    const { client, provider } = setup({
+      settings: {
+        maxReplyTokens: 4096,
+        thinking: { ...DEFAULT_AI_SETTINGS.thinking, ask: true },
+      },
+    })
+    await client.complete({ ...ask, maxTokens: 700, feature: 'summaries' })
+    await client.complete({ ...ask, maxTokens: 700, feature: 'ask' })
+    await client.complete({ ...ask, maxTokens: 8000, feature: 'photos' })
+    // A request with no length of its own still gets the cap.
+    await client.complete(ask)
+    expect(provider.calls.map((call) => call.maxTokens)).toEqual([
+      700, 4096, 4096, 4096,
+    ])
+    expect(replyLength({ maxReplyTokens: 32_768 }, 700, true)).toBe(
+      700 + THINKING_ROOM,
+    )
+  })
+
+  it('keeps a reply cut off at the limit, and says so', async () => {
+    const { client } = setup({
+      mock: {
+        replies: [{ chunks: ['Half an an'], stopReason: 'max-tokens' }],
+      },
+    })
+    expect(await client.complete(ask)).toMatchObject({
+      text: 'Half an an',
+      stopReason: 'max-tokens',
+    })
+  })
+
+  it('says when the model starts thinking and when its reply starts', async () => {
+    const { client } = setup({
+      mock: { replies: [{ thinking: 3, chunks: ['A', 'B'] }] },
+    })
+    const phases: string[] = []
+    const events: string[] = []
+    for await (const event of client.chat({
+      ...ask,
+      onProgress: (phase) => phases.push(phase),
+    }))
+      events.push(event.type)
+    expect(phases).toEqual(['thinking', 'writing'])
+    expect(events.filter((type) => type === 'thinking')).toHaveLength(3)
+    // Thinking isn't text: complete() returns only the answer.
+    const { client: again } = setup({
+      mock: { replies: [{ thinking: 2, chunks: ['Answer'] }] },
+    })
+    expect((await again.complete(ask)).text).toBe('Answer')
+  })
+
+  it('tests a connection without thinking, whatever the switches say', async () => {
+    const { client, provider } = setup({
+      settings: {
+        thinking: {
+          ask: true,
+          cards: true,
+          quizzes: true,
+          summaries: true,
+          planning: true,
+          photos: true,
+        },
+      },
+    })
+    expect((await client.testConnection('chat')).ok).toBe(true)
+    expect(provider.calls[0]).toMatchObject({ thinking: false, maxTokens: 512 })
   })
 })

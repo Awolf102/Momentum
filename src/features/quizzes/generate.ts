@@ -1,4 +1,4 @@
-import { ai } from '@/features/ai'
+import { ai, type ReplyPhase } from '@/features/ai'
 import { jsonObject, sourceBody, type SourceText } from '@/features/ai/material'
 import { MAX_FEEDBACK } from './lib/limits'
 import { readQuestions, shuffleChoices, type SentSource } from './lib/questions'
@@ -61,24 +61,33 @@ export async function writeQuestions(
     mix,
     signal,
     random,
+    onProgress,
   }: {
     count: number
     mix: QuizMix
     signal?: AbortSignal
     random?: () => number
+    onProgress?: (phase: ReplyPhase) => void
   },
-): Promise<Question[]> {
-  const { text } = await ai.complete({
+): Promise<{
+  questions: Question[]
+  /** The reply was cut off at the length limit: only whole questions came. */
+  cutOff: boolean
+}> {
+  const { text, stopReason } = await ai.complete({
     system: QUIZ_SYSTEM,
     messages: [{ role: 'user', content: quizRequest(sources, { count, mix }) }],
     maxTokens: QUIZ_REPLY_TOKENS,
+    feature: 'quizzes',
     signal,
+    onProgress,
   })
-  return readQuestions(text, sent, MIX_KINDS[mix])
+  const questions = readQuestions(text, sent, MIX_KINDS[mix])
     .slice(0, count)
     .map((question) =>
       question.kind === 'choice' ? shuffleChoices(question, random) : question,
     )
+  return { questions, cutOff: stopReason === 'max-tokens' }
 }
 
 export const GRADE_SYSTEM = [
@@ -131,15 +140,25 @@ export function readGrade(
 export async function checkAnswer(
   question: ShortQuestion,
   written: string,
-  { signal }: { signal?: AbortSignal } = {},
+  {
+    signal,
+    onProgress,
+  }: { signal?: AbortSignal; onProgress?: (phase: ReplyPhase) => void } = {},
 ): Promise<{ mark: Mark; feedback: string }> {
-  const { text } = await ai.complete({
+  const { text, stopReason } = await ai.complete({
     system: GRADE_SYSTEM,
     messages: [{ role: 'user', content: gradeRequest(question, written) }],
     maxTokens: GRADE_REPLY_TOKENS,
+    feature: 'quizzes',
     signal,
+    onProgress,
   })
   const grade = readGrade(text)
-  if (!grade) throw new Error('The mark that came back couldn’t be read.')
+  if (!grade)
+    throw new Error(
+      stopReason === 'max-tokens'
+        ? 'The reply was cut off at the length limit before the mark.'
+        : 'The mark that came back couldn’t be read.',
+    )
   return grade
 }

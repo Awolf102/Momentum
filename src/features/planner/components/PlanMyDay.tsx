@@ -1,4 +1,5 @@
 import { SparkleIcon } from '@/components/icons'
+import { ReplyStatus } from '@/features/ai'
 import { cn } from '@/lib/cn'
 import { openSettings } from '@/lib/routes'
 import type { BlockShape } from '../hooks/usePlanDay'
@@ -21,7 +22,7 @@ const clock = (minutes: number) =>
  * it can't run (no chat model, a day that's over).
  */
 export function PlanMyDayStart({ planner }: { planner: PlanMyDayState }) {
-  const { readiness, window, drafting, problem, retrying } = planner
+  const { readiness, window, drafting, progress, problem, retrying } = planner
   return (
     <div className="space-y-3">
       <p className="text-sm leading-relaxed text-fg-muted">
@@ -63,6 +64,9 @@ export function PlanMyDayStart({ planner }: { planner: PlanMyDayState }) {
             >
               Stop
             </button>
+          )}
+          {drafting && !retrying && (
+            <ReplyStatus since={progress.since} phase={progress.phase} />
           )}
           {!drafting && (
             <p className="text-xs text-fg-subtle tabular-nums">
@@ -194,6 +198,12 @@ export function DraftList({
           )
         })}
       </ul>
+      {draft.cutOff && (
+        <p className="text-xs text-fg-subtle">
+          The reply was cut off at the length limit: these are the blocks that
+          came through.
+        </p>
+      )}
       {draft.dropped > 0 && (
         <p className="text-xs text-fg-subtle">
           {draft.dropped === 1

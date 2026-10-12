@@ -11,8 +11,11 @@ import {
 import {
   describeAiError,
   isAiError,
+  ReplyStatus,
   SendPreview,
+  startReply,
   useAiReadiness,
+  type ReplyProgress,
 } from '@/features/ai'
 import { estimateTokens } from '@/features/ai/material'
 import { formatDateKey, localDay } from '@/lib/date'
@@ -42,6 +45,7 @@ export function WriteUpCard({ summary }: { summary: WeekSummary }) {
   const written = useStore(reviewStore).written[summary.start]
   const [previewing, setPreviewing] = useState(false)
   const [writing, setWriting] = useState(false)
+  const [progress, setProgress] = useState<ReplyProgress>({ since: 0 })
   const [problem, setProblem] = useState<string | null>(null)
   const [retrying, setRetrying] = useState<string | null>(null)
   const [leftOut, setLeftOut] = useState<ReadonlySet<ReviewPart>>(new Set())
@@ -100,12 +104,15 @@ export function WriteUpCard({ summary }: { summary: WeekSummary }) {
   async function write() {
     setPreviewing(false)
     setWriting(true)
+    setProgress(startReply())
     setProblem(null)
     setRetrying(null)
     controller.current = new AbortController()
     try {
       await writeUpWeek(summary, parts, {
         signal: controller.current.signal,
+        onProgress: (phase) =>
+          setProgress((current) => ({ ...current, phase })),
         onRetry: (info) =>
           setRetrying(
             `Busy, trying again in ${Math.max(1, Math.round(info.delayMs / 1000))} s`,
@@ -153,6 +160,11 @@ export function WriteUpCard({ summary }: { summary: WeekSummary }) {
                 </p>
               </section>
             ))}
+          {written.cutOff && (
+            <p className="text-xs text-fg-subtle">
+              Cut off at the length limit: this is as far as it got.
+            </p>
+          )}
           <p className="text-xs text-fg-subtle">
             Written by AI from what you shared, on{' '}
             {formatDateKey(localDay(written.at), {
@@ -198,6 +210,9 @@ export function WriteUpCard({ summary }: { summary: WeekSummary }) {
                 >
                   Stop
                 </button>
+              )}
+              {writing && !retrying && (
+                <ReplyStatus since={progress.since} phase={progress.phase} />
               )}
             </div>
           ) : (

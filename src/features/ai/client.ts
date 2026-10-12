@@ -14,6 +14,7 @@ import type {
   AiProvider,
   AiTask,
   ChatEvent,
+  ChatFeature,
   ChatMessage,
   Connection,
   ModelInfo,
@@ -33,13 +34,21 @@ export interface AiClientDeps {
   maxConcurrent?: number
 }
 
+/** Where a reply has got to: the model thinking, or the reply coming in. */
+export type ReplyPhase = 'thinking' | 'writing'
+
 export interface ChatOptions {
   messages: ChatMessage[]
   system?: string
+  /** The longest reply the feature needs; Settings' cap still applies. */
   maxTokens?: number
+  /** What the request is for, so its Thinking switch applies (off without one). */
+  feature?: ChatFeature
   signal?: AbortSignal
   /** Called before each retry, e.g. to show "Busy, retrying in 4 s". */
   onRetry?: (info: RetryInfo) => void
+  /** Called when the model starts to think, and when its reply starts. */
+  onProgress?: (phase: ReplyPhase) => void
 }
 
 export interface ChatResult {
@@ -70,6 +79,26 @@ const TASK_NAMES: Record<AiTask, string> = {
 export const EMBED_BATCH = 64
 /** Requests per provider at once. */
 export const MAX_CONCURRENT = 3
+
+/**
+ * Room added to a reply when the model may think first: servers count what
+ * it thinks towards the cap, and a short answer shouldn't be squeezed out.
+ */
+export const THINKING_ROOM = 4096
+
+/**
+ * How long a reply may be: what the feature needs (plus room to think),
+ * but never more than the cap in Settings, so nothing runs on for ever.
+ */
+export function replyLength(
+  settings: Pick<AiSettings, 'maxReplyTokens'>,
+  wanted: number | undefined,
+  thinking: boolean,
+): number {
+  const cap = settings.maxReplyTokens
+  if (wanted === undefined) return cap
+  return Math.min(cap, wanted + (thinking ? THINKING_ROOM : 0))
+}
 
 /**
  * The one entry point features use for AI. It reads the provider, model and
@@ -130,7 +159,13 @@ export function createAiClient(deps: AiClientDeps) {
     overrides: Partial<RetryOptions> = {},
   ): AsyncGenerator<ChatEvent> {
     const { connection, model, provider, gate } = await target('chat')
+    const settings = deps.getSettings()
+    const thinking = options.feature
+      ? settings.thinking[options.feature]
+      : false
+    const maxTokens = replyLength(settings, options.maxTokens, thinking)
     let usage: TokenUsage | undefined
+    let phase: ReplyPhase | undefined
     try {
       const events = streamWithRetry(
         () =>
@@ -138,7 +173,8 @@ export function createAiClient(deps: AiClientDeps) {
             model,
             messages: options.messages,
             system: options.system,
-            maxTokens: options.maxTokens,
+            maxTokens,
+            thinking,
             signal: options.signal,
           }),
         {
@@ -152,6 +188,13 @@ export function createAiClient(deps: AiClientDeps) {
       )
       for await (const event of events) {
         if (event.type === 'usage') usage = event.usage
+        else if (event.type === 'thinking' && !phase) {
+          phase = 'thinking'
+          options.onProgress?.(phase)
+        } else if (event.type === 'text' && phase !== 'writing') {
+          phase = 'writing'
+          options.onProgress?.(phase)
+        }
         yield event
       }
     } finally {
@@ -232,7 +275,7 @@ export function createAiClient(deps: AiClientDeps) {
       for await (const event of streamChat(options)) {
         if (event.type === 'text') text += event.text
         else if (event.type === 'usage') usage = event.usage
-        else stopReason = event.stopReason
+        else if (event.type === 'done') stopReason = event.stopReason
       }
       return { text, stopReason, usage }
     },

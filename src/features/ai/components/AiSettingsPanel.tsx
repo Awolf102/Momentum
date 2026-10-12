@@ -27,6 +27,7 @@ import type {
 import { KeyField } from './KeyField'
 import { LocalModelField } from './LocalModelField'
 import { ModelField } from './ModelField'
+import { RepliesCard } from './RepliesCard'
 import { TestConnection } from './TestConnection'
 import { UsageCard } from './UsageCard'
 
@@ -44,6 +45,7 @@ export function AiSettingsPanel({
       <StatusCard />
       <KeysCard />
       <TaskCard task="chat" />
+      <RepliesCard />
       <TaskCard task="embeddings" />
       {afterEmbeddings}
       <TaskCard task="transcription" />

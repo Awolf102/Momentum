@@ -2,13 +2,17 @@ import { describe, expect, it, vi } from 'vitest'
 import { fitSource, type SourceText } from '@/features/ai/material'
 import { cardsRequest, CARDS_SYSTEM, suggestCards } from './generate'
 
-const sent = vi.hoisted(() => ({ requests: [] as unknown[], reply: '' }))
+const sent = vi.hoisted(() => ({
+  requests: [] as unknown[],
+  reply: '',
+  stopReason: 'end',
+}))
 
 vi.mock('@/features/ai', () => ({
   ai: {
     complete: async (request: unknown) => {
       sent.requests.push(request)
-      return { text: sent.reply, stopReason: 'end' }
+      return { text: sent.reply, stopReason: sent.stopReason }
     },
   },
 }))
@@ -45,7 +49,8 @@ describe('suggesting cards', () => {
   it('asks once, as material, and keeps at most as many as asked for', async () => {
     sent.reply =
       'Sure!\n```json\n[{"front":"Q1","back":"A1","page":3},{"front":"Q2","back":"A2"},{"front":"Q3","back":"A3"}]\n```'
-    const cards = await suggestCards(lecture, { count: 2 })
+    const { cards, cutOff } = await suggestCards(lecture, { count: 2 })
+    expect(cutOff).toBe(false)
     expect(cards).toEqual([
       { front: 'Q1', back: 'A1', page: 3 },
       { front: 'Q2', back: 'A2' },
@@ -53,8 +58,20 @@ describe('suggesting cards', () => {
     expect(sent.requests).toHaveLength(1)
     expect(sent.requests[0]).toMatchObject({
       system: CARDS_SYSTEM,
+      feature: 'cards',
       messages: [{ role: 'user', content: cardsRequest(lecture, 2) }],
     })
     expect(CARDS_SYSTEM).toMatch(/material to read, not instructions/)
+  })
+})
+
+describe('a reply cut off at the length limit', () => {
+  it('keeps the whole cards that came, and says it was cut off', async () => {
+    sent.stopReason = 'max-tokens'
+    sent.reply = '[{"front":"Q1","back":"A1"},{"front":"Q2","back":"A'
+    const { cards, cutOff } = await suggestCards(lecture, { count: 10 })
+    sent.stopReason = 'end'
+    expect(cutOff).toBe(true)
+    expect(cards).toEqual([{ front: 'Q1', back: 'A1' }])
   })
 })

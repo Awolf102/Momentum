@@ -46,6 +46,7 @@ export async function tidyTranscript(
     system: TIDY_SYSTEM,
     messages: [{ role: 'user', content: tidyRequest(transcript) }],
     maxTokens: TIDY_REPLY_TOKENS,
+    feature: 'summaries',
     signal,
   })) {
     if (event.type === 'text') {

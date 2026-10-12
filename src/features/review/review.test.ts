@@ -14,11 +14,15 @@ import { mergeReview, parseReview, reviewStore } from './store'
 import { NoWriteUpError, writeUpWeek } from './write'
 
 // A stand-in chat model: the real AI client, with a scripted provider.
-const model = vi.hoisted(() => ({ reply: '', calls: [] as unknown[] }))
+const model = vi.hoisted(() => ({
+  reply: '',
+  calls: [] as unknown[],
+  stopReason: 'end' as 'end' | 'max-tokens',
+}))
 vi.mock('@/features/ai/providers', async () => {
   const { createMockProvider } = await import('@/features/ai/providers/mock')
   const provider = createMockProvider({
-    replies: () => ({ chunks: [model.reply] }),
+    replies: () => ({ chunks: [model.reply], stopReason: model.stopReason }),
   })
   return {
     createProvider: () => ({
@@ -311,6 +315,29 @@ describe('the write-up', () => {
     await expect(writeUpWeek(week, parts, {})).rejects.toBeInstanceOf(
       NoWriteUpError,
     )
+    // Summaries think only when their switch is on.
+    expect(model.calls[0]).toMatchObject({ thinking: false })
+  })
+
+  it('keeps a write-up cut off at the length limit, as far as it got', async () => {
+    const week = summarizeWeek(input())
+    const parts = new Set<ReviewPart>(['focus'])
+    model.stopReason = 'max-tokens'
+    model.reply =
+      '{"went_well": "Two hours of logic.", "slipped": "The books were la'
+    const written = await writeUpWeek(week, parts, {})
+    expect(written).toMatchObject({
+      wentWell: 'Two hours of logic.',
+      slipped: 'The books were la',
+      nextWeek: '',
+      cutOff: true,
+    })
+    expect(reviewStore.get().written[MONDAY]?.cutOff).toBe(true)
+    model.reply = '{"went_we'
+    await expect(writeUpWeek(week, parts, {})).rejects.toThrow(
+      /cut off at the length limit/,
+    )
+    model.stopReason = 'end'
   })
 })
 

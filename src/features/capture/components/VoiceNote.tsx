@@ -13,6 +13,7 @@ import { SettingsCard } from '@/components/SettingsCard'
 import {
   describeAiError,
   PROVIDERS,
+  ReplyStatus,
   SendPreview,
   useAiReadiness,
 } from '@/features/ai'
@@ -78,6 +79,7 @@ export function VoiceNote() {
   const [view, setView] = useState<'read' | 'edit'>('read')
   const [subjectId, setSubjectId] = useState<string | null>(null)
   const [tidying, setTidying] = useState(false)
+  const [since, setSince] = useState(0)
   // The note as it was before tidying, to go back to.
   const [untidied, setUntidied] = useState<{
     title: string
@@ -187,6 +189,7 @@ export function VoiceNote() {
   async function tidy() {
     setPreviewing(null)
     setTidying(true)
+    setSince(Date.now())
     setStreamed('')
     setProblem(null)
     const asking = new AbortController()
@@ -287,10 +290,12 @@ export function VoiceNote() {
           {tidying ? (
             <div aria-label="Tidying" className="space-y-3">
               <div className="flex items-center gap-3">
-                <span className="size-2 animate-pulse rounded-full bg-orange-400" />
-                <p className="flex-1 text-sm font-medium text-fg-muted">
-                  Tidying it into notes…
-                </p>
+                <ReplyStatus
+                  since={since}
+                  phase={streamed ? 'writing' : 'thinking'}
+                  writing="Tidying it into notes…"
+                  className="flex-1 font-medium text-fg-muted"
+                />
                 <button
                   type="button"
                   onClick={() => controller.current?.abort()}

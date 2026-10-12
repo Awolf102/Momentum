@@ -18,6 +18,15 @@ export type TranscriptionProviderId = 'openai' | 'compatible'
 
 export type AiTask = 'chat' | 'embeddings' | 'transcription'
 
+/**
+ * What a chat request is for. Each has its own Thinking switch in
+ * Settings → AI: Ask; suggesting cards; writing and marking quizzes;
+ * summaries (the weekly write-up, tidying a voice note); Plan my day; and
+ * writing out photos of notes.
+ */
+export type ChatFeature =
+  'ask' | 'cards' | 'quizzes' | 'summaries' | 'planning' | 'photos'
+
 /** Part of a message: some text, or a picture (sent as base64). */
 export type ContentPart =
   | { type: 'text'; text: string }
@@ -40,6 +49,11 @@ export interface ChatRequest {
   system?: string
   /** Upper bound on the reply's length, in tokens. */
   maxTokens?: number
+  /**
+   * `false` asks a model that thinks before answering not to, where the
+   * provider has a way to say so; otherwise it's left to the model.
+   */
+  thinking?: boolean
   signal?: AbortSignal
 }
 
@@ -53,6 +67,8 @@ export type StopReason = 'end' | 'max-tokens' | 'refusal' | 'other'
 
 export type ChatEvent =
   | { type: 'text'; text: string }
+  /** The model is thinking before it answers (what it thinks isn't kept). */
+  | { type: 'thinking' }
   /** Running totals for the request; the last one is final. */
   | { type: 'usage'; usage: TokenUsage }
   | { type: 'done'; stopReason: StopReason }

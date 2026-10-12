@@ -9,6 +9,7 @@ import { formatLatency } from '../lib/format'
 import type { AiReadiness } from '../lib/readiness'
 import { PROVIDERS } from '../providers/meta'
 import type { AiTask } from '../types'
+import { ReplyStatus } from './ReplyStatus'
 
 const NOT_READY: Record<
   Exclude<AiReadiness, { ready: true }>['reason'],
@@ -32,6 +33,7 @@ export function TestConnection({
     result: ConnectionTest
   } | null>(null)
   const [testing, setTesting] = useState(false)
+  const [since, setSince] = useState(0)
   const controller = useRef<AbortController | null>(null)
   const meta = PROVIDERS[readiness.provider]
   const label = meta.label
@@ -50,6 +52,7 @@ export function TestConnection({
   async function run() {
     controller.current = new AbortController()
     setTesting(true)
+    setSince(Date.now())
     setOutcome(null)
     const tested = target
     const next = await ai.testConnection(task, controller.current.signal)
@@ -78,27 +81,31 @@ export function TestConnection({
           </button>
         )}
       </div>
-      <p className="text-xs text-fg-subtle" role="status">
-        {result ? (
-          <ResultLine result={result} task={task} />
-        ) : readiness.ready && meta.local ? (
-          waiting ? (
-            'Download the model above first.'
+      {testing && task === 'chat' ? (
+        <ReplyStatus since={since} className="text-xs" />
+      ) : (
+        <p className="text-xs text-fg-subtle" role="status">
+          {result ? (
+            <ResultLine result={result} task={task} />
+          ) : readiness.ready && meta.local ? (
+            waiting ? (
+              'Download the model above first.'
+            ) : (
+              'Embeds one short test phrase on this device.'
+            )
+          ) : readiness.ready ? (
+            task === 'chat' ? (
+              `Sends a one-line test message to ${label}.`
+            ) : task === 'transcription' ? (
+              `Sends a second of silence to ${label}.`
+            ) : (
+              `Sends one short test phrase to ${label}.`
+            )
           ) : (
-            'Embeds one short test phrase on this device.'
-          )
-        ) : readiness.ready ? (
-          task === 'chat' ? (
-            `Sends a one-line test message to ${label}.`
-          ) : task === 'transcription' ? (
-            `Sends a second of silence to ${label}.`
-          ) : (
-            `Sends one short test phrase to ${label}.`
-          )
-        ) : (
-          NOT_READY[readiness.reason](label)
-        )}
-      </p>
+            NOT_READY[readiness.reason](label)
+          )}
+        </p>
+      )}
     </div>
   )
 }

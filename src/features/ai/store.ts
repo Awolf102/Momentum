@@ -17,6 +17,7 @@ import {
 } from './providers/meta'
 import type {
   AiTask,
+  ChatFeature,
   ChatProviderId,
   EmbeddingProviderId,
   ModelPrice,
@@ -40,9 +41,45 @@ export interface AiSettings {
   compatibleBaseUrl: string
   /** What each model costs, keyed `provider:model`. Entered by the user. */
   prices: Record<string, ModelPrice>
+  /** Whether a model may think before answering, for each feature. */
+  thinking: Record<ChatFeature, boolean>
+  /** The longest reply any request may have, in tokens. */
+  maxReplyTokens: number
 }
 
 export const DEFAULT_COMPATIBLE_URL = 'http://localhost:11434/v1'
+
+export const CHAT_FEATURES: readonly ChatFeature[] = [
+  'ask',
+  'cards',
+  'quizzes',
+  'summaries',
+  'planning',
+  'photos',
+]
+
+/**
+ * Off for every feature: small local models think for a minute or more
+ * before a simple answer, and the answers these features want are short.
+ */
+export const DEFAULT_THINKING: Record<ChatFeature, boolean> = {
+  ask: false,
+  cards: false,
+  quizzes: false,
+  summaries: false,
+  planning: false,
+  photos: false,
+}
+
+/** The choices for the longest reply, in tokens. */
+export const REPLY_LIMITS = [2048, 4096, 8192, 16_384, 32_768] as const
+
+/**
+ * Room for the longest reply any feature asks for (a page of notes from
+ * photos, a lecture tidied into notes), so nothing is cut short by default,
+ * but a reply can't go on for ever.
+ */
+export const DEFAULT_MAX_REPLY_TOKENS = 8192
 
 export const DEFAULT_AI_SETTINGS: AiSettings = {
   chat: { provider: 'anthropic', models: {} },
@@ -50,6 +87,8 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
   transcription: { provider: 'openai', models: {} },
   compatibleBaseUrl: DEFAULT_COMPATIBLE_URL,
   prices: {},
+  thinking: DEFAULT_THINKING,
+  maxReplyTokens: DEFAULT_MAX_REPLY_TOKENS,
 }
 
 function parseModels<P extends ProviderId>(
@@ -94,6 +133,27 @@ function parsePrices(value: unknown): Record<string, ModelPrice> {
   return prices
 }
 
+function parseThinking(value: unknown): Record<ChatFeature, boolean> {
+  const saved = isRecord(value) ? value : {}
+  return Object.fromEntries(
+    CHAT_FEATURES.map((feature) => [
+      feature,
+      typeof saved[feature] === 'boolean'
+        ? saved[feature]
+        : DEFAULT_THINKING[feature],
+    ]),
+  ) as Record<ChatFeature, boolean>
+}
+
+function parseReplyLimit(value: unknown): number {
+  return typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= REPLY_LIMITS[0] &&
+    value <= REPLY_LIMITS[REPLY_LIMITS.length - 1]
+    ? value
+    : DEFAULT_MAX_REPLY_TOKENS
+}
+
 export function parseAiSettings(data: unknown): AiSettings | null {
   if (!isRecord(data)) return null
   return {
@@ -114,6 +174,9 @@ export function parseAiSettings(data: unknown): AiSettings | null {
         ? data.compatibleBaseUrl
         : DEFAULT_COMPATIBLE_URL,
     prices: parsePrices(data.prices),
+    // Added with thinking control: older settings take the defaults.
+    thinking: parseThinking(data.thinking),
+    maxReplyTokens: parseReplyLimit(data.maxReplyTokens),
   }
 }
 
@@ -165,6 +228,20 @@ export function setTaskModel(
 
 export function setCompatibleBaseUrl(url: string): void {
   aiSettingsStore.set((settings) => ({ ...settings, compatibleBaseUrl: url }))
+}
+
+export function setThinking(feature: ChatFeature, on: boolean): void {
+  aiSettingsStore.set((settings) => ({
+    ...settings,
+    thinking: { ...settings.thinking, [feature]: on },
+  }))
+}
+
+export function setMaxReplyTokens(tokens: number): void {
+  aiSettingsStore.set((settings) => ({
+    ...settings,
+    maxReplyTokens: parseReplyLimit(tokens),
+  }))
 }
 
 export function setPrice(key: string, price: ModelPrice | null): void {
