@@ -6,14 +6,24 @@ import { saveDocumentText } from '@/features/library/files'
 import { createNote, deleteNote, notes, saveNote } from '@/features/notes'
 import { closeDb } from '@/lib/db/db'
 import { DB_NAME } from '@/lib/db/schema'
-import { indexOverview, updateIndex } from './indexer'
-import { passageSnippet } from './palette'
+import { DEFAULT_RETRY } from '@/features/ai/lib/retry'
+import {
+  dropQueued,
+  indexOverview,
+  indexStatusStore,
+  retryQueued,
+  unreachable,
+  updateIndex,
+} from './indexer'
+import { meaningSearch, passageSnippet } from './palette'
 import { relatedTo, searchByMeaning } from './search'
 import { embeddingSettingsStore, setExcluded } from './settings'
 import { clearIndex, readSourceRecords } from './storage'
 
 /** Everything the provider was sent, request by request. */
 const sent = vi.hoisted(() => [] as string[][])
+/** The server is off: embedding fails as a fetch to it would. */
+const server = vi.hoisted(() => ({ off: false }))
 
 // A provider whose vectors count words (so texts sharing words are close),
 // recording what it's sent.
@@ -38,6 +48,10 @@ vi.mock('@/features/ai/providers', async () => {
     createProvider: () => ({
       ...provider,
       embed: async (request: { input: string[] }) => {
+        if (server.off) {
+          const { AiError } = await import('@/features/ai/errors')
+          throw new AiError('network', 'Load failed')
+        }
         sent.push([...request.input])
         return provider.embed(request as never)
       },
@@ -75,6 +89,8 @@ beforeEach(() => {
 
 afterEach(async () => {
   sent.length = 0
+  server.off = false
+  dropQueued()
   embeddingSettingsStore.reset()
   await clearIndex()
   await Promise.all([notes.clear(), documents.clear()])
@@ -219,6 +235,65 @@ describe('the index', () => {
     expect(related[0]).toMatchObject({ key: 'document:doc1', page: 1 })
     expect(related.some((hit) => hit.kind === 'note')).toBe(false)
     expect(sent).toEqual([])
+  })
+})
+
+describe('when the embeddings server can’t be reached', () => {
+  beforeEach(() => {
+    // Retries wait on the real clock otherwise.
+    vi.spyOn(DEFAULT_RETRY, 'sleep').mockResolvedValue()
+  })
+
+  it('waits for it and tries again, never switching provider', async () => {
+    await addLectures()
+    server.off = true
+    const result = await updateIndex()
+    expect(result).toMatchObject({ queued: true, embedded: 0 })
+    expect(indexStatusStore.get()).toMatchObject({ state: 'waiting', tries: 1 })
+    expect((await indexOverview())?.pending).toHaveLength(1)
+
+    // Still off: it waits longer.
+    const first = indexStatusStore.get()
+    await retryQueued()
+    const second = indexStatusStore.get()
+    expect(second).toMatchObject({ state: 'waiting', tries: 2 })
+    if (first.state === 'waiting' && second.state === 'waiting')
+      expect(second.retryAt).toBeGreaterThan(first.retryAt)
+
+    // Back: what was asked for is indexed, by the same provider.
+    server.off = false
+    const done = await retryQueued()
+    expect(done.embedded).toBe(1)
+    expect(indexStatusStore.get()).toEqual({ state: 'idle' })
+    expect((await indexOverview())?.pending).toEqual([])
+  })
+
+  it('doesn’t send what was asked of one model to another', async () => {
+    await addLectures()
+    server.off = true
+    await updateIndex()
+    server.off = false
+    setTaskModel('embeddings', 'another-embedder', 'compatible')
+    expect(await retryQueued()).toMatchObject({ embedded: 0 })
+    expect(sent).toEqual([])
+    expect(indexStatusStore.get()).toEqual({ state: 'idle' })
+  })
+
+  it('searches say they couldn’t reach it, so matches are by words only', async () => {
+    await addLectures()
+    await updateIndex()
+    server.off = true
+    const error = await searchByMeaning('flip flops').catch(
+      (caught: unknown) => caught,
+    )
+    expect(unreachable(error)).toBe(true)
+    // ⌘K: the results above it are by words; this one says so.
+    const search = await meaningSearch()
+    const [row] = await search!.find('flip flops', new AbortController().signal)
+    expect(row.id).toBe('meaning:unreachable')
+    expect(row.snippet?.map((part) => part.text).join('')).toMatch(
+      /match your words only/,
+    )
   })
 })
 

@@ -668,3 +668,37 @@ step-by-step checks in each PR.
   so.
 - **Text only.** These builds don't read pictures, so notes from photos
   says to choose another provider.
+
+### What the provider chain changed in the plan
+
+- **An entry is one provider, as it always was,** with a name. Chat's
+  `{ provider, models }` became `{ chain: [...] }`; each entry has its own
+  kind, address, key and model, so nothing about servers is shared. Old
+  settings become a one-entry list keeping the same key (`compatible`) and
+  usage history. The shared compatible address stays, for embeddings and
+  voice notes.
+- **Checks only where they help.** The 2.5 s `GET /models` happens only when
+  there's somewhere else to go, and only for network providers: the last in
+  the list, and the model on this device, are asked straight away, as a
+  single provider always was. The 20 s (60 s) wait for a first word works
+  the same way, and a thought counts as starting.
+- **What fails over is wider than the brief's list:** besides unreachable,
+  timeouts, 5xx and a missing model, a refused key, no credit, a provider not
+  set up, and the model on this device out of memory all go to the next.
+  A request too long, or malformed, doesn't (the next would refuse it too),
+  nor does cancelling.
+- **Breaking part-way never moves by itself.** The text is kept, the error
+  names the provider, and Ask offers Retry with next provider. Elsewhere,
+  "Try again" starts from the top, and the one that broke is skipped for
+  the minute its failure is remembered.
+- **"Cloud" is decided by address.** A compatible server on localhost, a
+  private or Tailscale address, `*.ts.net`, `.local` or a bare host name is
+  yours; anything else (OpenRouter) is cloud and needs Allow as fallback
+  unless it's first.
+- **OpenRouter is the only one with special handling,** in one place
+  (`providers/openrouter.ts`): the `models` list for free models, the model
+  that answered, and its two rate limits told apart.
+- **Provenance everywhere a result is kept or shown:** Ask answers, quizzes
+  and write-ups keep it; card, plan, photo and voice drafts show it.
+- **Embeddings wait rather than fall back,** as planned, and the wait is
+  only for the model it was asked of.

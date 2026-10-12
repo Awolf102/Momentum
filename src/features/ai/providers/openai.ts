@@ -9,6 +9,7 @@ import { abortError, AiError } from '../errors'
 import { textOf } from '../lib/content'
 import { normalizeSdkError, type SdkErrorClasses } from '../lib/sdkErrors'
 import { createThinkSplitter } from '../lib/thinking'
+import { FREE_MODELS_PER_REQUEST, openRouterLimit } from './openrouter'
 import type {
   AiProvider,
   ChatEvent,
@@ -183,13 +184,26 @@ export function createOpenAiProvider(options: {
           options.id === 'compatible' &&
           request.thinking === false &&
           !refusesThinkingSwitch.has(switchKey)
-        const body: ChatCompletionCreateParamsStreaming = {
+        const openRouter =
+          options.id === 'compatible' && isOpenRouter(options.baseUrl)
+        // OpenRouter tries these in order when the first can't answer.
+        const models =
+          openRouter && request.fallbackModels?.length
+            ? {
+                models: [request.model, ...request.fallbackModels].slice(
+                  0,
+                  FREE_MODELS_PER_REQUEST,
+                ),
+              }
+            : {}
+        const body = {
           model: request.model,
           messages,
           stream: true,
           stream_options: { include_usage: true },
           ...lengthCap,
-        }
+          ...models,
+        } as ChatCompletionCreateParamsStreaming
         const open = (withSwitch: boolean) =>
           client.chat.completions.create(
             withSwitch
@@ -212,8 +226,16 @@ export function createOpenAiProvider(options: {
         cancel = () => stream.controller.abort()
         let stopReason: StopReason = 'other'
         let refused = false
+        let answeredBy: string | undefined
         const splitter = createThinkSplitter()
         for await (const chunk of stream) {
+          // Which model is answering, when it isn't the one asked for
+          // (OpenRouter standing in another from `models`).
+          if (!answeredBy && chunk.model) {
+            answeredBy = chunk.model
+            if (openRouter && chunk.model !== request.model)
+              yield { type: 'model', model: chunk.model }
+          }
           const choice = chunk.choices[0]
           // Ollama and OpenRouter send thinking as `reasoning`; vLLM, LM
           // Studio and DeepSeek as `reasoning_content`.
@@ -251,7 +273,14 @@ export function createOpenAiProvider(options: {
         finished = true
         yield { type: 'done', stopReason: refused ? 'refusal' : stopReason }
       } catch (error) {
-        throw normalizeSdkError(error, sdk, secrets)
+        const failure = normalizeSdkError(error, sdk, secrets)
+        if (!isOpenRouter(options.baseUrl) || options.id !== 'compatible')
+          throw failure
+        const api = error as { headers?: Headers; error?: unknown }
+        throw openRouterLimit(failure, {
+          headers: api?.headers,
+          body: api?.error,
+        })
       } finally {
         if (!finished) cancel?.()
       }

@@ -204,6 +204,9 @@ export function DraftList({
           came through.
         </p>
       )}
+      {draft.madeBy && (
+        <p className="text-xs text-fg-subtle">Drafted by {draft.madeBy}.</p>
+      )}
       {draft.dropped > 0 && (
         <p className="text-xs text-fg-subtle">
           {draft.dropped === 1

@@ -121,8 +121,28 @@ export type IndexStatus =
   | { state: 'idle' }
   | { state: 'running'; done: number; total: number; auto: boolean }
   | { state: 'error'; message: string }
+  /** The provider couldn't be reached: the update is tried again then. */
+  | { state: 'waiting'; message: string; retryAt: number; tries: number }
 
 export const indexStatusStore = createStore<IndexStatus>({ state: 'idle' })
+
+/**
+ * Failures that pass by themselves: the server is off, asleep or busy.
+ * Embeddings never switch to another provider (an index has to come from
+ * one model), so these are waited out instead.
+ */
+export function unreachable(error: unknown): boolean {
+  return (
+    isAiError(error) &&
+    (error.kind === 'network' ||
+      error.kind === 'timeout' ||
+      error.kind === 'server' ||
+      error.kind === 'overloaded')
+  )
+}
+
+/** How long before each try again: half a minute, growing to ten. */
+export const RETRY_DELAYS_MS = [30_000, 60_000, 120_000, 300_000, 600_000]
 
 export interface UpdateOptions {
   /** Only these sources (chosen in the preview); the rest wait. */
@@ -138,6 +158,8 @@ export interface UpdateResult {
   passages: number
   removed: number
   tokens: number
+  /** The provider couldn't be reached: it's tried again later. */
+  queued?: boolean
 }
 
 const NOTHING: UpdateResult = {
@@ -273,14 +295,22 @@ export async function updateIndex(
   const work = () => {
     const stop = new AbortController()
     controller = stop
+    const space = currentTarget()?.space
     return run(options, stop.signal).then(
       (result) => {
         indexStatusStore.set({ state: 'idle' })
+        if (!options.auto) settled(options)
         return result
       },
       (error: unknown) => {
         const aborted =
           stop.signal.aborted || (isAiError(error) && error.kind === 'aborted')
+        // What you asked for, with the server off: kept, and sent when
+        // it's back (what was done is saved already).
+        if (!aborted && !options.auto && space && unreachable(error)) {
+          queue(options, space, describeAiError(error))
+          return { ...NOTHING, queued: true }
+        }
         indexStatusStore.set(
           aborted
             ? { state: 'idle' }
@@ -305,6 +335,91 @@ export async function updateIndex(
   } finally {
     if (current === promise) current = null
   }
+}
+
+/** An update you asked for that's waiting for its provider to be back. */
+interface Queued {
+  options: UpdateOptions
+  /** For the model it was asked of: another model's update isn't sent. */
+  space: string
+  tries: number
+  retryAt: number
+  timer: ReturnType<typeof setTimeout>
+}
+let queued: Queued | null = null
+let watching = false
+
+function queue(options: UpdateOptions, space: string, message: string): void {
+  const before = queued?.space === space ? queued : null
+  if (queued) clearTimeout(queued.timer)
+  const tries = (before?.tries ?? 0) + 1
+  const delay = RETRY_DELAYS_MS[Math.min(tries, RETRY_DELAYS_MS.length) - 1]
+  // Two asks for parts of the index are one wait, for both.
+  const only =
+    before && before.options.only && options.only
+      ? new Set([...before.options.only, ...options.only])
+      : before
+        ? undefined
+        : options.only
+  const retryAt = Date.now() + delay
+  queued = {
+    options: { ...options, only },
+    space,
+    tries,
+    retryAt,
+    timer: setTimeout(() => void retryQueued(), delay),
+  }
+  indexStatusStore.set({ state: 'waiting', message, retryAt, tries })
+  // Back online, or back to the app: worth trying straight away.
+  if (!watching && typeof window !== 'undefined') {
+    watching = true
+    window.addEventListener('online', () => void retryQueued())
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') void retryQueued()
+    })
+  }
+}
+
+function forgetQueued(): void {
+  if (queued) clearTimeout(queued.timer)
+  queued = null
+}
+
+/**
+ * An update went through: the waiting one is done with if this covered
+ * it; otherwise it's still waiting (and says so again).
+ */
+function settled(options: UpdateOptions): void {
+  if (!queued) return
+  const { only } = options
+  const wanted = queued.options.only
+  if (!only || (wanted && [...wanted].every((key) => only.has(key))))
+    return forgetQueued()
+  indexStatusStore.set({
+    state: 'waiting',
+    message: 'Some of what you asked for is still waiting.',
+    retryAt: queued.retryAt,
+    tries: queued.tries,
+  })
+}
+
+/** Tries a waiting update again now ("Try now", or the timer). */
+export async function retryQueued(): Promise<UpdateResult> {
+  const job = queued
+  if (!job || current) return NOTHING
+  // Settings changed since: what was asked of that model isn't sent to another.
+  if (currentTarget()?.space !== job.space) {
+    dropQueued()
+    return NOTHING
+  }
+  return updateIndex(job.options).catch(() => NOTHING)
+}
+
+/** Gives up on a waiting update (what's waiting can be indexed later). */
+export function dropQueued(): void {
+  forgetQueued()
+  if (indexStatusStore.get().state === 'waiting')
+    indexStatusStore.set({ state: 'idle' })
 }
 
 let stopAuto: (() => void) | null = null

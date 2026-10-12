@@ -3,9 +3,12 @@ export { RelatedList } from './components/RelatedList'
 export {
   cancelIndexing,
   currentTarget,
+  dropQueued,
   indexOverview,
   indexStatusStore,
+  retryQueued,
   startAutoIndex,
+  unreachable,
   updateIndex,
   type IndexOverview,
   type IndexStatus,

@@ -124,7 +124,8 @@ function Details({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) {
         </ul>
       </div>
       <p className="text-sm leading-relaxed text-fg-muted">
-        {plural(quiz.questions.length, 'question')}, made {made}.{' '}
+        {plural(quiz.questions.length, 'question')}, made {made}
+        {quiz.madeBy ? ` by ${quiz.madeBy}` : ''}.{' '}
         {goes
           ? `Taken ${goes === 1 ? 'once' : `${goes} times`}.`
           : 'Not finished yet.'}

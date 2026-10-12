@@ -553,3 +553,121 @@ describe('thinking', () => {
     expect(cutEvents.at(-1)).toEqual({ type: 'done', stopReason: 'max-tokens' })
   })
 })
+
+describe('OpenRouter', () => {
+  const ask = {
+    model: 'qwen/qwen3-8b:free',
+    messages: [{ role: 'user' as const, content: 'Hi' }],
+  }
+
+  it('names free models to stand in, and says which one answered', async () => {
+    const fake = fakeSdk({
+      chunks: [
+        { ...chunk('Hi'), model: 'qwen/qwen3-14b:free' },
+        { ...chunk(null, 'stop'), model: 'qwen/qwen3-14b:free' },
+      ],
+    })
+    const provider = createOpenAiProvider({
+      id: 'compatible',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      loadSdk: fake.loadSdk,
+    })
+    const events = await collect(
+      provider.chat({
+        ...ask,
+        fallbackModels: [
+          'qwen/qwen3-14b:free',
+          'z-ai/glm-4.5-air:free',
+          'one-too-many:free',
+        ],
+      }),
+    )
+    // Three models in all, the chosen one first.
+    expect(fake.chatBodies[0]).toMatchObject({
+      model: 'qwen/qwen3-8b:free',
+      models: [
+        'qwen/qwen3-8b:free',
+        'qwen/qwen3-14b:free',
+        'z-ai/glm-4.5-air:free',
+      ],
+    })
+    expect(events[0]).toEqual({ type: 'model', model: 'qwen/qwen3-14b:free' })
+  })
+
+  it('sends no list to other servers', async () => {
+    const fake = fakeSdk({ chunks: [chunk('Hi'), chunk(null, 'stop')] })
+    const provider = createOpenAiProvider({
+      id: 'compatible',
+      baseUrl: 'http://localhost:11434/v1',
+      loadSdk: fake.loadSdk,
+    })
+    await collect(
+      provider.chat({ ...ask, fallbackModels: ['qwen/qwen3-14b:free'] }),
+    )
+    expect(fake.chatBodies[0]).not.toHaveProperty('models')
+  })
+
+  const limited = (message: string, reset?: number) =>
+    fakeSdk({
+      chatError: () =>
+        OpenAiSdk.APIError.generate(
+          429,
+          {
+            error: {
+              message,
+              code: 429,
+              metadata: reset
+                ? {
+                    headers: {
+                      'X-RateLimit-Limit': '20',
+                      'X-RateLimit-Remaining': '0',
+                      'X-RateLimit-Reset': String(reset),
+                    },
+                  }
+                : undefined,
+            },
+          },
+          undefined,
+          new Headers(),
+        ),
+    })
+
+  it('waits out the per-minute limit until its reset', async () => {
+    const fake = limited(
+      'Rate limit exceeded: free-models-per-min.',
+      Date.now() + 30_000,
+    )
+    const provider = createOpenAiProvider({
+      id: 'compatible',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      loadSdk: fake.loadSdk,
+    })
+    const error = await collect(provider.chat(ask)).catch(
+      (caught: unknown) => caught,
+    )
+    expect(error).toMatchObject({ kind: 'rate-limit', status: 429 })
+    const wait = (error as { retryAfterMs: number }).retryAfterMs
+    expect(wait).toBeGreaterThan(25_000)
+    expect(wait).toBeLessThanOrEqual(30_000)
+  })
+
+  it('tells the daily free limit apart, so it isn’t retried', async () => {
+    const fake = limited(
+      'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day',
+      Date.now() + 8 * 3_600_000,
+    )
+    const provider = createOpenAiProvider({
+      id: 'compatible',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      loadSdk: fake.loadSdk,
+    })
+    const error = await collect(provider.chat(ask)).catch(
+      (caught: unknown) => caught,
+    )
+    expect(error).toMatchObject({
+      kind: 'quota',
+      hint: 'Daily free limit reached, resets tomorrow.',
+      retryable: false,
+    })
+  })
+})

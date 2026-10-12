@@ -655,6 +655,7 @@ export function PlanDay() {
               </>
             )
           }
+          chat
           provider={planner.readiness.provider}
           model={planner.readiness.model}
           items={planner.items.map((item) => ({

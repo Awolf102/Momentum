@@ -1,4 +1,4 @@
-import { ai, type StopReason } from '@/features/ai'
+import { ai, formatSource, type StopReason } from '@/features/ai'
 import { formatDateKey, toDateKey } from '@/lib/date'
 import type { Recording } from './recorder'
 
@@ -39,9 +39,10 @@ export async function tidyTranscript(
     signal,
     onText,
   }: { signal?: AbortSignal; onText?: (text: string) => void } = {},
-): Promise<{ text: string; stopReason: StopReason }> {
+): Promise<{ text: string; stopReason: StopReason; madeBy?: string }> {
   let text = ''
   let stopReason: StopReason = 'other'
+  let madeBy: string | undefined
   for await (const event of ai.chat({
     system: TIDY_SYSTEM,
     messages: [{ role: 'user', content: tidyRequest(transcript) }],
@@ -53,8 +54,9 @@ export async function tidyTranscript(
       text += event.text
       onText?.(text)
     } else if (event.type === 'done') stopReason = event.stopReason
+    else if (event.type === 'source') madeBy = formatSource(event.source)
   }
-  return { text, stopReason }
+  return { text, stopReason, ...(madeBy ? { madeBy } : {}) }
 }
 
 /** A voice note's title until you give it one: "Voice note, 10 October". */

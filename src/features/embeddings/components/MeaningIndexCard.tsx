@@ -17,8 +17,10 @@ import { useStore } from '@/lib/store'
 import { toast } from '@/lib/toast'
 import {
   cancelIndexing,
+  dropQueued,
   indexOverview,
   indexStatusStore,
+  retryQueued,
   startAutoIndex,
   updateIndex,
   type IndexOverview,
@@ -52,6 +54,14 @@ const primary =
   'rounded-full bg-linear-to-br from-amber-300 to-orange-500 px-4 py-2 text-sm font-semibold text-orange-950 shadow-[0_10px_24px_-12px_rgb(249_115_22/0.8)] transition hover:shadow-[0_12px_28px_-10px_rgb(249_115_22/0.9)] active:scale-95 disabled:opacity-40'
 
 function announce(result: UpdateResult) {
+  if (result.queued) {
+    toast({
+      title: 'Couldn’t reach the embeddings provider',
+      description:
+        'Indexing tries again by itself while Momentum is open. What was done is kept.',
+    })
+    return
+  }
   if (result.embedded === 0) return
   toast({
     title: 'Search index updated',
@@ -175,6 +185,41 @@ export function MeaningIndexCard() {
             <AlertIcon className="mt-px shrink-0" />
             {status.message}
           </p>
+        ) : status.state === 'waiting' ? (
+          <div
+            className="space-y-2 rounded-2xl bg-tint px-4 py-3"
+            role="status"
+          >
+            <p className="flex items-start gap-1.5 text-xs leading-relaxed text-amber-200 light:text-amber-700">
+              <AlertIcon className="mt-px shrink-0" />
+              <span>
+                {status.message} Indexing waits for {target.label} rather than
+                switching provider (search needs every passage from the same
+                model), and tries again at{' '}
+                {new Date(status.retryAt).toLocaleTimeString([], {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                })}
+                .
+              </span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void retryQueued().then(announce)}
+                className={button}
+              >
+                Try now
+              </button>
+              <button
+                type="button"
+                onClick={dropQueued}
+                className="rounded-full px-3 py-1.5 text-xs font-semibold text-fg-muted transition hover:bg-line"
+              >
+                Stop trying
+              </button>
+            </div>
+          </div>
         ) : pending.length > 0 ? (
           <p className="text-sm text-fg-muted" role="status">
             {waiting} {pending.length === 1 ? 'isn’t' : 'aren’t'} indexed yet.

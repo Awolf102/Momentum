@@ -6,13 +6,22 @@ const sent = vi.hoisted(() => ({
   requests: [] as unknown[],
   reply: '',
   stopReason: 'end',
+  /** Which of chat's providers answered. */
+  source: undefined as
+    | { entryId: string; name: string; provider: string; model: string }
+    | undefined,
 }))
 
-vi.mock('@/features/ai', () => ({
+vi.mock('@/features/ai', async () => ({
+  formatSource: (await import('@/features/ai/chain')).formatSource,
   ai: {
     complete: async (request: unknown) => {
       sent.requests.push(request)
-      return { text: sent.reply, stopReason: sent.stopReason }
+      return {
+        text: sent.reply,
+        stopReason: sent.stopReason,
+        source: sent.source,
+      }
     },
   },
 }))
@@ -46,6 +55,33 @@ describe('the text sent for cards', () => {
 })
 
 describe('suggesting cards', () => {
+  it('reads cards the same way whichever provider answered, and says which', async () => {
+    // A fallback's reply is checked exactly as the first choice's would be:
+    // a card missing its back is dropped either way.
+    sent.reply =
+      '[{"front":"Q1","back":"A1"},{"front":"No back"},{"front":"Q2","back":"A2"}]'
+    sent.source = {
+      entryId: 'home',
+      name: 'Home PC',
+      provider: 'compatible',
+      model: 'qwen3.6:35b',
+    }
+    const fromHome = await suggestCards(lecture, { count: 10 })
+    sent.source = {
+      entryId: 'router',
+      name: 'OpenRouter',
+      provider: 'compatible',
+      model: 'qwen/qwen3-8b:free',
+    }
+    const fromCloud = await suggestCards(lecture, { count: 10 })
+    expect(fromCloud.cards).toEqual(fromHome.cards)
+    expect(fromHome.cards).toHaveLength(2)
+    expect(fromHome.madeBy).toBe('Home PC · qwen3.6:35b')
+    expect(fromCloud.madeBy).toBe('OpenRouter · qwen/qwen3-8b:free')
+    sent.source = undefined
+    sent.requests = []
+  })
+
   it('asks once, as material, and keeps at most as many as asked for', async () => {
     sent.reply =
       'Sure!\n```json\n[{"front":"Q1","back":"A1","page":3},{"front":"Q2","back":"A2"},{"front":"Q3","back":"A3"}]\n```'

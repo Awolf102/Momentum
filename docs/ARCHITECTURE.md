@@ -482,7 +482,7 @@ Everything persisted, and where:
 | `kv` › `momentum.focus.timer`          | The phase on the clock (timestamps), place in the cycle                |
 | `kv` › `momentum.subjects`             | Subjects: name, colour, deleted (kept for old sessions)                |
 | `kv` › `momentum.calendar`             | Which calendar view is showing                                         |
-| `kv` › `momentum.ai`                   | AI providers and models, server address, prices, thinking, reply cap   |
+| `kv` › `momentum.ai`                   | AI providers and models, chat's list, prices, thinking, reply cap      |
 | `kv` › `momentum.ai.usage`             | Tokens and requests per model per month (13 months kept)               |
 | `focusSessions`                        | Finished focus sessions (above)                                        |
 | `logEntries`                           | The daily log, one line per day (above)                                |
@@ -512,7 +512,7 @@ Everything persisted, and where:
 | `kv` › `momentum.tasks`                | List or board                                                          |
 | `kv` › `momentum.review`               | Whether the week shows on Sundays, and the AI write-ups kept by week   |
 | `photos`                               | Uploaded photos as Blobs (2560 px + 360 px thumbnail)                  |
-| `secrets`                              | API keys: `anthropic`, `openai`, `compatible`; sync's session and key  |
+| `secrets`                              | API keys per provider and per chat server; sync's session and key      |
 | `meta`                                 | Housekeeping (localStorage migration); the sync account and progress   |
 | IndexedDB `momentum-reminder`          | What the service worker needs for reminders (a mirror)                 |
 | localStorage `momentum.theme`          | A copy of the theme, read before the first paint to avoid a flash      |
@@ -661,8 +661,9 @@ directly; they call the `ai` client from `features/ai`:
 
 ```
 feature ─► ai.chat / ai.complete / ai.embed / ai.transcribe
-             │  reads provider, model and key from settings at call time,
-             │  and for chat the feature's Thinking switch and the reply cap
+             │  reads provider, model and key from settings at call time
+             │  (for chat, its list of providers, tried in order), and for
+             │  chat the feature's Thinking switch and the reply cap
              ├─ RequestGate     3 requests at a time per provider, and a shared
              │                  pause after a rate limit
              ├─ withRetry /     backoff with jitter; honours Retry-After (≤ 60 s);
@@ -674,7 +675,8 @@ feature ─► ai.chat / ai.complete / ai.embed / ai.transcribe
 - **Providers.** Anthropic (`@anthropic-ai/sdk`), OpenAI (`openai`), and any
   OpenAI-compatible server (Ollama, LM Studio, vLLM, OpenRouter…) through the
   `openai` SDK with a base URL. Chat, embeddings and transcription each have
-  their own provider and model; Anthropic offers neither embeddings nor
+  their own provider and model (chat has a list of them, tried in order: see
+  Chat's providers, in order); Anthropic offers neither embeddings nor
   speech to text, so it isn't offered for them.
   Embeddings can also come from **this device** (`browser`): a small model run
   in a worker (see Search by meaning), behind the same `ai.embed`, so retries,
@@ -750,6 +752,117 @@ feature ─► ai.chat / ai.complete / ai.embed / ai.transcribe
 - **Tests** use `createMockProvider` for the client, fake SDK clients for the
   adapters, and both real SDKs against a local stand-in server for the end-to-end
   request and stream shapes.
+
+### Chat's providers, in order
+
+Chat runs on whatever is on: a PC at home with a big GPU, a laptop, the
+model on this device, or a cloud service. These are often off, asleep or
+busy, so chat has a **list** of providers (`settings.chat.chain`), and each
+request goes to the first that can answer (`streamChat` in `client.ts`;
+the list itself, pure, in `chain.ts`).
+
+```
+chain: [ Home PC (Ollama, https://pc.….ts.net) ─ checked, 20 s to start
+         Mac (Ollama, https://mac.….ts.net)    ─ checked, 20 s to start
+         OpenRouter (cloud, "Allow as fallback" on)                       ]
+```
+
+- **An entry is what one provider always was**: a kind (`anthropic`,
+  `openai`, `compatible`, `browser`), its own address (for a compatible
+  server), its own key, its own model, plus a name ("Home PC") and, for a
+  cloud provider, whether it may be used as a fallback. Nothing is shared
+  between entries, so two Ollama servers and OpenRouter sit side by side.
+  Anthropic and OpenAI entries use the account key from Providers; a
+  compatible server's key is its own (`chat:<id>` in `secrets`, deleted with
+  the entry).
+- **Health checks.** When there's another provider to go to, a network
+  provider is checked first: `GET {address}/models`, given 2.5 s, and trusted
+  for 60 s (per entry, address and key). Only not being reachable counts as
+  down (network, timeout, 5xx, a page policy or mixed content); a server
+  that answers at all, even "no such page", is up. A down provider is
+  skipped without asking it, so a sleeping PC costs 2.5 s once a minute, not
+  on every request. The last in the list, and the model on this device, are
+  never checked: there'd be nowhere else to go.
+- **Time to start.** With another to go to, a provider has 20 s for its first
+  word or thought (60 s when the feature's Thinking switch is on), then its
+  request is stopped and the next is asked (`firstWithin`). A thought counts:
+  a model that's thinking has started. The model on this device isn't timed
+  (loading it takes a while, and it fails fast when it can't run).
+- **What fails over** (`failsOver`): network, timeout, 5xx and overloaded,
+  a model the server doesn't have (404), a refused key, out of credit, rate
+  limits once waited out, a provider not set up, and the model on this
+  device out of memory or not downloaded. **What doesn't**: a request the
+  provider couldn't accept (malformed, too long for the model), which would
+  fail anywhere, and cancelling. With another to go to, only rate limits are
+  retried on the same provider; everything else goes to the next straight
+  away. The last in the list retries as one provider always did.
+- **Part-way through.** Once text has been shown, a reply is never started
+  again elsewhere on its own (it would repeat itself, and the next provider
+  may be a cloud one). The error carries the provider (`source`), `partial`
+  and `retryNext`; what came is kept and the error says it broke off ("Home
+  PC stopped part-way through (the connection was lost). What came is
+  kept."). Ask offers **Retry with next provider**, which asks again with
+  `after: <entry>`, so the one that broke isn't asked. Elsewhere, "Try
+  again" starts from the top, and the provider that broke is skipped for the
+  minute its failure is remembered.
+- **Cloud fallbacks need permission.** A provider below the first whose
+  address isn't on your own machines (`isPrivateAddress`: localhost,
+  `.local`, private and Tailscale `100.64/10` addresses, `*.ts.net`, a bare
+  host name) is a cloud provider, and is used only if **Allow as fallback** is
+  on (off by default). The switch says what would go: your question and the
+  text of any notes, documents or photos with it. The first in the list is
+  always used: you chose it. Your own servers and this device need no switch.
+- **Nobody could answer**: with one provider, its own error, as before.
+  With several, an `unavailable` error giving each one's reason in turn, and
+  naming any cloud provider that wasn't allowed to help.
+- **Who answered.** Before its first word, a stream yields a `source` event
+  (entry, name, kind, model), again if the model changes (OpenRouter
+  standing one in). `complete()` returns it. Every result keeps it as
+  "Home PC · qwen3.6:35b" (`formatSource`): Ask answers (`via`, `model`),
+  quizzes and weekly write-ups (`madeBy`), and the card, plan, photo and
+  voice-note drafts say it under what they made. Structured replies are
+  read and checked by the feature, after `complete()`, so a fallback's
+  cards or plan go through exactly the same validation as the first
+  choice's.
+- **Usage** is counted per entry: `compatible@<id>` for each server, so the
+  Home PC and the Mac are told apart under Usage, by name (`usageLabel`).
+  Anthropic and OpenAI are counted by account, as before, and the server
+  from before the list keeps `compatible`, so its history carries on.
+- **Status.** Checks and requests report each entry's state (`checking`,
+  `up`, `down` with why) to `chainStatusStore`. Settings shows where chat
+  goes from that ("Home PC offline, using Mac", `describeRoute`) next to the
+  list and its models, checks the list when it opens, and has **Check now**
+  (a fresh check, ignoring the minute). Model lists come from each entry's
+  own `/models` (the check fills them in); nothing is built in.
+- **What's sent, and to whom.** The send preview names the first provider
+  and, under "If it can't answer", the others in order with their models,
+  and says when a cloud provider you allowed could receive it. Ask's
+  composer says the same in a line ("Sends to Home PC (qwen3.6:35b; Mac if
+  it can't answer)").
+- **OpenRouter's free models** (ids ending `:free`) are sent with OpenRouter's
+  `models` list: the chosen one and two more free ones from its live
+  `/models` list (same maker first, the list kept 10 minutes), so a busy free
+  model is stood in for by another. The reply's `model` says which answered,
+  and that's what's recorded. A paid model is sent alone. Its **per-minute**
+  limit (a 429 naming `free-models-per-min`) is waited out until
+  `X-RateLimit-Reset`, read from the response or the copy in its body; its
+  **daily** limit (`free-models-per-day`) becomes `quota` with "Daily free
+  limit reached, resets tomorrow.", isn't retried, and goes to the next
+  provider (`providers/openrouter.ts`).
+- **Embeddings never fall back.** An index has to come from one model, so
+  embeddings keep their one provider. An index update that can't reach it
+  (network, timeout, 5xx) waits instead: it's kept, tried again after 30 s,
+  1, 2, 5 and then every 10 minutes, and straight away when the browser comes
+  back online or Momentum comes back into view, but only with the same model
+  (`queue` in `indexer.ts`). Settings shows it waiting, with Try now and Stop
+  trying. A search by meaning that can't reach it says so: ⌘K shows a row
+  saying the results are by words only, and Ask keeps the passages found by
+  their words and says why. When chat runs on a home machine, the
+  embeddings card suggests the model on this device, which is always there.
+- **Settings from before the list** (one chat provider, a model per provider,
+  one shared compatible address) become a one-entry list, `primary`, with
+  that provider's model, the shared address, and the same key and usage
+  history. The shared address stays, for embeddings and voice notes.
 
 ### Chat on this device
 
@@ -2290,8 +2403,23 @@ refuses it asked again without, `reasoning` and `reasoning_content`
 deltas, `<think>` blocks split across pieces, a reply that never stopped
 thinking; the reply cap with room to think, replies cut off kept by Ask,
 cards, quizzes, a mark, the weekly write-up and Plan my day, and cut-off
-JSON objects closed where they stopped), light blending, climb progress, trail geometry and
-skyline detection (on synthetic images), command search and hotkey matching,
+JSON objects closed where they stopped; chat's providers in order: the
+first answering when it's up, one that's off skipped and remembered for a
+minute, a health check too slow, a server with no `/models` still up, one
+that doesn't start within 20 s passed over (60 s when it may think, a
+thought counting as a start), a reply breaking part-way kept with Retry
+with next provider, no fallback for a request too long or on cancelling,
+every provider down with each one's reason, a cloud provider not allowed
+as a fallback never sent anything, each server's own key, this device
+neither checked nor timed, one provider tested on its own, the list
+checked for Settings; OpenRouter's free stand-ins from its live list and
+the model that answered, its per-minute 429 waited out until its reset,
+its daily one not retried; private addresses, saved lists repaired, old
+settings becoming a list with their key and usage history, where chat
+goes in words, a fallback's cards checked as the first choice's;
+embeddings waiting for an unreachable server and trying again, never for
+another model, and searches saying they matched words only), light
+blending, climb progress, trail geometry and skyline detection (on synthetic images), command search and hotkey matching,
 noise generation and reminder scheduling. UI flows — including migrating real
 v2 data, a connection test through the real SDK, and search by meaning with
 the real model in the browser (downloading it, failing to, indexing, ⌘K,
@@ -2299,8 +2427,14 @@ related notes, offline) and with a stand-in provider that logs every request
 (nothing sent before Send or before searching is chosen), and the assistant
 against a stand-in chat server (exactly the passages shown and not the ones
 taken out, citations opening their pages, follow-ups, Stop, the plans
-snapshot without the parts left out, nothing sent while typing),
-flashcards (studying with the keys, Undo, cards from a note's lines and
+snapshot without the parts left out, nothing sent while typing), chat's
+providers against two stand-in servers (the list set up with each one's
+models from its own `/models`, a cloud provider's fallback switch off and
+what it would send, Check now, Ask answered by the first and saying so,
+the first stopped part-way through a session and the second answering,
+"Home PC offline, using Mac", a reply broken off mid-stream kept with
+its error and Retry with next provider, the embeddings suggestion, and a
+phone's width), flashcards (studying with the keys, Undo, cards from a note's lines and
 from a PDF page with AI, nothing sent before Send, search, the habit,
 deleting them all), and quizzes (pages chosen and refused, nothing sent
 before Send and only the pages chosen, answering with the keys, AI marking

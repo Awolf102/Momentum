@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { ChatEntry } from './chain'
 import { aiReadiness } from './lib/readiness'
 import { NO_LOCAL_CHAT } from './local/chatState'
 import {
@@ -11,34 +12,70 @@ import {
   type AiSettings,
 } from './store'
 
+const entry = (
+  fields: Partial<ChatEntry> & Pick<ChatEntry, 'provider'>,
+): ChatEntry => ({
+  id: fields.provider,
+  name: fields.provider,
+  baseUrl: '',
+  model: '',
+  fallback: false,
+  ...fields,
+})
+
+/** Settings with chat on one provider. */
 const withChat = (
-  chat: AiSettings['chat'],
+  first: Partial<ChatEntry> & Pick<ChatEntry, 'provider'>,
   extra: Partial<AiSettings> = {},
 ): AiSettings => ({
   ...DEFAULT_AI_SETTINGS,
-  chat,
+  chat: { chain: [entry(first)] },
   ...extra,
 })
 
 describe('AI settings', () => {
-  it('keeps the model chosen for each provider', () => {
-    const settings = withChat({
-      provider: 'openai',
-      models: { anthropic: 'claude-x', openai: ' gpt-x ' },
-    })
+  it('turns the one chat provider from before into the first in the list', () => {
+    const settings = parseAiSettings({
+      chat: {
+        provider: 'openai',
+        models: { anthropic: 'claude-x', openai: ' gpt-x ' },
+      },
+    })!
+    expect(settings.chat.chain).toEqual([
+      {
+        id: 'primary',
+        provider: 'openai',
+        name: 'OpenAI',
+        baseUrl: '',
+        model: ' gpt-x ',
+        fallback: false,
+      },
+    ])
     expect(selection(settings, 'chat')).toEqual({
       provider: 'openai',
       model: 'gpt-x',
     })
-    expect(
-      selection(
-        { ...settings, chat: { ...settings.chat, provider: 'anthropic' } },
-        'chat',
-      ),
-    ).toEqual({
-      provider: 'anthropic',
-      model: 'claude-x',
-    })
+  })
+
+  it('keeps a compatible server’s address and key where they were', () => {
+    const settings = parseAiSettings({
+      chat: { provider: 'compatible', models: { compatible: 'qwen3.5:4b' } },
+      compatibleBaseUrl: 'https://mac.tail1234.ts.net/v1',
+    })!
+    expect(settings.chat.chain).toEqual([
+      {
+        id: 'primary',
+        provider: 'compatible',
+        name: 'OpenAI-compatible',
+        baseUrl: 'https://mac.tail1234.ts.net/v1',
+        model: 'qwen3.5:4b',
+        fallback: false,
+        // The key it always had.
+        keyName: 'compatible',
+      },
+    ])
+    // Saved as a list, it's read back as one.
+    expect(parseAiSettings(structuredClone(settings))).toEqual(settings)
   })
 
   it('repairs damaged settings field by field', () => {
@@ -58,7 +95,18 @@ describe('AI settings', () => {
       },
     })
     expect(parsed).toEqual({
-      chat: { provider: 'anthropic', models: { anthropic: 'claude-x' } },
+      chat: {
+        chain: [
+          {
+            id: 'primary',
+            provider: 'anthropic',
+            name: 'Anthropic',
+            baseUrl: '',
+            model: 'claude-x',
+            fallback: false,
+          },
+        ],
+      },
       // Anthropic has no embeddings or transcription, so it can't be chosen for them.
       embeddings: { provider: 'openai', models: {} },
       transcription: {
@@ -127,16 +175,13 @@ describe('aiReadiness', () => {
   const keys = (...names: string[]) => new Set(names)
 
   it('needs a key for hosted providers', () => {
-    const settings = withChat({
-      provider: 'anthropic',
-      models: { anthropic: 'claude-x' },
-    })
+    const settings = withChat({ provider: 'anthropic', model: 'claude-x' })
     expect(aiReadiness(settings, keys(), 'chat')).toEqual({
       ready: false,
       provider: 'anthropic',
       reason: 'no-key',
     })
-    expect(aiReadiness(settings, keys('anthropic'), 'chat')).toEqual({
+    expect(aiReadiness(settings, keys('anthropic'), 'chat')).toMatchObject({
       ready: true,
       provider: 'anthropic',
       model: 'claude-x',
@@ -144,7 +189,7 @@ describe('aiReadiness', () => {
   })
 
   it('needs a model', () => {
-    const settings = withChat({ provider: 'openai', models: {} })
+    const settings = withChat({ provider: 'openai' })
     expect(aiReadiness(settings, keys('openai'), 'chat')).toMatchObject({
       ready: false,
       reason: 'no-model',
@@ -154,11 +199,16 @@ describe('aiReadiness', () => {
   it("doesn't need a key for a compatible server, but needs its address", () => {
     const settings = withChat({
       provider: 'compatible',
-      models: { compatible: 'llama' },
+      model: 'llama',
+      baseUrl: 'http://localhost:11434/v1',
     })
     expect(aiReadiness(settings, keys(), 'chat')).toMatchObject({ ready: true })
     expect(
-      aiReadiness({ ...settings, compatibleBaseUrl: ' ' }, keys(), 'chat'),
+      aiReadiness(
+        withChat({ provider: 'compatible', model: 'llama', baseUrl: ' ' }),
+        keys(),
+        'chat',
+      ),
     ).toMatchObject({
       ready: false,
       reason: 'no-address',
@@ -171,7 +221,7 @@ describe('chat on this device', () => {
     const settings = parseAiSettings({
       chat: { provider: 'browser', models: {} },
     })!
-    expect(settings.chat.provider).toBe('browser')
+    expect(settings.chat.chain[0].provider).toBe('browser')
     expect(selection(settings, 'chat')).toEqual({
       provider: 'browser',
       model: 'qwen3.5-2b',
@@ -186,7 +236,7 @@ describe('chat on this device', () => {
   })
 
   it('isn’t ready until its model is downloaded, once that’s known', () => {
-    const settings = withChat({ provider: 'browser', models: {} })
+    const settings = withChat({ provider: 'browser' })
     const noKeys = new Set<string>()
     // Not looked yet: ready (a request says if it isn't there).
     expect(aiReadiness(settings, noKeys, 'chat').ready).toBe(true)
@@ -207,5 +257,49 @@ describe('chat on this device', () => {
     expect(aiReadiness(settings, noKeys, 'chat', known('stored')).ready).toBe(
       true,
     )
+  })
+})
+
+describe('chat’s list of providers', () => {
+  it('adds, renames, reorders and removes, always keeping one', async () => {
+    const {
+      addChatEntry,
+      aiSettingsStore,
+      moveChatEntry,
+      removeChatEntry,
+      updateChatEntry,
+    } = await import('./store')
+    aiSettingsStore.reset()
+    const first = aiSettingsStore.get().chat.chain[0]
+    const mac = addChatEntry('compatible')
+    const cloud = addChatEntry('compatible')
+    const names = () =>
+      aiSettingsStore.get().chat.chain.map((each) => each.name)
+    // Told apart until you name them.
+    expect(names()).toEqual([
+      'Anthropic',
+      'OpenAI-compatible',
+      'OpenAI-compatible 2',
+    ])
+    updateChatEntry(mac, {
+      name: 'Mac',
+      baseUrl: 'https://mac.tail1234.ts.net',
+    })
+    updateChatEntry(cloud, { name: 'OpenRouter' })
+    // A new one is never a fallback until you say so.
+    expect(aiSettingsStore.get().chat.chain[2].fallback).toBe(false)
+
+    moveChatEntry(cloud, -1)
+    expect(names()).toEqual(['Anthropic', 'OpenRouter', 'Mac'])
+    moveChatEntry(first.id, -1)
+    expect(names()).toEqual(['Anthropic', 'OpenRouter', 'Mac'])
+    moveChatEntry(mac, 1)
+    expect(names()).toEqual(['Anthropic', 'OpenRouter', 'Mac'])
+
+    removeChatEntry(first.id)
+    removeChatEntry(cloud)
+    removeChatEntry(mac)
+    expect(names()).toEqual(['Mac'])
+    aiSettingsStore.reset()
   })
 })

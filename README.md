@@ -168,7 +168,7 @@ Open **Settings → AI**.
 2. **Choose models** for chat, for embeddings and for transcription (they can
    come from different providers). Type a model name, or **Load list** to pick
    from the models your key can use. Anthropic doesn't offer embeddings or
-   transcription.
+   transcription. Chat can have several providers, tried in order (below).
 3. **Test connection** sends one short test message and shows the reply (for
    transcription, a second of silence).
 
@@ -178,7 +178,31 @@ Momentum at: Settings → AI shows it, under the server address), then use
 `http://localhost:11434` as the server address. No key needed. For the app
 in a Mac's Dock, see [On a Mac's Dock](#on-a-macs-dock).
 
-**A chat model on this device:** choose **This device** under Chat. Three
+**Chat with fallbacks:** under **Chat**, add providers with **Add** (a
+server, Anthropic, OpenAI or this device), give each a name ("Home PC",
+"Mac"), its own address, key and model, and order them with the arrows.
+Momentum asks the first that can answer: one that's off or asleep is
+skipped (it's checked in 2.5 s, and remembered for a minute), and one that
+doesn't start answering within 20 s (60 s with thinking on) is passed over.
+The line above the list says where chat goes now ("Home PC offline, using
+Mac"); **Check now** checks again. A cloud provider below the first (say
+OpenRouter) is used only if you turn on **Allow as fallback**: then your
+question, and the text of any notes or documents with it, go to it when the
+ones above can't answer. Every answer says which provider and model wrote
+it ("Home PC · qwen3.6:35b"). If one breaks off part-way, what came is kept,
+and Ask offers **Retry with next provider**. Your Macs and PCs can be
+reached over Tailscale at their `https://….ts.net` addresses (start Ollama
+with `OLLAMA_ORIGINS` set to the origin Settings shows). OpenRouter's free
+models (`…:free`) are sent with two more free ones to stand in when the
+first is busy; past the daily free limit, Momentum says "Daily free limit
+reached, resets tomorrow." and goes to the next provider. Embeddings never
+switch provider (the index needs one model): if theirs can't be reached,
+indexing waits and tries again, and searches say they matched your words
+only. With chat on a home machine, the embeddings model on this device is
+the dependable choice.
+
+**A chat model on this device:** add **This device** under Chat (or make it
+the only one). Three
 sizes of Qwen3.5 run in the browser on your Mac's graphics processor
 (WebGPU: Safari 26 or a recent Chrome): 0.8B, **2B** (recommended for an
 8 GB Mac) and 4B (needs more memory than an 8 GB Mac comfortably has).

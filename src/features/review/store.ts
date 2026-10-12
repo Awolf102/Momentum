@@ -9,6 +9,8 @@ export interface WrittenReview extends WriteUp {
   at: string
   /** The reply was cut off at the length limit: this is what came. */
   cutOff?: boolean
+  /** Who wrote it: "Home PC · qwen3.6:35b". */
+  madeBy?: string
 }
 
 export interface ReviewData {
@@ -30,6 +32,9 @@ function parseWritten(value: unknown): WrittenReview | null {
     nextWeek: text(value.nextWeek),
     at: value.at,
     ...(value.cutOff === true ? { cutOff: true } : {}),
+    ...(typeof value.madeBy === 'string' && value.madeBy
+      ? { madeBy: value.madeBy.slice(0, 200) }
+      : {}),
   }
   return written.wentWell || written.slipped || written.nextWeek
     ? written
@@ -78,7 +83,7 @@ export const setReviewOnSundays = (onSundays: boolean) =>
 
 export function saveWriteUp(
   week: DateKey,
-  writeUp: WriteUp & { cutOff?: boolean },
+  writeUp: WriteUp & { cutOff?: boolean; madeBy?: string },
   now: Date = new Date(),
 ): WrittenReview {
   const written = { ...writeUp, at: now.toISOString() }

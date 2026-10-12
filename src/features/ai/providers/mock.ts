@@ -21,6 +21,10 @@ export interface MockReply {
   failAfter?: number
   usage?: TokenUsage
   stopReason?: StopReason
+  /** Waits this long before anything (a server slow to start), unless cancelled. */
+  delayMs?: number
+  /** Another model answered (as OpenRouter says when it stands one in). */
+  model?: string
 }
 
 export interface MockProviderOptions {
@@ -33,12 +37,33 @@ export interface MockProviderOptions {
   transcript?: string
   transcribeError?: AiError
   models?: ModelInfo[]
+  /** Listing models (a health check) fails, or takes this long. */
+  modelsError?: AiError
+  modelsDelayMs?: number
 }
 
 export interface MockProvider extends AiProvider {
   readonly calls: ChatRequest[]
+  /** How many times its models were listed. */
+  readonly listCalls: number
   readonly embedCalls: EmbedRequest[]
   readonly transcribeCalls: TranscribeRequest[]
+}
+
+/** Waits, unless the request is cancelled first. */
+function wait(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(abortError())
+    const timer = setTimeout(resolve, ms)
+    signal?.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer)
+        reject(abortError())
+      },
+      { once: true },
+    )
+  })
 }
 
 function hashVector(text: string, size = 8): number[] {
@@ -57,6 +82,7 @@ export function createMockProvider(
   const calls: ChatRequest[] = []
   const embedCalls: EmbedRequest[] = []
   const transcribeCalls: TranscribeRequest[] = []
+  let listCalls = 0
 
   function replyFor(request: ChatRequest, call: number): MockReply {
     const { replies } = options
@@ -69,6 +95,9 @@ export function createMockProvider(
   return {
     id: 'mock',
     calls,
+    get listCalls() {
+      return listCalls
+    },
     embedCalls,
     transcribeCalls,
 
@@ -83,7 +112,9 @@ export function createMockProvider(
         ),
         outputTokens: chunks.join('').length,
       }
+      if (reply.delayMs) await wait(reply.delayMs, request.signal)
       if (reply.error && !reply.failAfter) throw reply.error
+      if (reply.model) yield { type: 'model', model: reply.model }
       yield {
         type: 'usage',
         usage: { inputTokens: usage.inputTokens, outputTokens: 0 },
@@ -122,7 +153,10 @@ export function createMockProvider(
       return { text: options.transcript ?? 'Mock transcript' }
     },
 
-    async listModels() {
+    async listModels(signal) {
+      listCalls++
+      if (options.modelsDelayMs) await wait(options.modelsDelayMs, signal)
+      if (options.modelsError) throw options.modelsError
       return options.models ?? [{ id: 'mock-model', name: 'Mock model' }]
     },
   }

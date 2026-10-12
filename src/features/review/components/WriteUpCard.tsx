@@ -166,7 +166,7 @@ export function WriteUpCard({ summary }: { summary: WeekSummary }) {
             </p>
           )}
           <p className="text-xs text-fg-subtle">
-            Written by AI from what you shared, on{' '}
+            Written by {written.madeBy ?? 'AI'} from what you shared, on{' '}
             {formatDateKey(localDay(written.at), {
               weekday: 'short',
               day: 'numeric',
@@ -257,6 +257,7 @@ export function WriteUpCard({ summary }: { summary: WeekSummary }) {
               is kept on this device.
             </>
           }
+          chat
           provider={readiness.provider}
           model={readiness.model}
           items={items}

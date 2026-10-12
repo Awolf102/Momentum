@@ -6,22 +6,36 @@ import {
   THINKING_ROOM,
   type AiClientDeps,
 } from './client'
+import type { ChatEntry } from './chain'
 import { AiError, describeAiError } from './errors'
 import { noteRefusal } from './lib/reach'
 import { createMockProvider, type MockProviderOptions } from './providers/mock'
 import { DEFAULT_AI_SETTINGS, type AiSettings } from './store'
-import type { ProviderId } from './types'
+
+/** One of chat's providers, for a test. */
+function entry(
+  fields: Partial<ChatEntry> & Pick<ChatEntry, 'provider'>,
+): ChatEntry {
+  return {
+    id: fields.provider,
+    name: fields.id ?? fields.provider,
+    baseUrl: '',
+    model: '',
+    fallback: false,
+    ...fields,
+  }
+}
 
 function setup(
   options: {
     settings?: Partial<AiSettings>
-    keys?: Partial<Record<ProviderId, string>>
+    keys?: Partial<Record<string, string>>
     mock?: MockProviderOptions
   } = {},
 ) {
   const settings: AiSettings = {
     ...DEFAULT_AI_SETTINGS,
-    chat: { provider: 'anthropic', models: { anthropic: 'claude-test' } },
+    chat: { chain: [entry({ provider: 'anthropic', model: 'claude-test' })] },
     embeddings: { provider: 'openai', models: { openai: 'embed-test' } },
     ...options.settings,
   }
@@ -82,7 +96,7 @@ describe('AI client', () => {
 
   it('asks for a model when none is chosen', async () => {
     const { client } = setup({
-      settings: { chat: { provider: 'anthropic', models: {} } },
+      settings: { chat: { chain: [entry({ provider: 'anthropic' })] } },
     })
     await expect(client.complete({ messages: [] })).rejects.toMatchObject({
       kind: 'no-model',
@@ -93,8 +107,15 @@ describe('AI client', () => {
     const { client, createProvider } = setup({
       keys: {},
       settings: {
-        chat: { provider: 'compatible', models: { compatible: 'llama-test' } },
-        compatibleBaseUrl: 'http://localhost:11434/v1',
+        chat: {
+          chain: [
+            entry({
+              provider: 'compatible',
+              model: 'llama-test',
+              baseUrl: 'http://localhost:11434/v1',
+            }),
+          ],
+        },
       },
     })
     const { text } = await client.complete({
@@ -381,8 +402,7 @@ describe('thinking and the reply cap', () => {
 describe('what the browser won’t send', () => {
   const compatible = (baseUrl: string) => ({
     chat: {
-      provider: 'compatible' as const,
-      models: { compatible: 'qwen3.5:4b' },
+      chain: [entry({ provider: 'compatible', model: 'qwen3.5:4b', baseUrl })],
     },
     compatibleBaseUrl: baseUrl,
   })
@@ -478,7 +498,7 @@ describe('what the browser won’t send', () => {
 
 describe('chat on this device', () => {
   const onDevice = {
-    chat: { provider: 'browser' as const, models: {} },
+    chat: { chain: [entry({ provider: 'browser' })] },
   }
 
   it('uses the recommended model unless another is chosen, and counts no usage', async () => {

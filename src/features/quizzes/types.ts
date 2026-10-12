@@ -79,4 +79,6 @@ export interface Quiz extends CollectionRecord {
   questions: Question[]
   /** Oldest first; the last may still be going. */
   attempts: Attempt[]
+  /** Who wrote the questions: "Home PC · qwen3.6:35b". */
+  madeBy?: string
 }

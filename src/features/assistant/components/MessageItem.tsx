@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
 import { Link } from 'wouter'
 import { AlertIcon, LibraryIcon, NoteIcon, UndoIcon } from '@/components/icons'
-import { formatTokens, ReplyStatus } from '@/features/ai'
+import { formatSource, formatTokens, ReplyStatus } from '@/features/ai'
 import { useStore } from '@/lib/store'
 import { interrupted, liveAnswersStore } from '../chat'
 import type { Message, SourceRef } from '../types'
@@ -78,7 +78,8 @@ interface MessageItemProps {
   message: Message
   /** For an answer: the sources its question was sent with. */
   sources: readonly SourceRef[]
-  onAskAgain?: () => void
+  /** Asks again; `after` skips to the providers after that one. */
+  onAskAgain?: (after?: string) => void
 }
 
 export function MessageItem({
@@ -133,7 +134,9 @@ export function MessageItem({
         )}
         {!writing && message.model && (
           <span>
-            {message.model}
+            {message.via
+              ? formatSource({ name: message.via, model: message.model })
+              : message.model}
             {message.usage
               ? ` · ${formatTokens(message.usage.inputTokens)} in · ${formatTokens(message.usage.outputTokens)} out`
               : ''}
@@ -144,12 +147,21 @@ export function MessageItem({
           (message.error || message.stopped || cutOff) && (
             <button
               type="button"
-              onClick={onAskAgain}
+              onClick={() => onAskAgain()}
               className="inline-flex items-center gap-1 font-semibold text-fg-muted transition hover:text-fg"
             >
               <UndoIcon /> Ask again
             </button>
           )}
+        {onAskAgain && !writing && message.retryAfter && (
+          <button
+            type="button"
+            onClick={() => onAskAgain(message.retryAfter)}
+            className="inline-flex items-center gap-1 font-semibold text-fg-muted transition hover:text-fg"
+          >
+            <UndoIcon /> Retry with next provider
+          </button>
+        )}
       </div>
     </div>
   )

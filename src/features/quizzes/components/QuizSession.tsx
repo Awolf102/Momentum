@@ -292,7 +292,9 @@ export function QuizSession({
             ai={
               readiness.ready
                 ? {
-                    provider: PROVIDERS[readiness.provider].label,
+                    provider:
+                      readiness.entry?.name ??
+                      PROVIDERS[readiness.provider].label,
                     local: PROVIDERS[readiness.provider].local,
                     checking,
                     progress,

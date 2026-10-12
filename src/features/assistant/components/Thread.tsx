@@ -202,7 +202,8 @@ export function Thread({ conversation, saved }: ThreadProps) {
             sources={citable[index]}
             onAskAgain={
               index === count - 1
-                ? () => void askAgain(conversation.id, message.id)
+                ? (after) =>
+                    void askAgain(conversation.id, message.id, { after })
                 : undefined
             }
           />

@@ -216,7 +216,7 @@ export function NewQuiz({
           : null,
     }))
     try {
-      const { questions, cutOff } = await writeQuestions(
+      const { questions, cutOff, madeBy } = await writeQuestions(
         going.map((each) => each.sent),
         sent,
         {
@@ -245,6 +245,7 @@ export function NewQuiz({
         subjectId,
         sources,
         questions,
+        madeBy,
       })
       if (questions.length < count)
         toast({
@@ -389,6 +390,7 @@ export function NewQuiz({
                 ' It’s too long to send whole, so pages from all through it are sent.'}
             </>
           }
+          chat
           provider={readiness.provider}
           model={readiness.model}
           items={ready.map((each, index) => ({

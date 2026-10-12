@@ -1,4 +1,4 @@
-import { ai, type ReplyPhase } from '@/features/ai'
+import { ai, formatSource, type ReplyPhase } from '@/features/ai'
 import { sourceBody, type SourceText } from '@/features/ai/material'
 import { parseSuggestedCards, type SuggestedCard } from './lib/text'
 
@@ -24,6 +24,8 @@ export interface Suggestions {
   cards: SuggestedCard[]
   /** The reply was cut off at the length limit: only whole cards came through. */
   cutOff: boolean
+  /** Who wrote them: "Home PC · qwen3.6:35b". */
+  madeBy?: string
 }
 
 /** Asks the chat model for cards; they come back as drafts to check. */
@@ -39,7 +41,11 @@ export async function suggestCards(
     onProgress?: (phase: ReplyPhase) => void
   },
 ): Promise<Suggestions> {
-  const { text, stopReason } = await ai.complete({
+  const {
+    text,
+    stopReason,
+    source: by,
+  } = await ai.complete({
     system: CARDS_SYSTEM,
     messages: [{ role: 'user', content: cardsRequest(source, count) }],
     maxTokens: REPLY_TOKENS,
@@ -50,5 +56,6 @@ export async function suggestCards(
   return {
     cards: parseSuggestedCards(text).slice(0, count),
     cutOff: stopReason === 'max-tokens',
+    ...(by ? { madeBy: formatSource(by) } : {}),
   }
 }

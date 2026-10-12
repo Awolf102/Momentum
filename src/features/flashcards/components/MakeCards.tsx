@@ -219,6 +219,7 @@ function FromSource({
   const [asking, setAsking] = useState(false)
   const [progress, setProgress] = useState<ReplyProgress>({ since: 0 })
   const [cutOff, setCutOff] = useState(false)
+  const [madeBy, setMadeBy] = useState<string | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const controller = useRef<AbortController | null>(null)
   useEffect(() => () => controller.current?.abort(), [])
@@ -232,13 +233,18 @@ function FromSource({
     setProblem(null)
     controller.current = new AbortController()
     try {
-      const { cards: suggested, cutOff } = await suggestCards(fitted.source, {
+      const {
+        cards: suggested,
+        cutOff,
+        madeBy: writer,
+      } = await suggestCards(fitted.source, {
         count,
         signal: controller.current.signal,
         onProgress: (phase) =>
           setProgress((current) => ({ ...current, phase })),
       })
       setCutOff(cutOff)
+      setMadeBy(writer ?? null)
       if (suggested.length === 0) {
         setProblem(
           cutOff
@@ -396,6 +402,9 @@ function FromSource({
                 missing: the whole ones that came through are below.
               </p>
             )}
+            {madeBy && !asking && !problem && (
+              <p className="text-xs text-fg-subtle">Drafted by {madeBy}.</p>
+            )}
             {fitted && fitted.characters === 0 && (
               <p className="text-xs text-fg-subtle">
                 There’s no text to send{document ? ' (a scanned PDF?)' : ''}.
@@ -504,6 +513,7 @@ function FromSource({
                 ' It’s long, so only the first part is sent; choose a page to send another part.'}
             </>
           }
+          chat
           provider={readiness.provider}
           model={readiness.model}
           items={[

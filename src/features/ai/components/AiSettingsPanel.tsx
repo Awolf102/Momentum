@@ -1,6 +1,6 @@
-import { lazy, Suspense, useId, useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { GlassCard } from '@/components/GlassCard'
-import { AlertIcon, ExternalIcon, SparkleIcon } from '@/components/icons'
+import { ExternalIcon, SparkleIcon } from '@/components/icons'
 import {
   SegmentedControl,
   type SegmentedOption,
@@ -8,9 +8,9 @@ import {
 import { SettingsCard } from '@/components/SettingsCard'
 import { useStore } from '@/lib/store'
 import { useAiReadiness } from '../hooks/useAiReadiness'
-import { blockedBeforeSending, currentPage } from '../lib/reach'
 import type { AiReadiness } from '../lib/readiness'
 import { refreshModelsAfterKeyChange } from '../modelLists'
+import { formatSource, isPrivateAddress } from '../chain'
 import { PROVIDERS } from '../providers/meta'
 import { normalizeBaseUrl } from '../providers/openai'
 import {
@@ -21,24 +21,17 @@ import {
 } from '../store'
 import type {
   AiTask,
-  ChatProviderId,
   EmbeddingProviderId,
   TranscriptionProviderId,
 } from '../types'
+import { AddressField, OriginHelp } from './AddressField'
+import { ChatChainCard } from './ChatChainCard'
 import { KeyField } from './KeyField'
 import { LocalModelField } from './LocalModelField'
 import { ModelField } from './ModelField'
 import { RepliesCard } from './RepliesCard'
 import { TestConnection } from './TestConnection'
 import { UsageCard } from './UsageCard'
-
-// The model on this device, and the code that runs it, load only when it's
-// chosen: the AI features' shared code shouldn't carry them.
-const LocalChatField = lazy(() =>
-  import('./LocalChatField').then((module) => ({
-    default: module.LocalChatField,
-  })),
-)
 
 /**
  * Settings → AI: providers and keys, the model for each task, and usage.
@@ -53,7 +46,7 @@ export function AiSettingsPanel({
     <>
       <StatusCard />
       <KeysCard />
-      <TaskCard task="chat" />
+      <ChatChainCard />
       <RepliesCard />
       <TaskCard task="embeddings" />
       {afterEmbeddings}
@@ -65,7 +58,10 @@ export function AiSettingsPanel({
 
 function describeReadiness(readiness: AiReadiness): string {
   if (!readiness.ready) return 'not set up'
-  return `${PROVIDERS[readiness.provider].label} · ${readiness.model}`
+  return formatSource({
+    name: readiness.entry?.name ?? PROVIDERS[readiness.provider].label,
+    model: readiness.model,
+  })
 }
 
 function StatusCard() {
@@ -163,67 +159,17 @@ function HostedProvider({ provider }: { provider: 'anthropic' | 'openai' }) {
 
 function CompatibleProvider() {
   const { compatibleBaseUrl } = useStore(aiSettingsStore)
-  // What's being typed; saved when the field loses focus.
-  const [draft, setDraft] = useState<string | null>(null)
-  const value = draft ?? compatibleBaseUrl
-  const inputId = useId()
-  const effective = normalizeBaseUrl(value)
-  const page = currentPage()
-  const origin = page?.origin ?? ''
-  // Said before anything is sent: the browser would refuse it.
-  const blocked = page && value.trim() && blockedBeforeSending(page, effective)
-
   return (
     <div>
       <p className="text-sm font-medium">OpenAI-compatible server</p>
       <p className="mt-0.5 text-xs text-fg-subtle">
-        Ollama, LM Studio, vLLM, OpenRouter, or anything else that speaks
-        OpenAI's API.
+        For embeddings and voice notes: Ollama, LM Studio, vLLM, or anything
+        else that speaks OpenAI's API. Chat’s servers are set up in Chat below,
+        each with its own address.
       </p>
-      <label htmlFor={inputId} className="mt-3 block text-xs text-fg-muted">
-        Address
-      </label>
-      <div className="mt-1 flex items-center rounded-2xl bg-tint px-4 py-1.5 ring-orange-300/60 focus-within:ring-2">
-        <input
-          id={inputId}
-          type="url"
-          inputMode="url"
-          value={value}
-          onChange={(event) => setDraft(event.target.value)}
-          onBlur={() => {
-            setCompatibleBaseUrl(value.trim())
-            setDraft(null)
-          }}
-          onKeyDown={(event) =>
-            event.key === 'Enter' && event.currentTarget.blur()
-          }
-          placeholder="http://localhost:11434/v1"
-          spellCheck={false}
-          autoComplete="off"
-          className="min-w-0 flex-1 bg-transparent py-1.5 font-mono text-sm outline-none placeholder:text-fg-subtle focus-visible:outline-none"
-        />
+      <div className="mt-3">
+        <AddressField value={compatibleBaseUrl} onSave={setCompatibleBaseUrl} />
       </div>
-      {value.trim() && effective !== value.trim() && (
-        <p className="mt-1.5 text-xs text-fg-subtle">
-          Requests go to <span className="font-mono">{effective}</span>
-        </p>
-      )}
-      {blocked && (
-        <p
-          role="alert"
-          className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-amber-200 light:text-amber-700"
-        >
-          <AlertIcon className="mt-px shrink-0" />
-          <span>
-            {page.webkit ? 'Safari' : 'The browser'} won’t send anything to this
-            address from here: this copy of Momentum is served over https, and a
-            plain http address can’t be reached from it
-            {page.webkit ? ', even on this computer' : ''}. Open Momentum from{' '}
-            <span className="font-mono">http://localhost:4173</span> instead, or
-            give the server an https address.
-          </span>
-        </p>
-      )}
       <p className="mt-3 mb-1 text-xs text-fg-muted">
         Key (if the server needs one)
       </p>
@@ -231,40 +177,10 @@ function CompatibleProvider() {
         provider="compatible"
         onChange={() => void refreshModelsAfterKeyChange('compatible')}
       />
-      <details className="mt-3 text-xs text-fg-subtle">
-        <summary className="cursor-pointer text-fg-muted">
-          Using Ollama on this computer?
-        </summary>
-        <p className="mt-2 leading-relaxed">
-          Browsers only let a page talk to a local server that allows it. Start
-          Ollama with{' '}
-          <code className="rounded bg-tint px-1 py-0.5 font-mono break-all">
-            OLLAMA_ORIGINS={origin}
-          </code>{' '}
-          set, then use the address above. Ollama doesn't need a key. With the
-          Ollama app on a Mac, run{' '}
-          <code className="rounded bg-tint px-1 py-0.5 font-mono break-all">
-            launchctl setenv OLLAMA_ORIGINS "{origin}"
-          </code>{' '}
-          and quit and reopen it.
-        </p>
-      </details>
-      <p className="mt-2 text-xs text-fg-subtle">
-        This copy of Momentum is open at{' '}
-        <span className="font-mono break-all text-fg-muted">{origin}</span>
-        {page?.installed ? ', as an installed app' : ''}. That’s the origin a
-        server must allow.
-      </p>
+      <OriginHelp />
     </div>
   )
 }
-
-const CHAT_PROVIDERS: readonly SegmentedOption<ChatProviderId>[] = [
-  { value: 'anthropic', label: 'Anthropic' },
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'compatible', label: 'Compatible' },
-  { value: 'browser', label: 'This device' },
-]
 
 const EMBEDDING_PROVIDERS: readonly SegmentedOption<EmbeddingProviderId>[] = [
   { value: 'openai', label: 'OpenAI' },
@@ -278,12 +194,10 @@ const TRANSCRIPTION_PROVIDERS: readonly SegmentedOption<TranscriptionProviderId>
     { value: 'compatible', label: 'Compatible' },
   ]
 
-const TASK_COPY: Record<AiTask, { title: string; description: string }> = {
-  chat: {
-    title: 'Chat',
-    description:
-      'Answers, summaries, flashcards and planning help: from a provider, or a model that runs on this device.',
-  },
+const TASK_COPY: Record<
+  Exclude<AiTask, 'chat'>,
+  { title: string; description: string }
+> = {
   embeddings: {
     title: 'Embeddings',
     description:
@@ -296,7 +210,7 @@ const TASK_COPY: Record<AiTask, { title: string; description: string }> = {
   },
 }
 
-function TaskCard({ task }: { task: AiTask }) {
+function TaskCard({ task }: { task: Exclude<AiTask, 'chat'> }) {
   const settings = useStore(aiSettingsStore)
   const readiness = useAiReadiness(task)
   const { provider, model } = selection(settings, task)
@@ -304,16 +218,7 @@ function TaskCard({ task }: { task: AiTask }) {
   return (
     <SettingsCard title={copy.title} description={copy.description}>
       <div className="space-y-4">
-        {task === 'chat' ? (
-          <SegmentedControl
-            label="Chat provider"
-            value={provider as ChatProviderId}
-            options={CHAT_PROVIDERS}
-            onChange={(next) => setTaskProvider('chat', next)}
-            compact
-            wrap
-          />
-        ) : task === 'embeddings' ? (
+        {task === 'embeddings' ? (
           <SegmentedControl
             label="Embeddings provider"
             value={provider as EmbeddingProviderId}
@@ -328,13 +233,8 @@ function TaskCard({ task }: { task: AiTask }) {
             onChange={(next) => setTaskProvider('transcription', next)}
           />
         )}
-        {provider === 'browser' && task === 'chat' ? (
-          <Suspense
-            fallback={<p className="text-xs text-fg-subtle">Checking…</p>}
-          >
-            <LocalChatField modelId={model} />
-          </Suspense>
-        ) : provider === 'browser' ? (
+        {task === 'embeddings' && provider !== 'browser' && <HomeMachineTip />}
+        {provider === 'browser' ? (
           <LocalModelField modelId={model} />
         ) : (
           <ModelField task={task} provider={provider} model={model} />
@@ -342,5 +242,39 @@ function TaskCard({ task }: { task: AiTask }) {
         <TestConnection task={task} readiness={readiness} />
       </div>
     </SettingsCard>
+  )
+}
+
+/**
+ * Chat on a computer at home that's often off is fine (it falls back), but
+ * embeddings never switch on their own: an index has to come from one
+ * model. So the small model on this device is suggested for them.
+ */
+function HomeMachineTip() {
+  const { chat } = useStore(aiSettingsStore)
+  const home = chat.chain.find(
+    (entry) =>
+      entry.provider === 'compatible' &&
+      entry.baseUrl.trim() &&
+      isPrivateAddress(normalizeBaseUrl(entry.baseUrl)),
+  )
+  if (!home) return null
+  return (
+    <div className="rounded-2xl bg-tint px-4 py-3 text-xs leading-relaxed text-fg-muted">
+      <p>
+        Chat runs on {home.name}, which can be off or asleep. Chat falls back to
+        the next provider then, but embeddings never switch on their own (search
+        needs every passage from the same model), so they’d wait until it’s
+        back. The small model on this device is always here: it’s the dependable
+        choice.
+      </p>
+      <button
+        type="button"
+        onClick={() => setTaskProvider('embeddings', 'browser')}
+        className="mt-2 rounded-full bg-tint px-3 py-1.5 font-semibold transition hover:bg-line"
+      >
+        Use the model on this device
+      </button>
+    </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useId } from 'react'
 import { AlertIcon, CheckIcon } from '@/components/icons'
 import { cn } from '@/lib/cn'
 import { useStore } from '@/lib/store'
@@ -12,7 +12,6 @@ import {
 import { localChatStore, type ModelFiles } from '../local/chatState'
 import { CHAT_IDLE_MS } from '../local/chat'
 import { checkGpu, gpuStore, noGpuMessage } from '../local/webgpu'
-import { setTaskModel } from '../store'
 
 const button =
   'shrink-0 rounded-full bg-tint px-4 py-2 text-xs font-semibold transition hover:bg-line disabled:opacity-40'
@@ -22,9 +21,17 @@ const button =
  * models with their sizes, and downloading or removing each. Nothing
  * downloads until you press Download.
  */
-export function LocalChatField({ modelId }: { modelId: string }) {
+export function LocalChatField({
+  modelId,
+  onChoose,
+}: {
+  modelId: string
+  /** A model is picked (for the provider in chat's list this is for). */
+  onChoose: (modelId: string) => void
+}) {
   const gpu = useStore(gpuStore)
   const state = useStore(localChatStore)
+  const group = useId()
 
   useEffect(() => {
     void checkGpu().then(() => localChat.refresh())
@@ -62,6 +69,8 @@ export function LocalChatField({ modelId }: { modelId: string }) {
             precision={precision}
             files={state.files[model.id] ?? { status: 'unknown' }}
             chosen={model.id === modelId}
+            onChoose={() => onChoose(model.id)}
+            group={group}
             download={
               state.download?.model === model.id ? state.download : null
             }
@@ -122,6 +131,8 @@ function ModelRow({
   precision,
   files,
   chosen,
+  onChoose,
+  group,
   download,
   busy,
   ready,
@@ -131,13 +142,16 @@ function ModelRow({
   precision: Precision
   files: ModelFiles
   chosen: boolean
+  onChoose: () => void
+  /** The radio group's name. */
+  group: string
   download: { loaded: number; total: number; fraction: number } | null
   busy: boolean
   ready: boolean
   /** Bytes the browser will still let Momentum keep, when it says. */
   room: number | null
 }) {
-  const id = `local-chat-${model.id}`
+  const id = `${group}-${model.id}`
   const start = () => void localChat.download(model.id)
   const remove = () => void localChat.remove(model.id)
   const here = files.status === 'stored' || files.status === 'partial'
@@ -157,9 +171,9 @@ function ModelRow({
         <input
           id={id}
           type="radio"
-          name="local-chat-model"
+          name={group}
           checked={chosen}
-          onChange={() => setTaskModel('chat', model.id, 'browser')}
+          onChange={onChoose}
           className="mt-1 size-4 shrink-0 accent-orange-400"
         />
         <label htmlFor={id} className="min-w-0 flex-1 cursor-pointer">
