@@ -77,7 +77,7 @@ function Chrome({ children }: { children: ReactNode }) {
   ])
 
   // A new page starts at the top.
-  useEffect(() => window.scrollTo(0, 0), [location])
+  useEffect(() => { window.scrollTo(0, 0) }, [location])
   // Pages fade in when you move between them (not between settings sections).
   const page = location.split('/')[1] ?? ''
 
