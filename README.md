@@ -130,15 +130,16 @@ npm run dev        # http://localhost:5173
 
 To try it on your phone over your local network, run `npm run dev -- --host`.
 
-| Script              | What it does                    |
-| ------------------- | ------------------------------- |
-| `npm run dev`       | Start the dev server            |
-| `npm run build`     | Type-check and build to `dist/` |
-| `npm run preview`   | Serve the production build      |
-| `npm test`          | Run the unit tests (Vitest)     |
-| `npm run lint`      | Lint with oxlint                |
-| `npm run typecheck` | Type-check only                 |
-| `npm run format`    | Format with Prettier            |
+| Script              | What it does                                   |
+| ------------------- | ---------------------------------------------- |
+| `npm run dev`       | Start the dev server                           |
+| `npm run build`     | Type-check and build to `dist/`                |
+| `npm run preview`   | Serve the production build                     |
+| `npm run desktop`   | Serve it at `localhost:4173`, for the Dock app |
+| `npm test`          | Run the unit tests (Vitest)                    |
+| `npm run lint`      | Lint with oxlint                               |
+| `npm run typecheck` | Type-check only                                |
+| `npm run format`    | Format with Prettier                           |
 
 ## Adding your mountain photograph
 
@@ -172,8 +173,9 @@ Open **Settings → AI**.
 
 **Ollama on your computer:** start it so the browser may reach it, e.g.
 `OLLAMA_ORIGINS=http://localhost:5173 ollama serve` (use the address you open
-Momentum at), then use `http://localhost:11434` as the server address. No key
-needed.
+Momentum at: Settings → AI shows it, under the server address), then use
+`http://localhost:11434` as the server address. No key needed. For the app
+in a Mac's Dock, see [On a Mac's Dock](#on-a-macs-dock).
 
 **Thinking and reply length:** under **Replies**, each AI feature (Ask,
 flashcards, quizzes, summaries, Plan my day, notes from photos) has a
@@ -546,6 +548,57 @@ Momentum is a progressive web app. In Chrome or Edge use **Install app**
 loaded it works offline. Try a production build locally with
 `npm run build && npm run preview` — the service worker isn't active in
 `npm run dev`.
+
+### On a Mac's Dock
+
+Safari's **File → Add to Dock** makes Momentum an app of its own. It isn't
+a separate build: it's the page you added, running at that page's address
+(its _origin_), with storage of its own (your data in a Safari tab doesn't
+carry over; use a backup or sync to move it). The origin decides what it
+can reach:
+
+- **Added from `http://localhost:4173`** (as below), it can reach a server
+  on this Mac (`http://localhost:11434`, `http://127.0.0.1:…`) and HTTPS
+  addresses such as your Tailscale `https://….ts.net` ones.
+- **Added from an `https://` address** (a hosted copy, or one served by
+  `tailscale serve`), Safari won't let it reach any plain `http://` address,
+  not even `localhost`: it blocks the request before it's sent (Chrome
+  allows `localhost`). It can still reach `https://` servers.
+
+To install the desktop app so it can use Ollama on the same Mac:
+
+```bash
+npm install && npm run build
+npm run desktop          # serves the build at http://localhost:4173, always that port
+```
+
+Then open http://localhost:4173 in Safari, choose **File → Add to Dock**,
+and allow its origin in Ollama (the Ollama app reads it from `launchctl`;
+quit and reopen Ollama afterwards):
+
+```bash
+launchctl setenv OLLAMA_ORIGINS "http://localhost:4173"
+```
+
+Settings → AI shows the exact origin of whichever copy you're in, under
+the server address, and warns before sending if the browser would block
+it. Once loaded, the Dock app works offline; the server is only needed to
+install it and to get updates. To keep it running whenever you're logged
+in (so updates arrive by themselves), install the launch agent:
+
+```bash
+sed -e "s#__REPO__#$PWD#g" -e "s#__NODE__#$(command -v node)#g" \
+  docs/desktop/com.momentum.desktop.plist \
+  > ~/Library/LaunchAgents/com.momentum.desktop.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.momentum.desktop.plist
+```
+
+(`launchctl bootout gui/$(id -u)/com.momentum.desktop` stops it.) After
+`git pull` and `npm run build`, the Dock app offers the new version. On a
+Linux PC running Ollama as a service, allow the same origin with
+`sudo systemctl edit ollama`, adding `Environment="OLLAMA_ORIGINS=http://localhost:4173"`
+under `[Service]`, then `sudo systemctl restart ollama`. Add the origins of
+any other copies (a laptop's, a hosted one) separated by commas.
 
 **Hosting:** `dist/` is a static site. Pages have real paths (`/settings/ai`),
 so the host should serve `index.html` for unknown paths (the usual

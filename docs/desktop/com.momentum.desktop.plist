@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Serves the built Momentum at http://localhost:4173 whenever you're logged
+  in, so the copy in the Dock always has the same origin and gets updates.
+  __NODE__ and __REPO__ are filled in by the command in the README.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.momentum.desktop</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__NODE__</string>
+    <string>__REPO__/node_modules/vite/bin/vite.js</string>
+    <string>preview</string>
+    <string>--port</string>
+    <string>4173</string>
+    <string>--strictPort</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>__REPO__</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/momentum-desktop.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/momentum-desktop.log</string>
+</dict>
+</plist>
