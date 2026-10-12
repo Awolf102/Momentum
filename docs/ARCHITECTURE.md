@@ -499,6 +499,7 @@ Everything persisted, and where:
 | `embeddingSources`, `embeddingVectors` | The search-by-meaning index (above); rebuilt, never backed up          |
 | `kv` › `momentum.embeddings`           | Notes and documents kept out of that index                             |
 | Cache Storage `momentum-models`        | The model on this device and its engine, once downloaded               |
+| Cache Storage `webllm/*`               | The chat model on this device: weights in shards, tokenizer, its code  |
 | `conversations`                        | Conversations with the assistant (above)                               |
 | `kv` › `momentum.assistant`            | Which parts of your plans the planning assistant may see               |
 | `cards`                                | Flashcards and their schedules (above)                                 |
@@ -677,8 +678,9 @@ feature ─► ai.chat / ai.complete / ai.embed / ai.transcribe
   speech to text, so it isn't offered for them.
   Embeddings can also come from **this device** (`browser`): a small model run
   in a worker (see Search by meaning), behind the same `ai.embed`, so retries,
-  the gate and errors work the same. Nothing it does is counted as usage: it
-  costs nothing and sends nothing.
+  the gate and errors work the same. So can chat: a Qwen3.5 model on the GPU
+  (see Chat on this device), behind the same `ai.chat`. Nothing either does is
+  counted as usage: it costs nothing and sends nothing.
 - **Models are never hardcoded.** The model is text the user chooses, with
   suggestions from the provider's own model list. Anthropic's Models API also
   reports each model's largest `max_tokens`; the adapter caps requests to it
@@ -748,6 +750,75 @@ feature ─► ai.chat / ai.complete / ai.embed / ai.transcribe
 - **Tests** use `createMockProvider` for the client, fake SDK clients for the
   adapters, and both real SDKs against a local stand-in server for the end-to-end
   request and stream shapes.
+
+### Chat on this device
+
+`browser` is a chat provider as well as an embeddings one: a small chat model
+downloaded once and run on this device's GPU, through WebGPU, with no
+server, key or connection after the download. Every AI feature uses it
+unchanged, through `ai.chat`.
+
+- **The models** (`local/chatModels.ts`): Qwen3.5 0.8B, 2B (the default,
+  recommended for an 8 GB Mac) and 4B (which warns that 8 GB may not be
+  enough), each with its download size and memory need. Each has two
+  WebLLM builds: 4-bit weights with 16-bit numbers (`q4f16_1`) where the GPU
+  has `shader-f16` (Apple silicon does), 32-bit (`q4f32_1`) otherwise. The
+  builds and their code are WebLLM's own, for the version pinned in
+  `package.json` (0.2.86; a test checks the list against WebLLM's). Their
+  context is 16,384 tokens (8,192 for 4B), longer than WebLLM's 4,096, so a
+  quiz's material fits.
+- **WebLLM, not Transformers.js.** Both have Qwen3.5 builds. WebLLM (MLC)
+  publishes each build's memory need, keeps its weights in shards (so an
+  interrupted download picks up from the last whole one), has Qwen's
+  thinking switch (`enable_thinking`), a length cap, streaming with usage
+  and a way to interrupt, and compiles its GPU code ahead of time, which
+  writes faster. Transformers.js still installs Node-only parts (ONNX
+  Runtime's native build, an image library) and a second ONNX Runtime, the
+  reason MiniLM uses ONNX Runtime directly. What's reused from MiniLM is the
+  approach: a module worker over `lib/rpc.ts`, files in Cache Storage
+  downloaded on request with progress, a Remove, and a worker that sleeps
+  when unused.
+- **Its files** stay in WebLLM's caches (`webllm/model`, `webllm/config`,
+  `webllm/wasm`), one entry per file; `local/chatCache.ts` reads them by
+  address (without loading WebLLM) to say whether a build is all here,
+  partly here (with how much of the weights) or absent, how many bytes it
+  takes, and to remove it. Downloading asks `navigator.storage.persist()`
+  first, and Settings says whether the browser agreed and how much room
+  Momentum has (`navigator.storage.estimate()`), warning when a model may
+  not fit.
+- **Downloading isn't loading.** **Download** starts a worker that runs
+  WebLLM's own load, which fetches every file into the caches before it
+  puts the weights on the GPU; as it moves on to that, the worker is
+  stopped, so a download leaves nothing in the GPU's memory. Cancel stops
+  it the same way, keeping the shards that arrived; **Resume** fetches only
+  the rest.
+- **Running** (`local/chat.ts`, `local/chat.worker.ts`). The first request
+  starts the worker and loads the model (never at start-up); it stays loaded
+  while it's used and is unloaded ten minutes after the last request, the
+  worker stopped to give the memory back. Replies stream as `chunk` events,
+  with WebLLM's `<think>` block taken out as with any server; the feature's
+  Thinking switch becomes `enable_thinking`, and the reply cap `max_tokens`.
+  Stop (or a request's signal) interrupts the reply, which ends as stopped.
+  Pictures are refused (these builds read text only), and a request longer
+  than the model's context says so plainly, without unloading it.
+- **When it fails.** Without WebGPU, Settings and every request say so in
+  plain words and suggest updating the browser or another provider; there's
+  no CPU fallback. A model that runs out of memory, or loses its GPU (WebLLM's
+  `DeviceLostError`, an allocation failure, or the worker crashing), is
+  unloaded and the error suggests the next smaller model; the worker is
+  separate, so the rest of Momentum carries on, and the next request starts
+  afresh. Before its files are here, readiness is `not-downloaded`, so
+  features show their "set up AI" card.
+- **Test connection** loads the model and has it count to twenty, then says
+  how long the first words took (loading included) and how many tokens a
+  second it wrote.
+- **Privacy.** Nothing is sent: Ask says "Stays on this device", the send
+  preview says the model here reads it, and marking a quiz answer says
+  nothing is sent.
+- **Size:** the worker is 6.1 MB (2.2 MB compressed), WebLLM included, and
+  loads only when the model on this device is first used; it isn't
+  precached. The Settings card is its own 2.2 kB chunk, loaded when **This
+  device** is chosen for chat.
 
 ### Local servers and the installed app
 
@@ -2200,7 +2271,16 @@ link, clean MathML), the daily log (one line per day, edits, deletion, tidying, 
 must leave alone; repeating schedules through short months and missed dates;
 finishing, reopening, board moves, grouping), the AI
 layer (retries, Retry-After, the gate, error mapping, both adapters and
-cancelled streams, usage and cost, settings parsing; what the browser won't
+cancelled streams, usage and cost, settings parsing; chat on this device:
+no WebGPU, downloading with progress, a download stopped and picked up
+again, Cancel and Remove, loading on first use and once, the thinking
+switch and the cap passed on, Stop, the length limit, unloading after ten
+minutes, running out of memory and the GPU lost (unloaded, a smaller model
+suggested, a fresh start after), a crashed worker, a request too long, no
+pictures, the 32-bit build for GPUs without 16-bit numbers, WebLLM's
+progress and errors read, its cache entries counted and removed, the
+models checked against WebLLM's own list, readiness until downloaded, and
+Test connection's timing; what the browser won't
 send: http from an https page in Safari, even to loopback, and in other
 browsers except to loopback, refused before a provider is made, with the
 page's origin named when a server can't be reached, and a page policy's

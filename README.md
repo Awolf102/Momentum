@@ -113,7 +113,8 @@ day, keep the flame lit, and watch your streak grow.
   yourself, encrypted on your device before it's sent, so the server can't
   read any of it.
 - **Optional AI, with your own key:** Anthropic, OpenAI, or a server such as
-  Ollama — or, for search by meaning, nothing but this device. Momentum works
+  Ollama — or nothing but this device: a chat model and search by meaning
+  that run in the browser. Momentum works
   fully without it. Before anything is sent, you see exactly what goes and
   to whom (and, before indexing, roughly what it costs); afterwards, how many
   tokens it used. (More AI features arrive in later phases; see
@@ -176,6 +177,16 @@ Open **Settings → AI**.
 Momentum at: Settings → AI shows it, under the server address), then use
 `http://localhost:11434` as the server address. No key needed. For the app
 in a Mac's Dock, see [On a Mac's Dock](#on-a-macs-dock).
+
+**A chat model on this device:** choose **This device** under Chat. Three
+sizes of Qwen3.5 run in the browser on your Mac's graphics processor
+(WebGPU: Safari 26 or a recent Chrome): 0.8B, **2B** (recommended for an
+8 GB Mac) and 4B (needs more memory than an 8 GB Mac comfortably has).
+Press **Download** once (about 0.5, 1.1 or 2.4 GB, from Hugging Face; a
+download that stops picks up where it left off), then it works offline and
+nothing you ask leaves the device. It loads the first time you use it and
+unloads after ten minutes unused; if it runs out of memory, it's unloaded
+and Momentum suggests the smaller one. **Remove** frees the space.
 
 **Thinking and reply length:** under **Replies**, each AI feature (Ask,
 flashcards, quizzes, summaries, Plan my day, notes from photos) has a
@@ -609,7 +620,8 @@ itself.
 
 React 19 · TypeScript · Vite · Tailwind CSS v4 · Motion · wouter · IndexedDB (idb) ·
 marked, DOMPurify, KaTeX and highlight.js for notes, pdf.js for the library, ONNX
-Runtime Web and Hugging Face's tokenizer for search by meaning, ts-fsrs for
+Runtime Web and Hugging Face's tokenizer for search by meaning, WebLLM for chat
+on this device, ts-fsrs for
 cards, and the Anthropic and OpenAI SDKs (all loaded on demand) · Web Audio · Workbox (vite-plugin-pwa) · Vitest
 
 ## Project structure

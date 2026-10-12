@@ -15,6 +15,8 @@ interface SegmentedControlProps<T extends string> {
   onChange: (value: T) => void
   /** Tighter padding, for several options in a narrow space. */
   compact?: boolean
+  /** Two to a row on phones, for options too wide to share one. */
+  wrap?: boolean
 }
 
 export function SegmentedControl<T extends string>({
@@ -23,13 +25,19 @@ export function SegmentedControl<T extends string>({
   options,
   onChange,
   compact = false,
+  wrap = false,
 }: SegmentedControlProps<T>) {
   const indicatorId = useId()
   return (
     <div
       role="radiogroup"
       aria-label={label}
-      className="flex rounded-full bg-tint p-1"
+      className={cn(
+        'bg-tint p-1',
+        wrap
+          ? 'grid grid-cols-2 gap-1 rounded-[22px] sm:flex sm:gap-0 sm:rounded-full'
+          : 'flex rounded-full',
+      )}
     >
       {options.map((option) => {
         const selected = option.value === value

@@ -71,3 +71,10 @@ export function formatElapsed(ms: number): string {
   if (seconds < 60) return `${seconds} s`
   return `${Math.floor(seconds / 60)} min ${String(seconds % 60).padStart(2, '0')} s`
 }
+
+/** A size on disk or in memory: "412 MB", "1.1 GB". */
+export function formatSize(bytes: number): string {
+  if (bytes < 1_000_000_000) return formatMegabytes(bytes)
+  const gigabytes = bytes / 1_000_000_000
+  return `${gigabytes < 10 ? gigabytes.toFixed(1) : Math.round(gigabytes)} GB`
+}

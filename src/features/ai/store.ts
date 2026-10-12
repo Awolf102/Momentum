@@ -8,6 +8,7 @@ import {
   type UsageData,
   type UsageTotals,
 } from './lib/usage'
+import { DEFAULT_LOCAL_CHAT_MODEL } from './local/chatModels'
 import { DEFAULT_LOCAL_MODEL } from './local/models'
 import {
   CHAT_PROVIDER_IDS,
@@ -194,9 +195,14 @@ export function selection(
 ): { provider: ProviderId; model: string } {
   const { provider, models } = settings[task] as TaskSettings<ProviderId>
   const model = (models[provider] ?? '').trim()
-  // The model on this device is built in, so there's always one.
+  // The models on this device are built in, so there's always one.
   if (provider === 'browser')
-    return { provider, model: model || DEFAULT_LOCAL_MODEL }
+    return {
+      provider,
+      model:
+        model ||
+        (task === 'chat' ? DEFAULT_LOCAL_CHAT_MODEL : DEFAULT_LOCAL_MODEL),
+    }
   return { provider, model }
 }
 

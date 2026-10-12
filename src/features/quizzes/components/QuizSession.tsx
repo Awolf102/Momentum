@@ -293,6 +293,7 @@ export function QuizSession({
               readiness.ready
                 ? {
                     provider: PROVIDERS[readiness.provider].label,
+                    local: PROVIDERS[readiness.provider].local,
                     checking,
                     progress,
                     problem: checkProblem,
@@ -432,6 +433,8 @@ function ShortAnswer({
   answer: Answer
   ai: {
     provider: string
+    /** The model on this device: nothing is sent. */
+    local: boolean
     checking: boolean
     progress: ReplyProgress
     problem: string | null
@@ -527,8 +530,9 @@ function ShortAnswer({
                 />
               ) : (
                 <p className="text-xs text-fg-subtle">
-                  Sends the question, the model answer and your answer to{' '}
-                  {ai.provider}.
+                  {ai.local
+                    ? 'The model on this device reads the question, the model answer and your answer: nothing is sent.'
+                    : `Sends the question, the model answer and your answer to ${ai.provider}.`}
                 </p>
               )}
             </div>

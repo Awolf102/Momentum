@@ -55,9 +55,9 @@ export function RepliesCard() {
           <p className="mt-0.5 text-xs leading-relaxed text-fg-subtle">
             Small models on your own computer (Qwen on Ollama, say) think before
             they answer, which can take a minute or more. Off, they answer
-            straight away. This is sent to OpenAI-compatible servers such as
-            Ollama and OpenRouter; Anthropic’s and OpenAI’s models don’t think
-            unless asked, so they aren’t affected.
+            straight away. This applies to OpenAI-compatible servers such as
+            Ollama and OpenRouter, and the model on this device; Anthropic’s and
+            OpenAI’s models don’t think unless asked, so they aren’t affected.
           </p>
           <ul className="mt-3 divide-y divide-line">
             {CHAT_FEATURES.map((feature) => (
