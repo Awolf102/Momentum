@@ -32,7 +32,8 @@ export async function createQuiz(
     subjectId,
     sources,
     questions,
-  }: Pick<Quiz, 'title' | 'subjectId' | 'sources' | 'questions'>,
+    madeBy,
+  }: Pick<Quiz, 'title' | 'subjectId' | 'sources' | 'questions' | 'madeBy'>,
   now: Date = new Date(),
 ): Promise<Quiz> {
   const stamp = now.toISOString()
@@ -42,6 +43,7 @@ export async function createQuiz(
     subjectId,
     sources,
     questions,
+    ...(madeBy ? { madeBy } : {}),
     attempts: [
       newAttempt(
         questions.map((question) => question.id),

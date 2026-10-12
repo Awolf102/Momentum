@@ -4,6 +4,7 @@ import {
   aiSettingsStore,
   describeAiError,
   isAiError,
+  type ChatSource,
   type StopReason,
   type TokenUsage,
 } from '@/features/ai'
@@ -79,6 +80,8 @@ async function answer(
   conversation: Conversation,
   question: Message,
   history: readonly Message[],
+  /** Ask the providers after this one ("Retry with next provider"). */
+  after?: string,
 ): Promise<void> {
   const readiness = aiReadiness(
     aiSettingsStore.get(),
@@ -92,6 +95,7 @@ async function answer(
     createdAt: new Date().toISOString(),
     provider: readiness.provider,
     model: readiness.ready ? readiness.model : undefined,
+    via: readiness.ready ? readiness.entry?.name : undefined,
     pending: true,
   }
   await saveConversation({
@@ -114,7 +118,11 @@ async function answer(
   let text = ''
   let usage: TokenUsage | undefined
   let stopReason: StopReason | undefined
+  let source: ChatSource | undefined
   let final: Message
+  // Who answered (or failed), as it's known.
+  const by = (from: ChatSource | undefined) =>
+    from ? { provider: from.provider, model: from.model, via: from.name } : {}
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
     for await (const event of ai.chat({
@@ -123,6 +131,7 @@ async function answer(
       maxTokens: ANSWER_TOKENS,
       feature: 'ask',
       signal: controller.signal,
+      ...(after ? { after } : {}),
     })) {
       if (event.type === 'text') {
         text += event.text
@@ -133,9 +142,11 @@ async function answer(
         }, 40)
       } else if (event.type === 'usage') usage = event.usage
       else if (event.type === 'done') stopReason = event.stopReason
+      else if (event.type === 'source') source = event.source
     }
     final = {
       ...reply,
+      ...by(source),
       text,
       usage,
       pending: undefined,
@@ -146,12 +157,18 @@ async function answer(
     const stopped =
       controller.signal.aborted ||
       (isAiError(error) && error.kind === 'aborted')
+    const failed = isAiError(error) ? error.source : undefined
     final = {
       ...reply,
+      ...by(failed ?? source),
       text,
       usage,
       pending: undefined,
       ...(stopped ? { stopped: true } : { error: describeAiError(error) }),
+      // Broke off part-way, with another provider that could be asked.
+      ...(!stopped && isAiError(error) && error.retryNext && failed
+        ? { retryAfter: failed.entryId }
+        : {}),
     }
   } finally {
     clearTimeout(timer)
@@ -196,11 +213,13 @@ export function stopAnswer(conversationId: string): void {
 
 /**
  * Asks a question again (after an answer failed or was stopped), with what
- * was sent the first time. Anything after it is replaced.
+ * was sent the first time. Anything after it is replaced. With `after`,
+ * the providers after that one are asked (the one that broke off isn't).
  */
 export async function askAgain(
   conversationId: string,
   replyId: string,
+  { after }: { after?: string } = {},
 ): Promise<void> {
   const conversation = conversations.find(conversationId)
   if (!conversation || controllers.has(conversationId)) return
@@ -210,7 +229,7 @@ export async function askAgain(
   const question = conversation.messages[index - 1]
   if (index < 1 || question?.role !== 'user') return
   const history = conversation.messages.slice(0, index - 1)
-  await answer(conversation, question, history)
+  await answer(conversation, question, history, after)
 }
 
 /** Whether an answer was cut off when the page closed. */

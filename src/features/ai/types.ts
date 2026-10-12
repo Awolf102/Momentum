@@ -54,6 +54,11 @@ export interface ChatRequest {
    * provider has a way to say so; otherwise it's left to the model.
    */
   thinking?: boolean
+  /**
+   * OpenRouter: other models to use when this one can't answer (its
+   * `models` list). The reply says which one did.
+   */
+  fallbackModels?: string[]
   signal?: AbortSignal
 }
 
@@ -65,8 +70,26 @@ export interface TokenUsage {
 /** Why a reply ended: finished, cut off at the length limit, or declined. */
 export type StopReason = 'end' | 'max-tokens' | 'refusal' | 'other'
 
+/** Which of chat's providers answered, and with what model. */
+export interface ChatSource {
+  /** Its entry in chat's list. */
+  entryId: string
+  /** What you call it: "Home PC". */
+  name: string
+  provider: ProviderId
+  model: string
+}
+
 export type ChatEvent =
   | { type: 'text'; text: string }
+  /**
+   * Who's answering (from the client, before the first of a provider's
+   * output); a later one replaces it, e.g. when the server says which
+   * model it used.
+   */
+  | { type: 'source'; source: ChatSource }
+  /** The model the server says answered (OpenRouter may pick another). */
+  | { type: 'model'; model: string }
   /** The model is thinking before it answers (what it thinks isn't kept). */
   | { type: 'thinking' }
   /** Running totals for the request; the last one is final. */

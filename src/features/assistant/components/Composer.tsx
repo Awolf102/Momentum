@@ -14,7 +14,8 @@ import {
   SparkleIcon,
   StopIcon,
 } from '@/components/icons'
-import { describeAiError, PROVIDERS, useAiReadiness } from '@/features/ai'
+import { describeAiError, useSendsTo } from '@/features/ai'
+import { unreachable } from '@/features/embeddings'
 import { cn } from '@/lib/cn'
 import { useStore } from '@/lib/store'
 import type { AskContext } from '../chat'
@@ -61,14 +62,8 @@ export function Composer({
   onStop,
 }: ComposerProps) {
   const text = question.trim()
-  const readiness = useAiReadiness('chat')
-  const destination = readiness.ready
-    ? `${PROVIDERS[readiness.provider].label} (${readiness.model})`
-    : PROVIDERS[readiness.provider].label
-  // The model on this device reads it where it is: nothing is sent.
-  const sendsTo = PROVIDERS[readiness.provider].local
-    ? 'Stays on this device: the model running here reads'
-    : `Sends to ${destination}:`
+  // Who reads it: chat's providers in order (on this device, nothing is sent).
+  const sendsTo = useSendsTo()
   const earlier = conversation.messages.filter(
     (message) => message.text.trim() && !message.error,
   ).length
@@ -137,8 +132,13 @@ export function Composer({
       })
       setFound({ question: text, passages, byMeaning: true })
     } catch (error) {
-      // The passages found by words stay.
-      setMeaningError({ question: text, message: describeAiError(error) })
+      // The passages found by words stay, and that's said.
+      setMeaningError({
+        question: text,
+        message: unreachable(error)
+          ? 'the embeddings provider couldn’t be reached, so these passages match your words only.'
+          : describeAiError(error),
+      })
     } finally {
       setAsking(false)
     }

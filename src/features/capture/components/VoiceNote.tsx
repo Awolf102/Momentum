@@ -87,6 +87,8 @@ export function VoiceNote() {
   } | null>(null)
   const [streamed, setStreamed] = useState('')
   const [cutShort, setCutShort] = useState(false)
+  // Who tidied the notes.
+  const [tidiedBy, setTidiedBy] = useState<string | null>(null)
   const controller = useRef<AbortController | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   // The playback address, let go of when it changes or the page closes.
@@ -210,6 +212,7 @@ export function VoiceNote() {
             !current.trim() || current === givenTitle ? tidiedTitle : current,
           )
         setUntidied(before)
+        setTidiedBy(result.madeBy ?? null)
         setView('read')
       }
       setCutShort(result.stopReason === 'max-tokens')
@@ -277,7 +280,9 @@ export function VoiceNote() {
           </div>
           <p className="text-xs text-fg-subtle">
             {countWords(body).toLocaleString()} words
-            {untidied ? ', tidied into notes' : ', as said'}
+            {untidied
+              ? `, tidied into notes${tidiedBy ? ` by ${tidiedBy}` : ''}`
+              : ', as said'}
           </p>
         </div>
         {cutShort && (
@@ -342,7 +347,8 @@ export function VoiceNote() {
                   Organises it into headings and points, with{' '}
                   {PROVIDERS[chat.provider].local
                     ? 'the model on this device'
-                    : PROVIDERS[chat.provider].label}
+                    : ((chat.ready ? chat.entry?.name : undefined) ??
+                      PROVIDERS[chat.provider].label)}
                   .
                 </p>
               </>
@@ -398,6 +404,7 @@ export function VoiceNote() {
                 what was said.
               </>
             }
+            chat
             provider={chat.provider}
             model={chat.model}
             items={[

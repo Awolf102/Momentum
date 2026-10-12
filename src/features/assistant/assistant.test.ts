@@ -1,7 +1,13 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChatRequest } from '@/features/ai'
-import { setTaskModel, setTaskProvider } from '@/features/ai/store'
+import {
+  addChatEntry,
+  aiSettingsStore,
+  setTaskModel,
+  setTaskProvider,
+  updateChatEntry,
+} from '@/features/ai/store'
 import { setExcluded } from '@/features/embeddings'
 import { documents } from '@/features/library'
 import { saveDocumentText } from '@/features/library/files'
@@ -90,6 +96,11 @@ async function start(mode: 'library' | 'planner' = 'library') {
 }
 
 beforeEach(() => {
+  // One provider for chat, unless a test adds more.
+  aiSettingsStore.set((settings) => ({
+    ...settings,
+    chat: { chain: [settings.chat.chain[0]] },
+  }))
   setTaskProvider('chat', 'compatible')
   setTaskModel('chat', 'local-chat', 'compatible')
   script.requests.length = 0
@@ -285,6 +296,51 @@ describe('asking', () => {
     expect(answer.error).toBeUndefined()
     // Asked again with what was sent the first time.
     expect(requests()[1].messages).toEqual(requests()[0].messages)
+  })
+
+  it('keeps an answer that broke off, says who wrote it, and can ask the next provider', async () => {
+    const first = aiSettingsStore.get().chat.chain[0]
+    updateChatEntry(first.id, { name: 'Home PC' })
+    const mac = addChatEntry('compatible')
+    updateChatEntry(mac, {
+      name: 'Mac',
+      baseUrl: 'https://mac.tail1234.ts.net/v1',
+      model: 'mac-model',
+    })
+    script.reply = (request) =>
+      (request as ChatRequest).model === 'local-chat'
+        ? { chunks: ['Half an'], fail: true }
+        : { chunks: ['The whole answer.'] }
+    const id = await start()
+    await ask(id, 'Why?', { sources: [] })
+    let [, answer] = conversations.find(id)!.messages
+    expect(answer).toMatchObject({
+      text: 'Half an',
+      via: 'Home PC',
+      model: 'local-chat',
+      retryAfter: first.id,
+    })
+    expect(answer.error).toMatch(/busy/i)
+    // Kept as it was, with where it came from.
+    expect(parseConversation(structuredClone(conversations.find(id)!))).toEqual(
+      conversations.find(id),
+    )
+
+    await askAgain(id, answer.id, { after: answer.retryAfter })
+    ;[, answer] = conversations.find(id)!.messages
+    expect(answer).toMatchObject({
+      text: 'The whole answer.',
+      via: 'Mac',
+      model: 'mac-model',
+      stopReason: 'end',
+    })
+    expect(answer.retryAfter).toBeUndefined()
+    expect(answer.error).toBeUndefined()
+    // The second time, the Home PC wasn't asked.
+    expect(requests().map((request) => request.model)).toEqual([
+      'local-chat',
+      'mac-model',
+    ])
   })
 
   it.each([

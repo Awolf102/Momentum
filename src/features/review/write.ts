@@ -1,4 +1,9 @@
-import { ai, type ReplyPhase, type RetryInfo } from '@/features/ai'
+import {
+  ai,
+  formatSource,
+  type ReplyPhase,
+  type RetryInfo,
+} from '@/features/ai'
 import type { WeekSummary } from './lib/week'
 import {
   readWriteUp,
@@ -33,7 +38,7 @@ export async function writeUpWeek(
     onProgress?: (phase: ReplyPhase) => void
   } = {},
 ): Promise<WrittenReview> {
-  const { text, stopReason } = await ai.complete({
+  const { text, stopReason, source } = await ai.complete({
     system: REVIEW_SYSTEM,
     messages: [{ role: 'user', content: reviewRequest(summary, parts) }],
     maxTokens: WRITE_UP_TOKENS,
@@ -46,5 +51,9 @@ export async function writeUpWeek(
   // A reply cut off at the length limit keeps what it got to.
   const writeUp = readWriteUp(text, { cutOff })
   if (!writeUp) throw new NoWriteUpError(cutOff)
-  return saveWriteUp(summary.start, cutOff ? { ...writeUp, cutOff } : writeUp)
+  return saveWriteUp(summary.start, {
+    ...writeUp,
+    ...(cutOff ? { cutOff } : {}),
+    ...(source ? { madeBy: formatSource(source) } : {}),
+  })
 }

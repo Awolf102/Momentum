@@ -1,4 +1,9 @@
-import { ai, type ReplyPhase, type RetryInfo } from '@/features/ai'
+import {
+  ai,
+  formatSource,
+  type ReplyPhase,
+  type RetryInfo,
+} from '@/features/ai'
 import { focusSettingsStore } from '@/features/focus'
 import { goals, sortGoals } from '@/features/goals/data'
 import {
@@ -181,7 +186,7 @@ export async function draftPlan(
     onProgress?: (phase: ReplyPhase) => void
   } = {},
 ): Promise<PlanDraft> {
-  const { text, stopReason } = await ai.complete({
+  const { text, stopReason, source } = await ai.complete({
     system: PLAN_SYSTEM,
     messages: [{ role: 'user', content: planRequest(context) }],
     maxTokens: PLAN_REPLY_TOKENS,
@@ -190,7 +195,10 @@ export async function draftPlan(
     onRetry: options.onRetry,
     onProgress: options.onProgress,
   })
-  return readPlan(text, context, { cutOff: stopReason === 'max-tokens' })
+  const draft = readPlan(text, context, {
+    cutOff: stopReason === 'max-tokens',
+  })
+  return source ? { ...draft, madeBy: formatSource(source) } : draft
 }
 
 /** A draft being looked over, for one day, with the blocks to keep. */
@@ -203,6 +211,8 @@ export interface DraftOnPlan {
   dropped: number
   /** The reply was cut off at the length limit. */
   cutOff?: boolean
+  /** Who drafted it. */
+  madeBy?: string
 }
 
 /** The draft on the plan (one at a time), until it's added or put aside. */
@@ -216,6 +226,7 @@ export function showDraft(day: DateKey, draft: PlanDraft): void {
     note: draft.note,
     dropped: draft.dropped,
     cutOff: draft.cutOff,
+    madeBy: draft.madeBy,
   })
 }
 

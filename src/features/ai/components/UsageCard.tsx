@@ -4,9 +4,8 @@ import { useStore } from '@/lib/store'
 import { useToday } from '@/lib/useToday'
 import { formatCost, formatMonth, formatTokens } from '../lib/format'
 import { summarizeMonth, type UsageRow } from '../lib/usage'
-import { PROVIDERS } from '../providers/meta'
+import { usageLabel } from '../chain'
 import { aiSettingsStore, aiUsageStore, resetUsage, setPrice } from '../store'
-import type { ProviderId } from '../types'
 
 /** Tokens used this month per model, with a cost estimate from prices you enter. */
 export function UsageCard() {
@@ -86,8 +85,9 @@ export function UsageCard() {
 
 function UsageLine({ row }: { row: UsageRow }) {
   const [editing, setEditing] = useState(false)
-  const providerLabel =
-    PROVIDERS[row.provider as ProviderId]?.label ?? row.provider
+  const { chain } = useStore(aiSettingsStore).chat
+  // Each of chat's servers is counted apart, under the name you gave it.
+  const providerLabel = usageLabel(row.provider, chain)
   return (
     <li className="py-3">
       <div className="flex items-start justify-between gap-3">

@@ -3,10 +3,12 @@ import { LockIcon } from '@/components/icons'
 import { Sheet } from '@/components/Sheet'
 import { cn } from '@/lib/cn'
 import { useStore } from '@/lib/store'
+import { isCloud, namesInOrder, usageProviderOf } from '../chain'
+import { useChatRoute } from '../hooks/useChatRoute'
 import { formatCost, formatTokenEstimate } from '../lib/format'
 import { usageKey } from '../lib/usage'
 import { PROVIDERS } from '../providers/meta'
-import { aiSettingsStore } from '../store'
+import { aiSettingsStore, entryModel } from '../store'
 import type { ProviderId } from '../types'
 
 /** One thing that would be sent: a note, a document… */
@@ -26,6 +28,12 @@ interface SendPreviewProps {
   purpose: ReactNode
   provider: ProviderId
   model: string
+  /**
+   * A chat request: it goes to the first of chat's providers that can
+   * answer, so they're named in order (and `provider`/`model` are only
+   * where it goes when nothing in the list is set up).
+   */
+  chat?: boolean
   items: readonly SendItem[]
   /** With `onToggle`, each item gets a box: these are unticked (not sent). */
   skipped?: ReadonlySet<string>
@@ -51,8 +59,9 @@ export function SendPreview({
   onClose,
   title,
   purpose,
-  provider,
-  model,
+  provider: givenProvider,
+  model: givenModel,
+  chat = false,
   items,
   skipped,
   onToggle,
@@ -62,10 +71,19 @@ export function SendPreview({
   onSend,
 }: SendPreviewProps) {
   const { prices } = useStore(aiSettingsStore)
-  const price = prices[usageKey(provider, model)]
-  const label = PROVIDERS[provider].label
+  const route = useChatRoute()
+  const first = chat ? route.first : undefined
+  const fallbacks = chat ? route.fallbacks : []
+  const provider = first?.provider ?? givenProvider
+  const model = first ? entryModel(first) : givenModel
+  const price =
+    prices[usageKey(first ? usageProviderOf(first) : provider, model)]
+  const label = first?.name ?? PROVIDERS[provider].label
   // The model on this device reads it here: nothing is sent, or paid for.
   const local = PROVIDERS[provider].local
+  // Fallbacks that would send it somewhere: to a server, or the cloud.
+  const sentOn = fallbacks.filter((entry) => !PROVIDERS[entry.provider].local)
+  const cloudOn = fallbacks.filter(isCloud)
   const sending = items.filter((item) => !skipped?.has(item.id)).length
   const listId = useId()
 
@@ -109,6 +127,21 @@ export function SendPreview({
               </span>
             </dd>
           </div>
+          {fallbacks.length > 0 && (
+            <div className="flex items-baseline justify-between gap-4 rounded-2xl bg-tint px-4 py-2.5">
+              <dt className="shrink-0 text-fg-muted">If it can’t answer</dt>
+              <dd className="min-w-0 text-right font-medium">
+                {fallbacks.map((entry) => (
+                  <span key={entry.id} className="block">
+                    {entry.name}
+                    <span className="ml-1.5 font-mono text-xs font-normal break-all text-fg-subtle">
+                      {entryModel(entry)}
+                    </span>
+                  </span>
+                ))}
+              </dd>
+            </div>
+          )}
           <div className="flex items-baseline justify-between gap-4 rounded-2xl bg-tint px-4 py-2.5">
             <dt className="shrink-0 text-fg-muted">Size</dt>
             <dd className="text-right font-medium">
@@ -189,6 +222,8 @@ export function SendPreview({
           {local
             ? 'Read by the model running on this device: none of it leaves this device.'
             : `Sent straight from this browser to ${label}, with your key. Nothing else is sent.`}
+          {sentOn.length > 0 &&
+            ` If ${local ? 'it' : label} can’t answer, it goes to ${namesInOrder(sentOn)} instead${cloudOn.length > 0 ? ` (${namesInOrder(cloudOn)} ${cloudOn.length === 1 ? 'is a cloud service you allowed' : 'are cloud services you allowed'} as a fallback)` : ''}.`}
         </p>
       </div>
     </Sheet>

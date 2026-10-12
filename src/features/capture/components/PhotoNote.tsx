@@ -13,6 +13,7 @@ import { SegmentedControl } from '@/components/SegmentedControl'
 import { SettingsCard } from '@/components/SettingsCard'
 import {
   describeAiError,
+  formatSource,
   isAiError,
   ReplyStatus,
   SendPreview,
@@ -88,7 +89,12 @@ export function PhotoNote() {
   const [subjectId, setSubjectId] = useState<string | null>(null)
   const [previewing, setPreviewing] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
-  const [cutShort, setCutShort] = useState<'length' | 'stopped' | null>(null)
+  const [cutShort, setCutShort] = useState<
+    'length' | 'stopped' | 'broken' | null
+  >(null)
+  // Who read the photos, and why it broke off, if it did.
+  const [madeBy, setMadeBy] = useState<string | null>(null)
+  const [brokeOff, setBrokeOff] = useState<string | null>(null)
   const [since, setSince] = useState(0)
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -228,7 +234,7 @@ export function PhotoNote() {
       )
     : 0
 
-  function finish(text: string, cut: 'length' | 'stopped' | null) {
+  function finish(text: string, cut: 'length' | 'stopped' | 'broken' | null) {
     const note = noteFromTranscription(text)
     setTitle(note.title)
     setBody(note.body)
@@ -246,6 +252,8 @@ export function PhotoNote() {
     soFar.current = ''
     setProblem(null)
     setCutShort(null)
+    setMadeBy(null)
+    setBrokeOff(null)
     const asking = new AbortController()
     controller.current = asking
     try {
@@ -268,12 +276,20 @@ export function PhotoNote() {
         setPhase('choose')
         return
       }
+      setMadeBy(result.madeBy ?? null)
       finish(result.text, result.stopReason === 'max-tokens' ? 'length' : null)
     } catch (error) {
       if (asking.signal.aborted) {
         // Stopped: keep what came, if anything did.
         if (soFar.current.trim()) finish(soFar.current, 'stopped')
         else setPhase('choose')
+        return
+      }
+      // Broke off part way: what came is kept, with why.
+      if (isAiError(error) && error.partial && soFar.current.trim()) {
+        if (error.source) setMadeBy(formatSource(error.source))
+        setBrokeOff(describeFailure(error))
+        finish(soFar.current, 'broken')
         return
       }
       setProblem(describeFailure(error))
@@ -411,8 +427,14 @@ export function PhotoNote() {
               <p className="mb-4 rounded-2xl bg-amber-400/10 px-4 py-3 text-sm text-amber-200 light:text-amber-800">
                 {cutShort === 'length'
                   ? 'The note was cut short: it ran out of room. Try fewer photos at a time.'
-                  : 'You stopped it part way: this is what came before.'}
+                  : cutShort === 'broken'
+                    ? (brokeOff ??
+                      'It broke off part way: this is what came before.')
+                    : 'You stopped it part way: this is what came before.'}
               </p>
+            )}
+            {madeBy && (
+              <p className="mb-3 text-xs text-fg-subtle">Read by {madeBy}.</p>
             )}
             <input
               value={title}
@@ -588,6 +610,7 @@ export function PhotoNote() {
               doesn’t keep them afterwards.
             </>
           }
+          chat
           provider={readiness.provider}
           model={readiness.model}
           items={photos.map((photo, index) => ({

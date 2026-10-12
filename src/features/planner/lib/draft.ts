@@ -77,6 +77,8 @@ export interface PlanDraft {
   dropped: number
   /** The reply was cut off at the length limit: these are what came. */
   cutOff?: boolean
+  /** Who drafted it: "Home PC · qwen3.6:35b". */
+  madeBy?: string
 }
 
 /** The most tasks sent, and the most blocks taken from a reply. */

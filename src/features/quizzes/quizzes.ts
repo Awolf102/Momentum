@@ -213,6 +213,9 @@ export function parseQuiz(value: unknown): Quiz | null {
       .filter((source): source is QuizSource => source !== null),
     questions,
     attempts,
+    ...(typeof value.madeBy === 'string' && value.madeBy
+      ? { madeBy: value.madeBy.slice(0, MAX_TITLE) }
+      : {}),
     createdAt: typeof createdAt === 'string' ? createdAt : updatedAt,
     updatedAt,
     deletedAt: typeof deletedAt === 'string' ? deletedAt : null,

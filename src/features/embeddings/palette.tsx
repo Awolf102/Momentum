@@ -5,7 +5,7 @@ import { notes } from '@/features/notes'
 import type { MarkedText, MeaningSearch, PaletteResult } from '@/lib/commands'
 import { storeRegistry } from '@/lib/persistentStore'
 import { navigate, paths } from '@/lib/routes'
-import { currentTarget, startAutoIndex } from './indexer'
+import { currentTarget, startAutoIndex, unreachable } from './indexer'
 import { sentences } from './lib/chunk'
 import { searchByMeaning } from './search'
 import type { MeaningHit } from './types'
@@ -99,7 +99,35 @@ export async function meaningSearch(): Promise<MeaningSearch | null> {
     mode: target.local ? 'auto' : 'ask',
     sendsTo: target.local ? undefined : target.label,
     async find(query, signal) {
-      const { hits, searched } = await searchByMeaning(query, { signal })
+      let found: Awaited<ReturnType<typeof searchByMeaning>>
+      try {
+        found = await searchByMeaning(query, { signal })
+      } catch (error) {
+        if (!unreachable(error)) throw error
+        // The provider is off or busy: the results above (by their words)
+        // are what there is, and that's said.
+        return [
+          {
+            id: 'meaning:unreachable',
+            section: SECTION,
+            icon: <SparkleIcon />,
+            title: [
+              {
+                text: `Couldn’t reach ${target.label} to search by meaning`,
+                match: false,
+              },
+            ],
+            snippet: [
+              {
+                text: 'The results above match your words only. Try again when it’s back.',
+                match: false,
+              },
+            ],
+            run: () => navigate(paths.settings('ai')),
+          },
+        ]
+      }
+      const { hits, searched } = found
       if (searched === 0)
         return [
           {

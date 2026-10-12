@@ -7,6 +7,10 @@ import type { ProviderId } from '../types'
 
 interface KeyFieldProps {
   provider: ProviderId
+  /** Where it's kept, when not under the provider's name (a chat server's own). */
+  name?: string
+  /** What it's for, when not the provider: "Home PC". */
+  label?: string
   onChange?: () => void
 }
 
@@ -14,9 +18,15 @@ interface KeyFieldProps {
  * Saves a provider's API key on this device. Once saved, only a masked hint
  * is shown; the key itself is never displayed again.
  */
-export function KeyField({ provider, onChange }: KeyFieldProps) {
+export function KeyField({
+  provider,
+  name = provider,
+  label,
+  onChange,
+}: KeyFieldProps) {
   const meta = PROVIDERS[provider]
-  const hint = useStore(savedSecretsStore).get(provider)
+  const title = label ?? meta.label
+  const hint = useStore(savedSecretsStore).get(name)
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState('')
   const [busy, setBusy] = useState(false)
@@ -26,7 +36,7 @@ export function KeyField({ provider, onChange }: KeyFieldProps) {
     event.preventDefault()
     if (!value.trim()) return
     setBusy(true)
-    await setSecret(provider, value)
+    await setSecret(name, value)
     setValue('')
     setEditing(false)
     setBusy(false)
@@ -34,7 +44,7 @@ export function KeyField({ provider, onChange }: KeyFieldProps) {
   }
 
   async function remove() {
-    await deleteSecret(provider)
+    await deleteSecret(name)
     onChange?.()
   }
 
@@ -44,7 +54,7 @@ export function KeyField({ provider, onChange }: KeyFieldProps) {
         <KeyIcon className="shrink-0 text-fg-subtle" />
         <span
           className="min-w-0 flex-1 truncate font-mono text-xs text-fg-muted"
-          aria-label={`${meta.label} key saved`}
+          aria-label={`${title} key saved`}
         >
           {hint}
         </span>
@@ -72,7 +82,7 @@ export function KeyField({ provider, onChange }: KeyFieldProps) {
       className="flex items-center gap-2 rounded-2xl bg-tint py-1.5 pr-1.5 pl-4 ring-orange-300/60 focus-within:ring-2"
     >
       <label htmlFor={inputId} className="sr-only">
-        {meta.label} API key
+        {title} API key
       </label>
       <input
         id={inputId}

@@ -19,6 +19,12 @@ export interface RetryOptions {
   onRetry?: (info: RetryInfo) => void
   /** Shared per provider: limits concurrency and spreads rate-limit pauses. */
   gate?: RequestGate
+  /**
+   * Which failures are worth trying again on the same provider (by default,
+   * the passing ones). Chat with providers to fall back on retries only
+   * rate limits: the rest go to the next provider instead.
+   */
+  retryable?: (error: AiError) => boolean
   sleep: (ms: number, signal?: AbortSignal) => Promise<void>
   random: () => number
 }
@@ -65,10 +71,16 @@ export function retryDelay(
   attempt: number,
   options: Pick<
     RetryOptions,
-    'attempts' | 'baseDelayMs' | 'maxDelayMs' | 'maxRetryAfterMs' | 'random'
+    | 'attempts'
+    | 'baseDelayMs'
+    | 'maxDelayMs'
+    | 'maxRetryAfterMs'
+    | 'random'
+    | 'retryable'
   >,
 ): number | null {
-  if (!error.retryable || attempt >= options.attempts) return null
+  const worthIt = options.retryable ? options.retryable(error) : error.retryable
+  if (!worthIt || attempt >= options.attempts) return null
   if (error.retryAfterMs !== undefined) {
     return error.retryAfterMs <= options.maxRetryAfterMs
       ? error.retryAfterMs

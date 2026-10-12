@@ -1,4 +1,4 @@
-import { ai, type ReplyPhase } from '@/features/ai'
+import { ai, formatSource, type ReplyPhase } from '@/features/ai'
 import { jsonObject, sourceBody, type SourceText } from '@/features/ai/material'
 import { MAX_FEEDBACK } from './lib/limits'
 import { readQuestions, shuffleChoices, type SentSource } from './lib/questions'
@@ -73,8 +73,10 @@ export async function writeQuestions(
   questions: Question[]
   /** The reply was cut off at the length limit: only whole questions came. */
   cutOff: boolean
+  /** Who wrote them: "Home PC · qwen3.6:35b". */
+  madeBy?: string
 }> {
-  const { text, stopReason } = await ai.complete({
+  const { text, stopReason, source } = await ai.complete({
     system: QUIZ_SYSTEM,
     messages: [{ role: 'user', content: quizRequest(sources, { count, mix }) }],
     maxTokens: QUIZ_REPLY_TOKENS,
@@ -87,7 +89,11 @@ export async function writeQuestions(
     .map((question) =>
       question.kind === 'choice' ? shuffleChoices(question, random) : question,
     )
-  return { questions, cutOff: stopReason === 'max-tokens' }
+  return {
+    questions,
+    cutOff: stopReason === 'max-tokens',
+    ...(source ? { madeBy: formatSource(source) } : {}),
+  }
 }
 
 export const GRADE_SYSTEM = [

@@ -43,6 +43,9 @@ function parseMessage(value: unknown): Message | null {
   if (typeof value.snapshot === 'string') message.snapshot = value.snapshot
   if (typeof value.provider === 'string') message.provider = value.provider
   if (typeof value.model === 'string') message.model = value.model
+  if (typeof value.via === 'string') message.via = value.via
+  if (typeof value.retryAfter === 'string')
+    message.retryAfter = value.retryAfter
   if (
     typeof value.stopReason === 'string' &&
     STOP_REASONS.has(value.stopReason)

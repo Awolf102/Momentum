@@ -1,5 +1,6 @@
 import { isRecord } from '@/lib/guards'
 import { createPersistentStore } from '@/lib/persistentStore'
+import { migrateChat, newEntry, parseChain, type ChatEntry } from './chain'
 import {
   addUsage,
   EMPTY_USAGE,
@@ -11,7 +12,6 @@ import {
 import { DEFAULT_LOCAL_CHAT_MODEL } from './local/chatModels'
 import { DEFAULT_LOCAL_MODEL } from './local/models'
 import {
-  CHAT_PROVIDER_IDS,
   EMBEDDING_PROVIDER_IDS,
   TASK_PROVIDER_IDS,
   TRANSCRIPTION_PROVIDER_IDS,
@@ -33,8 +33,13 @@ interface TaskSettings<P extends ProviderId> {
   models: Partial<Record<P, string>>
 }
 
+/** Chat's providers, in the order they're tried (see `chain.ts`). */
+export interface ChatSettings {
+  chain: ChatEntry[]
+}
+
 export interface AiSettings {
-  chat: TaskSettings<ChatProviderId>
+  chat: ChatSettings
   embeddings: TaskSettings<EmbeddingProviderId>
   /** Speech to text, for voice notes. */
   transcription: TaskSettings<TranscriptionProviderId>
@@ -83,7 +88,7 @@ export const REPLY_LIMITS = [2048, 4096, 8192, 16_384, 32_768] as const
 export const DEFAULT_MAX_REPLY_TOKENS = 8192
 
 export const DEFAULT_AI_SETTINGS: AiSettings = {
-  chat: { provider: 'anthropic', models: {} },
+  chat: { chain: migrateChat(undefined, DEFAULT_COMPATIBLE_URL) },
   embeddings: { provider: 'openai', models: {} },
   transcription: { provider: 'openai', models: {} },
   compatibleBaseUrl: DEFAULT_COMPATIBLE_URL,
@@ -157,8 +162,17 @@ function parseReplyLimit(value: unknown): number {
 
 export function parseAiSettings(data: unknown): AiSettings | null {
   if (!isRecord(data)) return null
+  const compatibleBaseUrl =
+    typeof data.compatibleBaseUrl === 'string'
+      ? data.compatibleBaseUrl
+      : DEFAULT_COMPATIBLE_URL
   return {
-    chat: parseTask(data.chat, CHAT_PROVIDER_IDS, DEFAULT_AI_SETTINGS.chat),
+    // Before chat had a list of providers, it had one: that one comes first.
+    chat: {
+      chain:
+        (isRecord(data.chat) && parseChain(data.chat.chain)) ||
+        migrateChat(data.chat, compatibleBaseUrl),
+    },
     embeddings: parseTask(
       data.embeddings,
       EMBEDDING_PROVIDER_IDS,
@@ -170,10 +184,7 @@ export function parseAiSettings(data: unknown): AiSettings | null {
       TRANSCRIPTION_PROVIDER_IDS,
       DEFAULT_AI_SETTINGS.transcription,
     ),
-    compatibleBaseUrl:
-      typeof data.compatibleBaseUrl === 'string'
-        ? data.compatibleBaseUrl
-        : DEFAULT_COMPATIBLE_URL,
+    compatibleBaseUrl,
     prices: parsePrices(data.prices),
     // Added with thinking control: older settings take the defaults.
     thinking: parseThinking(data.thinking),
@@ -188,38 +199,71 @@ export const aiSettingsStore = createPersistentStore<AiSettings>({
   parse: parseAiSettings,
 })
 
-/** The provider and model a task uses. */
+/** The model an entry uses: the one on this device has one built in. */
+export function entryModel(entry: ChatEntry): string {
+  const model = entry.model.trim()
+  return entry.provider === 'browser'
+    ? model || DEFAULT_LOCAL_CHAT_MODEL
+    : model
+}
+
+/** The provider and model a task uses (for chat, the first in its list). */
 export function selection(
   settings: AiSettings,
   task: AiTask,
 ): { provider: ProviderId; model: string } {
+  if (task === 'chat') {
+    const first = settings.chat.chain[0]
+    return { provider: first.provider, model: entryModel(first) }
+  }
   const { provider, models } = settings[task] as TaskSettings<ProviderId>
   const model = (models[provider] ?? '').trim()
-  // The models on this device are built in, so there's always one.
+  // The model on this device is built in, so there's always one.
   if (provider === 'browser')
-    return {
-      provider,
-      model:
-        model ||
-        (task === 'chat' ? DEFAULT_LOCAL_CHAT_MODEL : DEFAULT_LOCAL_MODEL),
-    }
+    return { provider, model: model || DEFAULT_LOCAL_MODEL }
   return { provider, model }
 }
 
 export function setTaskProvider(task: AiTask, provider: ProviderId): void {
   if (!TASK_PROVIDER_IDS[task].includes(provider)) return
+  if (task === 'chat') {
+    // The first in chat's list becomes that kind of provider.
+    const first = aiSettingsStore.get().chat.chain[0]
+    if (first.provider === provider) return
+    updateChatEntry(first.id, {
+      provider: provider as ChatProviderId,
+      name: newEntry(provider as ChatProviderId, []).name,
+      model: '',
+      baseUrl:
+        provider === 'compatible'
+          ? first.baseUrl || aiSettingsStore.get().compatibleBaseUrl
+          : first.baseUrl,
+    })
+    return
+  }
   aiSettingsStore.set((settings) => ({
     ...settings,
     [task]: { ...settings[task], provider },
   }))
 }
 
-/** Sets the model for a task, for its current provider unless another is named. */
+/**
+ * Sets the model for a task, for its current provider unless another is
+ * named. For chat: the first entry of that kind in its list.
+ */
 export function setTaskModel(
   task: AiTask,
   model: string,
   provider?: ProviderId,
 ): void {
+  if (task === 'chat') {
+    const { chain } = aiSettingsStore.get().chat
+    const entry = provider
+      ? chain.find((each) => each.provider === provider)
+      : chain[0]
+    if (entry) updateChatEntry(entry.id, { model })
+    return
+  }
   aiSettingsStore.set((settings) => {
     const current = settings[task] as TaskSettings<ProviderId>
     return {
@@ -229,6 +273,48 @@ export function setTaskModel(
         models: { ...current.models, [provider ?? current.provider]: model },
       },
     }
+  })
+}
+
+function setChain(change: (chain: ChatEntry[]) => ChatEntry[]): void {
+  aiSettingsStore.set((settings) => {
+    const chain = change(settings.chat.chain)
+    // There's always at least one.
+    return chain.length === 0
+      ? settings
+      : { ...settings, chat: { ...settings.chat, chain } }
+  })
+}
+
+/** Adds a provider at the end of chat's list. Returns its id. */
+export function addChatEntry(provider: ChatProviderId): string {
+  const entry = newEntry(provider, aiSettingsStore.get().chat.chain)
+  setChain((chain) => [...chain, entry])
+  return entry.id
+}
+
+export function updateChatEntry(
+  id: string,
+  change: Partial<Omit<ChatEntry, 'id'>>,
+): void {
+  setChain((chain) =>
+    chain.map((entry) => (entry.id === id ? { ...entry, ...change } : entry)),
+  )
+}
+
+export function removeChatEntry(id: string): void {
+  setChain((chain) => chain.filter((entry) => entry.id !== id))
+}
+
+/** Moves a provider up (-1) or down (+1) chat's list. */
+export function moveChatEntry(id: string, by: -1 | 1): void {
+  setChain((chain) => {
+    const from = chain.findIndex((entry) => entry.id === id)
+    const to = from + by
+    if (from === -1 || to < 0 || to >= chain.length) return chain
+    const next = [...chain]
+    ;[next[from], next[to]] = [next[to], next[from]]
+    return next
   })
 }
 
@@ -289,8 +375,9 @@ export const aiUsageStore = createPersistentStore<UsageData>({
   parse: parseUsage,
 })
 
+/** `provider` is an account, or one of chat's servers (`usageProviderOf`). */
 export function recordUsage(
-  provider: ProviderId,
+  provider: string,
   model: string,
   usage: TokenUsage,
   now = new Date(),

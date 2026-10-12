@@ -1,4 +1,6 @@
 export { ai } from './ai'
+export { formatSource, type ChatEntry } from './chain'
+export { chainStatusStore, describeRoute } from './chainStatus'
 export {
   createAiClient,
   EMBED_BATCH,
@@ -14,6 +16,7 @@ export { ReplyStatus } from './components/ReplyStatus'
 export { SendPreview, type SendItem } from './components/SendPreview'
 export { AiError, describeAiError, isAiError, type AiErrorKind } from './errors'
 export { useAiReadiness } from './hooks/useAiReadiness'
+export { useChatRoute, useSendsTo } from './hooks/useChatRoute'
 export {
   formatCost,
   formatElapsed,
@@ -53,6 +56,7 @@ export type {
   ChatFeature,
   ChatMessage,
   ChatProviderId,
+  ChatSource,
   ContentPart,
   ChatRequest,
   EmbeddingProviderId,

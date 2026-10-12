@@ -34,6 +34,13 @@ export interface Message {
   /** An answer: where it came from, and how it ended. */
   provider?: string
   model?: string
+  /** Which of chat's providers wrote it, by the name it had: "Home PC". */
+  via?: string
+  /**
+   * It broke off part-way at this one of chat's providers, and the next in
+   * the list could be asked instead.
+   */
+  retryAfter?: string
   stopReason?: StopReason
   usage?: TokenUsage
   /** Why an answer failed, in words to show. */

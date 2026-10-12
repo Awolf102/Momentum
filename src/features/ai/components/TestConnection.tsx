@@ -7,6 +7,7 @@ import { describeAiError } from '../errors'
 import { localModelStore, modelStored } from '../local/client'
 import { gpuStore } from '../local/webgpu'
 import { formatLatency } from '../lib/format'
+import { formatSource, type ChatEntry } from '../chain'
 import type { AiReadiness } from '../lib/readiness'
 import { PROVIDERS } from '../providers/meta'
 import type { AiTask } from '../types'
@@ -22,13 +23,19 @@ const NOT_READY: Record<
   'not-downloaded': () => 'Download the model above first.',
 }
 
-/** Sends one tiny request with the current settings and reports how it went. */
+/**
+ * Sends one tiny request with the current settings and reports how it
+ * went: for chat, to one provider in its list.
+ */
 export function TestConnection({
   task,
   readiness,
+  entry,
 }: {
   task: AiTask
   readiness: AiReadiness
+  /** Chat: the provider in its list to test. */
+  entry?: ChatEntry
 }) {
   const [outcome, setOutcome] = useState<{
     target: string
@@ -38,7 +45,7 @@ export function TestConnection({
   const [since, setSince] = useState(0)
   const controller = useRef<AbortController | null>(null)
   const meta = PROVIDERS[readiness.provider]
-  const label = meta.label
+  const label = entry?.name ?? meta.label
   // The model on this device is tested only once it's downloaded (Download
   // says how big it is; a test shouldn't start that by surprise).
   const model = useStore(localModelStore)
@@ -47,7 +54,7 @@ export function TestConnection({
   const gpu = useStore(gpuStore)
   const noGpu = meta.local && task === 'chat' && gpu.status === 'missing'
   const target = readiness.ready
-    ? `${readiness.provider}:${readiness.model}`
+    ? `${readiness.provider}:${readiness.model}:${entry?.baseUrl ?? ''}`
     : ''
   // A result only describes the settings it was run with.
   const result = outcome?.target === target ? outcome.result : null
@@ -60,7 +67,9 @@ export function TestConnection({
     setSince(Date.now())
     setOutcome(null)
     const tested = target
-    const next = await ai.testConnection(task, controller.current.signal)
+    const next = await ai.testConnection(task, controller.current.signal, {
+      entryId: entry?.id,
+    })
     setOutcome({ target: tested, result: next })
     setTesting(false)
   }
@@ -91,7 +100,7 @@ export function TestConnection({
       ) : (
         <p className="text-xs text-fg-subtle" role="status">
           {result ? (
-            <ResultLine result={result} task={task} />
+            <ResultLine result={result} task={task} entry={entry} />
           ) : noGpu ? (
             'This browser can’t run a model on this device (see above).'
           ) : readiness.ready && meta.local ? (
@@ -122,10 +131,14 @@ export function TestConnection({
 function ResultLine({
   result,
   task,
+  entry,
 }: {
   result: ConnectionTest
   task: AiTask
+  entry?: ChatEntry
 }) {
+  // Without a provider named, chat's test goes wherever a request would.
+  const by = !entry && result.source ? ` (${formatSource(result.source)})` : ''
   if (!result.ok) {
     return (
       <span className="inline-flex items-start gap-1.5 text-rose-300 light:text-rose-600">
@@ -159,7 +172,7 @@ function ResultLine({
   return (
     <span className="inline-flex items-start gap-1.5 text-fg-muted">
       <CheckIcon className="mt-px shrink-0 text-orange-300 light:text-orange-500" />
-      Connected: {detail} in {formatLatency(result.latencyMs ?? 0)}.
+      Connected{by}: {detail} in {formatLatency(result.latencyMs ?? 0)}.
     </span>
   )
 }

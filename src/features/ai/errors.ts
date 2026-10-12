@@ -1,3 +1,5 @@
+import type { ChatSource } from './types'
+
 export type AiErrorKind =
   /** The provider needs a key and none is saved. */
   | 'no-key'
@@ -37,6 +39,12 @@ const RETRYABLE: ReadonlySet<AiErrorKind> = new Set([
 
 interface AiErrorOptions {
   status?: number
+  /** Chat: the provider that failed. */
+  source?: ChatSource
+  /** Chat: its reply had started, and what came is kept. */
+  partial?: boolean
+  /** Chat: there's a provider after this one that could be asked. */
+  retryNext?: boolean
   /** How long the provider asked us to wait before trying again. */
   retryAfterMs?: number
   /** What to check, in words, when it's known (where the page runs, say). */
@@ -50,6 +58,9 @@ export class AiError extends Error {
   readonly status: number | undefined
   readonly retryAfterMs: number | undefined
   readonly hint: string | undefined
+  readonly source: ChatSource | undefined
+  readonly partial: boolean
+  readonly retryNext: boolean
 
   constructor(
     kind: AiErrorKind,
@@ -62,6 +73,23 @@ export class AiError extends Error {
     this.status = options.status
     this.retryAfterMs = options.retryAfterMs
     this.hint = options.hint
+    this.source = options.source
+    this.partial = options.partial ?? false
+    this.retryNext = options.retryNext ?? false
+  }
+
+  /** The same failure, with more said about it. */
+  with(options: AiErrorOptions): AiError {
+    return new AiError(this.kind, this.message, {
+      status: this.status,
+      retryAfterMs: this.retryAfterMs,
+      hint: this.hint,
+      source: this.source,
+      partial: this.partial,
+      retryNext: this.retryNext,
+      cause: this.cause,
+      ...options,
+    })
   }
 
   get retryable(): boolean {
@@ -94,9 +122,30 @@ export function redactSecrets(
     .replace(/\b[A-Za-z0-9]{32,}\b/g, '[redacted]')
 }
 
+/** Why a reply that had started stopped, in a few words. */
+const BROKE_OFF: Partial<Record<AiErrorKind, string>> = {
+  network: 'the connection was lost',
+  timeout: 'it stopped responding',
+  server: 'the server had a problem',
+  overloaded: 'the server was too busy',
+  memory: 'it ran out of memory',
+}
+
 /** A short, human explanation for an error, for showing in the UI. */
 export function describeAiError(error: unknown): string {
   if (!isAiError(error)) return 'Something went wrong. Try again in a moment.'
+  // Part-way through a reply: what came is kept, and that's what matters.
+  if (error.partial) {
+    const who = error.source?.name ?? 'The provider'
+    const why = BROKE_OFF[error.kind]
+    return why
+      ? `${who} stopped part-way through (${why}). What came is kept.`
+      : `${who} stopped part-way through. What came is kept. ${describeKind(error)}`
+  }
+  return describeKind(error)
+}
+
+function describeKind(error: AiError): string {
   const wait = error.retryAfterMs
     ? ` Try again in ${formatWait(error.retryAfterMs)}.`
     : ' Try again in a moment.'
@@ -116,7 +165,10 @@ export function describeAiError(error: unknown): string {
     case 'bad-request':
       return `The provider couldn't accept the request: ${error.message}`
     case 'quota':
-      return 'Your provider account is out of credit or over its spending limit.'
+      return (
+        error.hint ??
+        'Your provider account is out of credit or over its spending limit.'
+      )
     case 'rate-limit':
       return `The provider's rate limit was reached.${wait}`
     case 'overloaded':

@@ -1,4 +1,9 @@
-import { ai, type ContentPart, type StopReason } from '@/features/ai'
+import {
+  ai,
+  formatSource,
+  type ContentPart,
+  type StopReason,
+} from '@/features/ai'
 import type { PreparedPhoto } from './photo'
 
 /** At most this many photos make one note. */
@@ -46,6 +51,8 @@ export function transcribeContent(photos: readonly Photo[]): ContentPart[] {
 export interface Transcription {
   text: string
   stopReason: StopReason
+  /** Who read them: "Home PC · qwen3.6:35b". */
+  madeBy?: string
 }
 
 /** Asks the chat model to transcribe the photos, passing on the text as it comes. */
@@ -58,6 +65,7 @@ export async function transcribe(
 ): Promise<Transcription> {
   let text = ''
   let stopReason: StopReason = 'other'
+  let madeBy: string | undefined
   for await (const event of ai.chat({
     system: TRANSCRIBE_SYSTEM,
     messages: [{ role: 'user', content: transcribeContent(photos) }],
@@ -69,8 +77,9 @@ export async function transcribe(
       text += event.text
       onText?.(text)
     } else if (event.type === 'done') stopReason = event.stopReason
+    else if (event.type === 'source') madeBy = formatSource(event.source)
   }
-  return { text, stopReason }
+  return { text, stopReason, ...(madeBy ? { madeBy } : {}) }
 }
 
 /**
