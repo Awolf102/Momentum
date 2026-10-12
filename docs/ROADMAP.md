@@ -612,3 +612,26 @@ stand-in OpenAI-compatible server (which streams thinking, then an answer)
 for click-throughs at desktop and phone sizes. What can't be checked here —
 real Ollama, the Dock app, WebGPU, downloads from Hugging Face — gets
 step-by-step checks in each PR.
+
+### What thinking control changed in the plan
+
+- **Every feature has its own switch,** not just the four in the brief:
+  Plan my day and notes from photos think too, so they got one each
+  (off). "Summaries" covers the weekly write-up and tidying a voice note.
+- **Off means asking, on means leaving it be.** Thinking off sends Ollama's
+  documented `reasoning_effort: "none"` (OpenRouter's `reasoning.effort`
+  there). On sends nothing, so a model thinks as it would anyway. A server
+  that turns the field away is asked again without it.
+- **Claude and OpenAI's models aren't asked.** Claude doesn't think unless
+  told to, and OpenAI's models that don't reason refuse the field, so the
+  switches apply to OpenAI-compatible servers (and, in Phase 3, the model
+  on this device).
+- **The cap sits on top of each feature's own.** Features already asked
+  for a length (an answer 4,096 tokens, a mark 400); the cap in Settings is
+  a ceiling over them, 8K by default so nothing that worked before is cut
+  short. With thinking on, 4,096 more is allowed, since servers count
+  thinking towards `max_tokens`: a mark of 400 tokens would otherwise be
+  used up thinking.
+- **Cut off is kept everywhere,** not only in Ask: cards and quizzes keep
+  their whole items, and the weekly write-up and Plan my day read a JSON
+  object closed where it stopped.

@@ -482,7 +482,7 @@ Everything persisted, and where:
 | `kv` › `momentum.focus.timer`          | The phase on the clock (timestamps), place in the cycle                |
 | `kv` › `momentum.subjects`             | Subjects: name, colour, deleted (kept for old sessions)                |
 | `kv` › `momentum.calendar`             | Which calendar view is showing                                         |
-| `kv` › `momentum.ai`                   | AI providers, model per task, compatible server address, prices        |
+| `kv` › `momentum.ai`                   | AI providers and models, server address, prices, thinking, reply cap   |
 | `kv` › `momentum.ai.usage`             | Tokens and requests per model per month (13 months kept)               |
 | `focusSessions`                        | Finished focus sessions (above)                                        |
 | `logEntries`                           | The daily log, one line per day (above)                                |
@@ -660,7 +660,8 @@ directly; they call the `ai` client from `features/ai`:
 
 ```
 feature ─► ai.chat / ai.complete / ai.embed / ai.transcribe
-             │  reads provider, model and key from settings at call time
+             │  reads provider, model and key from settings at call time,
+             │  and for chat the feature's Thinking switch and the reply cap
              ├─ RequestGate     3 requests at a time per provider, and a shared
              │                  pause after a rate limit
              ├─ withRetry /     backoff with jitter; honours Retry-After (≤ 60 s);
@@ -691,8 +692,37 @@ feature ─► ai.chat / ai.complete / ai.embed / ai.transcribe
 - **Errors** become an `AiError` with a `kind` (auth, quota, rate-limit,
   overloaded, network, not-found…). Spending-cap 429s count as `quota` and aren't
   retried. Messages are scrubbed of anything key-shaped.
-- **Streams** yield `text`, running `usage`, then `done` with a stop reason
-  (`end`, `max-tokens`, `refusal`). Stopping reading cancels the request; usage
+- **Thinking.** Small local models (Qwen on Ollama) think before they
+  answer, which can take a minute or more, and sometimes run on. Each chat
+  request says which feature it's for (`ask`, `cards`, `quizzes`,
+  `summaries`, `planning`, `photos`), and each feature has its own switch in
+  Settings → AI, off by default. Off, an OpenAI-compatible server is asked
+  not to think: `reasoning_effort: "none"`, which Ollama's `/v1` documents
+  (it becomes `think: false`), or `reasoning: { effort: "none" }` for
+  OpenRouter. A server that turns the field away (a 400 or 422 naming it)
+  is asked again without it, and isn't sent it again that session. It's
+  never sent to OpenAI (models that don't reason refuse the field) or
+  Anthropic (Claude doesn't think unless asked). On, nothing is sent: it's
+  the model's own choice. A connection test never thinks.
+- **The reply cap.** Every chat request's `max_tokens` is the smaller of what
+  its feature needs (an answer 4,096, a mark 400, a page of notes 8,000) and
+  the longest reply in Settings (8,192 by default; 2K to 32K), so nothing
+  runs on for ever. With thinking on, 4,096 more is allowed for it, since
+  servers count thinking towards the cap (`replyLength` in `client.ts`). A
+  reply that reaches it ends `max-tokens`, keeps what came, and says it was
+  cut off: Ask under the answer, cards and quizzes keep their whole items
+  (and say some may be missing), the weekly write-up and Plan my day close
+  a cut-off JSON object where it stopped (`cutOffObject` in `material.ts`),
+  and photo and voice notes keep the text.
+- **Streams** yield `text`, `thinking` (while the model thinks; what it
+  thinks isn't kept), running `usage`, then `done` with a stop reason
+  (`end`, `max-tokens`, `refusal`). Thinking comes from the `reasoning` field
+  Ollama and OpenRouter stream, `reasoning_content` (vLLM, LM Studio), or a
+  `<think>…</think>` block at the start of the text, which is taken out as
+  it streams (`lib/thinking.ts`). `onProgress` tells a feature when the model
+  starts thinking and when its reply starts; `ReplyStatus` shows "Thinking…
+  14 s" until then, and "Writing… 31 s" after, wherever a feature waits for
+  a reply. Stopping reading cancels the request; usage
   is still recorded for what was generated. A stream cancelled through its
   signal ends with an `aborted` error, never `done`: both SDKs end a
   cancelled stream quietly, as if the reply were complete, so the adapters
@@ -2134,7 +2164,13 @@ link, clean MathML), the daily log (one line per day, edits, deletion, tidying, 
 must leave alone; repeating schedules through short months and missed dates;
 finishing, reopening, board moves, grouping), the AI
 layer (retries, Retry-After, the gate, error mapping, both adapters and
-cancelled streams, usage and cost, settings parsing), light blending, climb progress, trail geometry and
+cancelled streams, usage and cost, settings parsing; thinking: the switch
+per feature and never for OpenAI, OpenRouter's own field, a server that
+refuses it asked again without, `reasoning` and `reasoning_content`
+deltas, `<think>` blocks split across pieces, a reply that never stopped
+thinking; the reply cap with room to think, replies cut off kept by Ask,
+cards, quizzes, a mark, the weekly write-up and Plan my day, and cut-off
+JSON objects closed where they stopped), light blending, climb progress, trail geometry and
 skyline detection (on synthetic images), command search and hotkey matching,
 noise generation and reminder scheduling. UI flows — including migrating real
 v2 data, a connection test through the real SDK, and search by meaning with
