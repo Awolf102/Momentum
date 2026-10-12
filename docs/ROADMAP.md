@@ -635,3 +635,16 @@ step-by-step checks in each PR.
 - **Cut off is kept everywhere,** not only in Ask: cards and quizzes keep
   their whole items, and the weekly write-up and Plan my day read a JSON
   object closed where it stopped.
+
+### What the desktop fix changed in the plan
+
+- **There was nothing to loosen.** Momentum has no Content Security Policy
+  and no wrapper: the Dock app is the PWA. What blocks `http://localhost`
+  is the browser's mixed-content rule, when the copy in the Dock was added
+  from an https address: shipping Safari blocks a fetch from an https page
+  to plain http even on loopback (Chrome allows it).
+- **The fix is where the desktop app runs from,** plus the app saying so:
+  `npm run desktop` serves it at `http://localhost:4173` on that port only,
+  the Dock app is added from there, and Settings → AI shows the origin of
+  whichever copy you're in and warns before sending anything the browser
+  would refuse.

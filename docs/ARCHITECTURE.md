@@ -749,6 +749,42 @@ feature ─► ai.chat / ai.complete / ai.embed / ai.transcribe
   adapters, and both real SDKs against a local stand-in server for the end-to-end
   request and stream shapes.
 
+### Local servers and the installed app
+
+There's no desktop wrapper: the app in a Mac's Dock (Safari's **Add to
+Dock**, or Chrome's **Install**) is the same PWA, running at the address it
+was added from, with its own storage. That address, its origin, decides
+what it can reach, and the browser enforces it before a request leaves the
+device, so the server never hears of a refused one.
+
+- **Momentum sets no Content Security Policy** (there's no `<meta>` and no
+  server header), so nothing in the app limits `connect-src`. A host or
+  wrapper could add one; a refusal it causes is noticed from the page's
+  `securitypolicyviolation` event and reported as such (`lib/reach.ts`).
+- **Mixed content.** A page served over https can't fetch plain http. The
+  spec exempts loopback addresses, and Chrome and Firefox follow it; shipping
+  Safari doesn't (WebKit treats `http://localhost` as potentially
+  trustworthy, but only lets upgradable media through, or sites on its
+  list of quirks), so an https copy of Momentum can't reach Ollama on
+  `http://localhost:11434` in Safari, and nothing reaches Ollama's log.
+  `blockedBeforeSending` predicts it from the page's origin, the browser
+  engine (`navigator.vendor`) and the address; the client then refuses
+  with an `AiError` of kind `blocked` that says why and what to do, and
+  Settings → AI warns as the address is typed.
+- **The origin is shown.** Settings → AI says where this copy is open (and
+  whether it's installed), which is what a server's allowed origins
+  (`OLLAMA_ORIGINS`) must name; a network failure to a compatible server
+  says it too.
+- **The desktop app is served from loopback.** `npm run desktop` serves the
+  build at `http://localhost:4173`, always that port (`--strictPort`: a
+  different port would be another origin, with other storage); added to
+  the Dock from there, it reaches `http://localhost`, `http://127.0.0.1` on
+  any port, and https addresses such as Tailscale's `*.ts.net`. A launch
+  agent (`docs/desktop/com.momentum.desktop.plist`) can keep it running.
+- **macOS's local network privacy** (macOS 15) doesn't apply: it covers
+  broadcast-capable interfaces (Wi-Fi, Ethernet), not loopback or VPN
+  interfaces such as Tailscale's, and Safari's own traffic is exempt.
+
 ### Privacy
 
 - Keys live in the `secrets` object store: never in a persistent store, so never
@@ -2164,7 +2200,11 @@ link, clean MathML), the daily log (one line per day, edits, deletion, tidying, 
 must leave alone; repeating schedules through short months and missed dates;
 finishing, reopening, board moves, grouping), the AI
 layer (retries, Retry-After, the gate, error mapping, both adapters and
-cancelled streams, usage and cost, settings parsing; thinking: the switch
+cancelled streams, usage and cost, settings parsing; what the browser won't
+send: http from an https page in Safari, even to loopback, and in other
+browsers except to loopback, refused before a provider is made, with the
+page's origin named when a server can't be reached, and a page policy's
+refusal; thinking: the switch
 per feature and never for OpenAI, OpenRouter's own field, a server that
 refuses it asked again without, `reasoning` and `reasoning_content`
 deltas, `<think>` blocks split across pieces, a reply that never stopped

@@ -2,6 +2,11 @@ import { AiError } from './errors'
 import { silentWav } from './lib/audio'
 import { RequestGate } from './lib/gate'
 import {
+  blockedBeforeSending,
+  refusedByContentPolicy,
+  type Page,
+} from './lib/reach'
+import {
   streamWithRetry,
   toAiError,
   withRetry,
@@ -9,6 +14,7 @@ import {
   type RetryOptions,
 } from './lib/retry'
 import { PROVIDERS } from './providers/meta'
+import { normalizeBaseUrl } from './providers/openai'
 import { selection, type AiSettings } from './store'
 import type {
   AiProvider,
@@ -32,6 +38,8 @@ export interface AiClientDeps {
   retry?: Partial<RetryOptions>
   /** Requests allowed at once per provider. */
   maxConcurrent?: number
+  /** Where this copy of Momentum runs, to tell what the browser will block. */
+  page?: () => Page | undefined
 }
 
 /** Where a reply has got to: the model thinking, or the reply coming in. */
@@ -119,6 +127,37 @@ export function createAiClient(deps: AiClientDeps) {
     return gate
   }
 
+  /** Why the browser will refuse to send to a server, in words, or null. */
+  function refusal(page: Page, address: string): string | null {
+    if (!blockedBeforeSending(page, address)) return null
+    return page.webkit
+      ? `Safari won't send anything from this copy of Momentum (open at ${page.origin}) to ${address}: a page served over https can't reach a plain http address, even on this computer. Open Momentum from http://localhost:4173 instead (the README's "On a Mac's Dock" says how), or give the server an https address.`
+      : `Browsers won't send anything from a page served over https (this one is open at ${page.origin}) to a plain http address such as ${address}. Give the server an https address, or open Momentum from http://localhost.`
+  }
+
+  /**
+   * A failure to reach a compatible server, explained: refused by the page's
+   * policy, or what to check, with this page's exact origin.
+   */
+  function explain(error: unknown, connection: Connection): AiError {
+    const failure = toAiError(error)
+    if (failure.kind !== 'network' || !connection.baseUrl) return failure
+    const address = normalizeBaseUrl(connection.baseUrl)
+    const page = deps.page?.()
+    if (refusedByContentPolicy(address))
+      return new AiError(
+        'blocked',
+        `This page's Content Security Policy (connect-src) doesn't allow ${new URL(address).origin}, so the browser didn't send the request.`,
+        { cause: failure },
+      )
+    if (!page) return failure
+    return new AiError(failure.kind, failure.message, {
+      status: failure.status,
+      cause: failure.cause,
+      hint: `Check that the server is running at ${address}, and that it allows requests from ${page.origin}, where this copy of Momentum is open (for Ollama, OLLAMA_ORIGINS=${page.origin}).`,
+    })
+  }
+
   async function connectionFor(provider: ProviderId): Promise<Connection> {
     const meta = PROVIDERS[provider]
     // Nothing to connect to: the model runs here.
@@ -134,6 +173,11 @@ export function createAiClient(deps: AiClientDeps) {
     const baseUrl = deps.getSettings().compatibleBaseUrl.trim()
     if (!baseUrl)
       throw new AiError('no-key', 'Add the server address in Settings → AI.')
+    // Said before sending: the browser would refuse, and the server would
+    // never hear of it.
+    const page = deps.page?.()
+    const refused = page && refusal(page, normalizeBaseUrl(baseUrl))
+    if (refused) throw new AiError('blocked', refused)
     return { provider, apiKey, baseUrl }
   }
 
@@ -197,6 +241,8 @@ export function createAiClient(deps: AiClientDeps) {
         }
         yield event
       }
+    } catch (error) {
+      throw explain(error, connection)
     } finally {
       // Counted even when the reply is cancelled part-way: those tokens were used.
       if (usage) deps.recordUsage(connection.provider, model, usage)
@@ -222,7 +268,9 @@ export function createAiClient(deps: AiClientDeps) {
           signal: options.signal,
           onRetry: options.onRetry,
         },
-      )
+      ).catch((error: unknown) => {
+        throw explain(error, connection)
+      })
       // Usage is what providers charge for; the model on this device is free.
       if (!PROVIDERS[connection.provider].local)
         deps.recordUsage(connection.provider, model, result.usage)
@@ -258,7 +306,9 @@ export function createAiClient(deps: AiClientDeps) {
         signal: options.signal,
         onRetry: options.onRetry,
       },
-    )
+    ).catch((error: unknown) => {
+      throw explain(error, connection)
+    })
     if (result.usage) deps.recordUsage(connection.provider, model, result.usage)
     return result.text
   }
@@ -313,6 +363,8 @@ export function createAiClient(deps: AiClientDeps) {
         attempts: 1,
         gate: gateFor(connection),
         signal,
+      }).catch((error: unknown) => {
+        throw explain(error, connection)
       })
     },
 

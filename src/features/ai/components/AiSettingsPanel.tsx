@@ -1,6 +1,6 @@
 import { useId, useState, type ReactNode } from 'react'
 import { GlassCard } from '@/components/GlassCard'
-import { ExternalIcon, SparkleIcon } from '@/components/icons'
+import { AlertIcon, ExternalIcon, SparkleIcon } from '@/components/icons'
 import {
   SegmentedControl,
   type SegmentedOption,
@@ -8,6 +8,7 @@ import {
 import { SettingsCard } from '@/components/SettingsCard'
 import { useStore } from '@/lib/store'
 import { useAiReadiness } from '../hooks/useAiReadiness'
+import { blockedBeforeSending, currentPage } from '../lib/reach'
 import type { AiReadiness } from '../lib/readiness'
 import { refreshModelsAfterKeyChange } from '../modelLists'
 import { PROVIDERS } from '../providers/meta'
@@ -159,7 +160,10 @@ function CompatibleProvider() {
   const value = draft ?? compatibleBaseUrl
   const inputId = useId()
   const effective = normalizeBaseUrl(value)
-  const origin = typeof window === 'undefined' ? '' : window.location.origin
+  const page = currentPage()
+  const origin = page?.origin ?? ''
+  // Said before anything is sent: the browser would refuse it.
+  const blocked = page && value.trim() && blockedBeforeSending(page, effective)
 
   return (
     <div>
@@ -196,6 +200,22 @@ function CompatibleProvider() {
           Requests go to <span className="font-mono">{effective}</span>
         </p>
       )}
+      {blocked && (
+        <p
+          role="alert"
+          className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-amber-200 light:text-amber-700"
+        >
+          <AlertIcon className="mt-px shrink-0" />
+          <span>
+            {page.webkit ? 'Safari' : 'The browser'} won’t send anything to this
+            address from here: this copy of Momentum is served over https, and a
+            plain http address can’t be reached from it
+            {page.webkit ? ', even on this computer' : ''}. Open Momentum from{' '}
+            <span className="font-mono">http://localhost:4173</span> instead, or
+            give the server an https address.
+          </span>
+        </p>
+      )}
       <p className="mt-3 mb-1 text-xs text-fg-muted">
         Key (if the server needs one)
       </p>
@@ -213,9 +233,20 @@ function CompatibleProvider() {
           <code className="rounded bg-tint px-1 py-0.5 font-mono break-all">
             OLLAMA_ORIGINS={origin}
           </code>{' '}
-          set, then use the address above. Ollama doesn't need a key.
+          set, then use the address above. Ollama doesn't need a key. With the
+          Ollama app on a Mac, run{' '}
+          <code className="rounded bg-tint px-1 py-0.5 font-mono break-all">
+            launchctl setenv OLLAMA_ORIGINS "{origin}"
+          </code>{' '}
+          and quit and reopen it.
         </p>
       </details>
+      <p className="mt-2 text-xs text-fg-subtle">
+        This copy of Momentum is open at{' '}
+        <span className="font-mono break-all text-fg-muted">{origin}</span>
+        {page?.installed ? ', as an installed app' : ''}. That’s the origin a
+        server must allow.
+      </p>
     </div>
   )
 }

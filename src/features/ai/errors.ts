@@ -17,6 +17,8 @@ export type AiErrorKind =
   | 'server'
   /** Couldn't connect: offline, server down, or blocked by CORS. */
   | 'network'
+  /** The browser refused to send it at all (mixed content, a page policy). */
+  | 'blocked'
   | 'timeout'
   | 'aborted'
   | 'unknown'
@@ -33,6 +35,8 @@ interface AiErrorOptions {
   status?: number
   /** How long the provider asked us to wait before trying again. */
   retryAfterMs?: number
+  /** What to check, in words, when it's known (where the page runs, say). */
+  hint?: string
   cause?: unknown
 }
 
@@ -41,6 +45,7 @@ export class AiError extends Error {
   readonly kind: AiErrorKind
   readonly status: number | undefined
   readonly retryAfterMs: number | undefined
+  readonly hint: string | undefined
 
   constructor(
     kind: AiErrorKind,
@@ -52,6 +57,7 @@ export class AiError extends Error {
     this.kind = kind
     this.status = options.status
     this.retryAfterMs = options.retryAfterMs
+    this.hint = options.hint
   }
 
   get retryable(): boolean {
@@ -114,7 +120,11 @@ export function describeAiError(error: unknown): string {
     case 'server':
       return `The provider had a problem.${wait}`
     case 'network':
-      return "Couldn't reach the provider. Check your connection, the server address, and (for a local server) that it allows requests from this site."
+      return error.hint
+        ? `Couldn't reach the provider. ${error.hint}`
+        : "Couldn't reach the provider. Check your connection, the server address, and (for a local server) that it allows requests from this site."
+    case 'blocked':
+      return error.message
     case 'timeout':
       return 'The provider took too long to answer.'
     case 'aborted':

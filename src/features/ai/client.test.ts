@@ -6,7 +6,8 @@ import {
   THINKING_ROOM,
   type AiClientDeps,
 } from './client'
-import { AiError } from './errors'
+import { AiError, describeAiError } from './errors'
+import { noteRefusal } from './lib/reach'
 import { createMockProvider, type MockProviderOptions } from './providers/mock'
 import { DEFAULT_AI_SETTINGS, type AiSettings } from './store'
 import type { ProviderId } from './types'
@@ -374,5 +375,103 @@ describe('thinking and the reply cap', () => {
     })
     expect((await client.testConnection('chat')).ok).toBe(true)
     expect(provider.calls[0]).toMatchObject({ thinking: false, maxTokens: 512 })
+  })
+})
+
+describe('what the browser won’t send', () => {
+  const compatible = (baseUrl: string) => ({
+    chat: {
+      provider: 'compatible' as const,
+      models: { compatible: 'qwen3.5:4b' },
+    },
+    compatibleBaseUrl: baseUrl,
+  })
+
+  it('says, before sending, that Safari won’t reach http from an https page', async () => {
+    const createProvider = vi.fn(() => createMockProvider())
+    const client = createAiClient({
+      getSettings: () => ({
+        ...DEFAULT_AI_SETTINGS,
+        ...compatible('http://localhost:11434'),
+      }),
+      getKey: async () => undefined,
+      createProvider,
+      recordUsage: vi.fn(),
+      page: () => ({
+        origin: 'https://momentum.example.com',
+        webkit: true,
+        installed: true,
+      }),
+    })
+    const error = await client
+      .listModels('compatible')
+      .catch((caught: unknown) => caught)
+    expect(error).toMatchObject({ kind: 'blocked' })
+    expect(describeAiError(error)).toMatch(
+      /Safari won't send anything .*https:\/\/momentum\.example\.com.*http:\/\/localhost:11434\/v1/,
+    )
+    expect(await client.testConnection('chat')).toMatchObject({
+      ok: false,
+      error: { kind: 'blocked' },
+    })
+    // Nothing was sent: no provider was even made.
+    expect(createProvider).not.toHaveBeenCalled()
+  })
+
+  it('names the page’s origin when a compatible server can’t be reached', async () => {
+    const provider = createMockProvider({
+      replies: [{ error: new AiError('network', 'Load failed') }],
+    })
+    const client = createAiClient({
+      getSettings: () => ({
+        ...DEFAULT_AI_SETTINGS,
+        ...compatible('http://localhost:11434/v1'),
+      }),
+      getKey: async () => undefined,
+      createProvider: () => provider,
+      recordUsage: vi.fn(),
+      retry: { sleep: async () => {}, random: () => 0.5, attempts: 1 },
+      page: () => ({
+        origin: 'http://localhost:4173',
+        webkit: true,
+        installed: true,
+      }),
+    })
+    const error = await client
+      .complete({ messages: [] })
+      .catch((caught: unknown) => caught)
+    expect(error).toMatchObject({ kind: 'network' })
+    expect(describeAiError(error)).toBe(
+      "Couldn't reach the provider. Check that the server is running at http://localhost:11434/v1, and that it allows requests from http://localhost:4173, where this copy of Momentum is open (for Ollama, OLLAMA_ORIGINS=http://localhost:4173).",
+    )
+  })
+
+  it('says when the page’s own policy refused the request', async () => {
+    noteRefusal('http://localhost:11434/v1/chat/completions')
+    const provider = createMockProvider({
+      replies: [{ error: new AiError('network', 'Load failed') }],
+    })
+    const client = createAiClient({
+      getSettings: () => ({
+        ...DEFAULT_AI_SETTINGS,
+        ...compatible('http://localhost:11434/v1'),
+      }),
+      getKey: async () => undefined,
+      createProvider: () => provider,
+      recordUsage: vi.fn(),
+      retry: { sleep: async () => {}, random: () => 0.5, attempts: 1 },
+      page: () => ({
+        origin: 'http://localhost:4173',
+        webkit: false,
+        installed: false,
+      }),
+    })
+    const error = await client
+      .complete({ messages: [] })
+      .catch((caught: unknown) => caught)
+    expect(error).toMatchObject({ kind: 'blocked' })
+    expect(describeAiError(error)).toMatch(
+      /Content Security Policy \(connect-src\) doesn't allow http:\/\/localhost:11434/,
+    )
   })
 })
