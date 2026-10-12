@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { aiReadiness } from './lib/readiness'
+import { NO_LOCAL_CHAT } from './local/chatState'
 import {
   DEFAULT_AI_SETTINGS,
   DEFAULT_MAX_REPLY_TOKENS,
@@ -162,5 +163,49 @@ describe('aiReadiness', () => {
       ready: false,
       reason: 'no-address',
     })
+  })
+})
+
+describe('chat on this device', () => {
+  it('can be chosen, with the recommended model to begin with', () => {
+    const settings = parseAiSettings({
+      chat: { provider: 'browser', models: {} },
+    })!
+    expect(settings.chat.provider).toBe('browser')
+    expect(selection(settings, 'chat')).toEqual({
+      provider: 'browser',
+      model: 'qwen3.5-2b',
+    })
+    // Embeddings on this device keep their own model.
+    expect(
+      selection(
+        { ...settings, embeddings: { provider: 'browser', models: {} } },
+        'embeddings',
+      ).model,
+    ).toBe('all-MiniLM-L6-v2')
+  })
+
+  it('isn’t ready until its model is downloaded, once that’s known', () => {
+    const settings = withChat({ provider: 'browser', models: {} })
+    const noKeys = new Set<string>()
+    // Not looked yet: ready (a request says if it isn't there).
+    expect(aiReadiness(settings, noKeys, 'chat').ready).toBe(true)
+    const known = (status: 'absent' | 'stored') => ({
+      ...NO_LOCAL_CHAT,
+      files: {
+        'qwen3.5-2b':
+          status === 'absent'
+            ? { status }
+            : { status, complete: true, bytes: 1, weightFraction: 1 },
+      },
+    })
+    expect(aiReadiness(settings, noKeys, 'chat', known('absent'))).toEqual({
+      ready: false,
+      provider: 'browser',
+      reason: 'not-downloaded',
+    })
+    expect(aiReadiness(settings, noKeys, 'chat', known('stored')).ready).toBe(
+      true,
+    )
   })
 })

@@ -5,6 +5,7 @@ import { ai } from '../ai'
 import type { ConnectionTest } from '../client'
 import { describeAiError } from '../errors'
 import { localModelStore, modelStored } from '../local/client'
+import { gpuStore } from '../local/webgpu'
 import { formatLatency } from '../lib/format'
 import type { AiReadiness } from '../lib/readiness'
 import { PROVIDERS } from '../providers/meta'
@@ -18,6 +19,7 @@ const NOT_READY: Record<
   'no-key': (label) => `Add your ${label} key above first.`,
   'no-model': () => 'Choose a model first.',
   'no-address': () => 'Add the server address above first.',
+  'not-downloaded': () => 'Download the model above first.',
 }
 
 /** Sends one tiny request with the current settings and reports how it went. */
@@ -40,7 +42,10 @@ export function TestConnection({
   // The model on this device is tested only once it's downloaded (Download
   // says how big it is; a test shouldn't start that by surprise).
   const model = useStore(localModelStore)
-  const waiting = meta.local && !modelStored(model)
+  // (Chat on this device: readiness says when it isn't downloaded.)
+  const waiting = meta.local && task !== 'chat' && !modelStored(model)
+  const gpu = useStore(gpuStore)
+  const noGpu = meta.local && task === 'chat' && gpu.status === 'missing'
   const target = readiness.ready
     ? `${readiness.provider}:${readiness.model}`
     : ''
@@ -65,7 +70,7 @@ export function TestConnection({
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          disabled={!readiness.ready || testing || waiting}
+          disabled={!readiness.ready || testing || waiting || noGpu}
           onClick={() => void run()}
           className="rounded-full glass px-4 py-2 text-sm font-semibold transition hover:scale-[1.02] active:scale-95 disabled:pointer-events-none disabled:opacity-40"
         >
@@ -87,9 +92,13 @@ export function TestConnection({
         <p className="text-xs text-fg-subtle" role="status">
           {result ? (
             <ResultLine result={result} task={task} />
+          ) : noGpu ? (
+            'This browser can’t run a model on this device (see above).'
           ) : readiness.ready && meta.local ? (
             waiting ? (
               'Download the model above first.'
+            ) : task === 'chat' ? (
+              'Loads the model and has it write a short reply, on this device: nothing is sent.'
             ) : (
               'Embeds one short test phrase on this device.'
             )
@@ -125,6 +134,18 @@ function ResultLine({
       </span>
     )
   }
+  if (result.tokensPerSecond !== undefined)
+    return (
+      <span className="inline-flex items-start gap-1.5 text-fg-muted">
+        <CheckIcon className="mt-px shrink-0 text-orange-300 light:text-orange-500" />
+        <span>
+          Working: the first words came after{' '}
+          {formatLatency(result.firstTokenMs ?? 0)} (loading the model
+          included), then {result.tokensPerSecond} tokens a second. It replied “
+          {result.reply}”.
+        </span>
+      </span>
+    )
   const detail =
     result.dimensions !== undefined
       ? `${result.dimensions}-number vectors`

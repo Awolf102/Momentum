@@ -27,6 +27,8 @@ export function AiGate({ task, feature, children }: AiGateProps) {
     'no-key': `Add an API key in Settings to turn it on. You can use Anthropic, OpenAI or a compatible server such as Ollama.`,
     'no-model': `Choose a ${label} model in Settings to turn it on.`,
     'no-address': 'Add your server’s address in Settings to turn it on.',
+    'not-downloaded':
+      'Download the model that runs on this device, in Settings, to turn it on.',
   }[readiness.reason]
 
   return (

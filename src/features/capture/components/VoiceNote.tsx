@@ -340,7 +340,10 @@ export function VoiceNote() {
                 </button>
                 <p className="text-xs text-fg-subtle">
                   Organises it into headings and points, with{' '}
-                  {PROVIDERS[chat.provider].label}.
+                  {PROVIDERS[chat.provider].local
+                    ? 'the model on this device'
+                    : PROVIDERS[chat.provider].label}
+                  .
                 </p>
               </>
             ) : null}

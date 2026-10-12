@@ -54,7 +54,7 @@ export const PROVIDERS: Record<ProviderId, ProviderMeta> = {
   browser: {
     label: 'This device',
     needsKey: false,
-    chat: false,
+    chat: true,
     embeddings: true,
     transcription: false,
     local: true,

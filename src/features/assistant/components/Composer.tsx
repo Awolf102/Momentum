@@ -65,6 +65,10 @@ export function Composer({
   const destination = readiness.ready
     ? `${PROVIDERS[readiness.provider].label} (${readiness.model})`
     : PROVIDERS[readiness.provider].label
+  // The model on this device reads it where it is: nothing is sent.
+  const sendsTo = PROVIDERS[readiness.provider].local
+    ? 'Stays on this device: the model running here reads'
+    : `Sends to ${destination}:`
   const earlier = conversation.messages.filter(
     (message) => message.text.trim() && !message.error,
   ).length
@@ -247,7 +251,7 @@ export function Composer({
             <p className="text-xs leading-relaxed text-fg-subtle">
               {text ? (
                 <>
-                  Sends to {destination}: your question
+                  {sendsTo} your question
                   {passages.length > 0
                     ? `, ${plural(passages.length, 'passage')} from your ${conversation.documentId ? 'document' : 'notes and documents'}`
                     : current
@@ -346,7 +350,7 @@ export function Composer({
               })}
             </div>
             <p className="text-xs leading-relaxed text-fg-subtle">
-              Sends to {destination}: your question, today’s date and streak
+              {sendsTo} your question, today’s date and streak
               {shared.length ? `, your ${shared.join(', ')}` : ''}
               {earlier > 0
                 ? `, and the ${plural(earlier, 'earlier message')}`

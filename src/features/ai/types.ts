@@ -4,8 +4,8 @@
  */
 export type ProviderId = 'anthropic' | 'openai' | 'compatible' | 'browser'
 
-/** The providers that chat (the model on this device only makes embeddings). */
-export type ChatProviderId = Exclude<ProviderId, 'browser'>
+/** The providers that chat: every one, the model on this device included. */
+export type ChatProviderId = ProviderId
 
 /**
  * Anthropic has no embeddings API, so embeddings come from the others: OpenAI,

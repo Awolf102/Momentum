@@ -64,6 +64,8 @@ export function SendPreview({
   const { prices } = useStore(aiSettingsStore)
   const price = prices[usageKey(provider, model)]
   const label = PROVIDERS[provider].label
+  // The model on this device reads it here: nothing is sent, or paid for.
+  const local = PROVIDERS[provider].local
   const sending = items.filter((item) => !skipped?.has(item.id)).length
   const listId = useId()
 
@@ -97,7 +99,9 @@ export function SendPreview({
 
         <dl className="space-y-2 text-sm">
           <div className="flex items-baseline justify-between gap-4 rounded-2xl bg-tint px-4 py-2.5">
-            <dt className="shrink-0 text-fg-muted">Sent to</dt>
+            <dt className="shrink-0 text-fg-muted">
+              {local ? 'Read by' : 'Sent to'}
+            </dt>
             <dd className="min-w-0 text-right font-medium">
               {label}
               <span className="block font-mono text-xs font-normal break-all text-fg-subtle">
@@ -175,15 +179,16 @@ export function SendPreview({
           </ul>
         </div>
 
-        {!price && !size && (
+        {!price && !size && !local && (
           <p className="text-xs leading-relaxed text-fg-subtle">
             Add this model’s price under Usage to see what a request costs.
           </p>
         )}
         <p className="flex items-start gap-2 text-xs leading-relaxed text-fg-subtle">
           <LockIcon className="mt-px shrink-0" />
-          Sent straight from this browser to {label}, with your key. Nothing
-          else is sent.
+          {local
+            ? 'Read by the model running on this device: none of it leaves this device.'
+            : `Sent straight from this browser to ${label}, with your key. Nothing else is sent.`}
         </p>
       </div>
     </Sheet>

@@ -19,6 +19,10 @@ export type AiErrorKind =
   | 'network'
   /** The browser refused to send it at all (mixed content, a page policy). */
   | 'blocked'
+  /** The model on this device ran out of memory, and was unloaded. */
+  | 'memory'
+  /** The model on this device isn't downloaded yet. */
+  | 'unavailable'
   | 'timeout'
   | 'aborted'
   | 'unknown'
@@ -124,6 +128,8 @@ export function describeAiError(error: unknown): string {
         ? `Couldn't reach the provider. ${error.hint}`
         : "Couldn't reach the provider. Check your connection, the server address, and (for a local server) that it allows requests from this site."
     case 'blocked':
+    case 'memory':
+    case 'unavailable':
       return error.message
     case 'timeout':
       return 'The provider took too long to answer.'

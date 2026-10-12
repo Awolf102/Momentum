@@ -475,3 +475,49 @@ describe('what the browser won’t send', () => {
     )
   })
 })
+
+describe('chat on this device', () => {
+  const onDevice = {
+    chat: { provider: 'browser' as const, models: {} },
+  }
+
+  it('uses the recommended model unless another is chosen, and counts no usage', async () => {
+    const { client, provider, recordUsage, createProvider } = setup({
+      settings: onDevice,
+      keys: {},
+    })
+    await client.complete({ messages: [{ role: 'user', content: 'Hi' }] })
+    expect(createProvider).toHaveBeenCalledWith({ provider: 'browser' })
+    expect(provider.calls[0].model).toBe('qwen3.5-2b')
+    expect(recordUsage).not.toHaveBeenCalled()
+  })
+
+  it('tests the connection with a short reply, timing the first words and the speed', async () => {
+    const slow = {
+      ...createMockProvider(),
+      async *chat() {
+        await new Promise((resolve) => setTimeout(resolve, 20))
+        yield { type: 'text' as const, text: '1 2 3' }
+        await new Promise((resolve) => setTimeout(resolve, 40))
+        yield { type: 'text' as const, text: ' 4 5' }
+        yield {
+          type: 'usage' as const,
+          usage: { inputTokens: 20, outputTokens: 11 },
+        }
+        yield { type: 'done' as const, stopReason: 'end' as const }
+      },
+    }
+    const client = createAiClient({
+      getSettings: () => ({ ...DEFAULT_AI_SETTINGS, ...onDevice }),
+      getKey: async () => undefined,
+      createProvider: () => slow,
+      recordUsage: vi.fn(),
+    })
+    const result = await client.testConnection('chat')
+    expect(result).toMatchObject({ ok: true, reply: '1 2 3 4 5' })
+    expect(result.firstTokenMs).toBeGreaterThanOrEqual(15)
+    // Ten tokens after the first, in about 40 ms.
+    expect(result.tokensPerSecond).toBeGreaterThan(50)
+    expect(result.tokensPerSecond).toBeLessThan(1000)
+  })
+})

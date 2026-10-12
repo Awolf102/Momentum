@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useId, useState, type ReactNode } from 'react'
 import { GlassCard } from '@/components/GlassCard'
 import { AlertIcon, ExternalIcon, SparkleIcon } from '@/components/icons'
 import {
@@ -31,6 +31,14 @@ import { ModelField } from './ModelField'
 import { RepliesCard } from './RepliesCard'
 import { TestConnection } from './TestConnection'
 import { UsageCard } from './UsageCard'
+
+// The model on this device, and the code that runs it, load only when it's
+// chosen: the AI features' shared code shouldn't carry them.
+const LocalChatField = lazy(() =>
+  import('./LocalChatField').then((module) => ({
+    default: module.LocalChatField,
+  })),
+)
 
 /**
  * Settings → AI: providers and keys, the model for each task, and usage.
@@ -255,6 +263,7 @@ const CHAT_PROVIDERS: readonly SegmentedOption<ChatProviderId>[] = [
   { value: 'anthropic', label: 'Anthropic' },
   { value: 'openai', label: 'OpenAI' },
   { value: 'compatible', label: 'Compatible' },
+  { value: 'browser', label: 'This device' },
 ]
 
 const EMBEDDING_PROVIDERS: readonly SegmentedOption<EmbeddingProviderId>[] = [
@@ -272,7 +281,8 @@ const TRANSCRIPTION_PROVIDERS: readonly SegmentedOption<TranscriptionProviderId>
 const TASK_COPY: Record<AiTask, { title: string; description: string }> = {
   chat: {
     title: 'Chat',
-    description: 'Answers, summaries, flashcards and planning help.',
+    description:
+      'Answers, summaries, flashcards and planning help: from a provider, or a model that runs on this device.',
   },
   embeddings: {
     title: 'Embeddings',
@@ -300,6 +310,8 @@ function TaskCard({ task }: { task: AiTask }) {
             value={provider as ChatProviderId}
             options={CHAT_PROVIDERS}
             onChange={(next) => setTaskProvider('chat', next)}
+            compact
+            wrap
           />
         ) : task === 'embeddings' ? (
           <SegmentedControl
@@ -316,7 +328,13 @@ function TaskCard({ task }: { task: AiTask }) {
             onChange={(next) => setTaskProvider('transcription', next)}
           />
         )}
-        {provider === 'browser' ? (
+        {provider === 'browser' && task === 'chat' ? (
+          <Suspense
+            fallback={<p className="text-xs text-fg-subtle">Checking…</p>}
+          >
+            <LocalChatField modelId={model} />
+          </Suspense>
+        ) : provider === 'browser' ? (
           <LocalModelField modelId={model} />
         ) : (
           <ModelField task={task} provider={provider} model={model} />

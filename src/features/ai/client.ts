@@ -72,6 +72,10 @@ export interface ConnectionTest {
   latencyMs?: number
   /** Chat: the start of the reply. */
   reply?: string
+  /** Chat: how long the first words took (loading the model included). */
+  firstTokenMs?: number
+  /** Chat on this device: how fast it writes, once it has started. */
+  tokensPerSecond?: number
   /** Embeddings: the vector size. */
   dimensions?: number
   error?: AiError
@@ -244,8 +248,10 @@ export function createAiClient(deps: AiClientDeps) {
     } catch (error) {
       throw explain(error, connection)
     } finally {
-      // Counted even when the reply is cancelled part-way: those tokens were used.
-      if (usage) deps.recordUsage(connection.provider, model, usage)
+      // Counted even when the reply is cancelled part-way: those tokens were
+      // used. The model on this device costs nothing, so it isn't counted.
+      if (usage && !PROVIDERS[connection.provider].local)
+        deps.recordUsage(connection.provider, model, usage)
     }
   }
 
@@ -377,26 +383,49 @@ export function createAiClient(deps: AiClientDeps) {
       const started = performance.now()
       try {
         if (task === 'chat') {
+          // On this device nothing is sent or paid for, so the test writes a
+          // little more: enough to tell how fast it goes.
+          const local = PROVIDERS[provider].local
           let reply = ''
+          let first: number | undefined
+          let outputTokens = 0
           const events = streamChat(
             {
               system: 'This is a connection test.',
               messages: [
-                { role: 'user', content: 'Reply with one word: ready' },
+                {
+                  role: 'user',
+                  content: local
+                    ? 'Count from 1 to 20, with spaces between the numbers.'
+                    : 'Reply with one word: ready',
+                },
               ],
-              maxTokens: 512,
+              maxTokens: local ? 128 : 512,
               signal,
             },
             { attempts: 1 },
           )
-          for await (const event of events)
-            if (event.type === 'text') reply += event.text
+          for await (const event of events) {
+            if (event.type === 'text') {
+              first ??= performance.now()
+              reply += event.text
+            } else if (event.type === 'usage')
+              outputTokens = event.usage.outputTokens
+          }
+          const ended = performance.now()
+          const writing = first === undefined ? 0 : (ended - first) / 1000
           return {
             ok: true,
             provider,
             model,
-            latencyMs: Math.round(performance.now() - started),
+            latencyMs: Math.round(ended - started),
             reply: reply.trim().slice(0, 80),
+            firstTokenMs:
+              first === undefined ? undefined : Math.round(first - started),
+            tokensPerSecond:
+              local && writing > 0 && outputTokens > 1
+                ? Math.round(((outputTokens - 1) / writing) * 10) / 10
+                : undefined,
           }
         }
         if (task === 'transcription') {

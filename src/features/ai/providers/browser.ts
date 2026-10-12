@@ -19,20 +19,17 @@ export function createBrowserProvider(): AiProvider {
   return {
     id: 'browser',
 
-    chat(): AsyncIterable<ChatEvent> {
-      const error = new AiError(
-        'unsupported',
-        'The model on this device makes embeddings only. Choose a chat provider in Settings → AI.',
-      )
-      return {
-        [Symbol.asyncIterator]: () => ({ next: () => Promise.reject(error) }),
-      }
+    // A chat model on the GPU, through WebLLM in a worker: loaded with the
+    // first request, not before.
+    async *chat(request): AsyncGenerator<ChatEvent> {
+      const { localChat } = await import('../local/chatDevice')
+      yield* localChat.chat(request)
     },
 
     async transcribe() {
       throw new AiError(
         'unsupported',
-        'The model on this device makes embeddings only. Choose OpenAI or a compatible server for transcription.',
+        'The models on this device don’t transcribe speech. Choose OpenAI or a compatible server for transcription.',
       )
     },
 
