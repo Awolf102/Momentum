@@ -37,11 +37,15 @@ import type { Calendar } from './types'
 
 // A stand-in chat model: the real AI client, with a provider that answers
 // from a script and keeps what it was sent.
-const model = vi.hoisted(() => ({ reply: '', calls: [] as unknown[] }))
+const model = vi.hoisted(() => ({
+  reply: '',
+  calls: [] as unknown[],
+  stopReason: 'end' as 'end' | 'max-tokens',
+}))
 vi.mock('@/features/ai/providers', async () => {
   const { createMockProvider } = await import('@/features/ai/providers/mock')
   const provider = createMockProvider({
-    replies: () => ({ chunks: [model.reply] }),
+    replies: () => ({ chunks: [model.reply], stopReason: model.stopReason }),
   })
   return {
     createProvider: () => ({
@@ -529,6 +533,19 @@ describe('drafting a day', () => {
       'Lab report: adder circuits',
       'Limits',
     ])
+    expect(draft.cutOff).toBeUndefined()
+    expect(model.calls[0]).toMatchObject({ thinking: false })
+  })
+
+  it('keeps the whole blocks of a reply cut off at the length limit', async () => {
+    const shared = context()
+    model.stopReason = 'max-tokens'
+    model.reply =
+      '{"blocks": [{"start": "16:00", "end": "17:00", "kind": "focus", "subject": "Calculus", "title": "Limits", "why": "Quiz soon"}, {"start": "17:'
+    const draft = await draftPlan(shared)
+    model.stopReason = 'end'
+    expect(draft.cutOff).toBe(true)
+    expect(draft.blocks.map((block) => block.title)).toEqual(['Limits'])
   })
 
   it('puts the kept blocks on the plan, as changed, and Undo takes them off', async () => {

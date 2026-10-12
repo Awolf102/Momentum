@@ -62,6 +62,7 @@ export async function transcribe(
     system: TRANSCRIBE_SYSTEM,
     messages: [{ role: 'user', content: transcribeContent(photos) }],
     maxTokens: REPLY_TOKENS,
+    feature: 'photos',
     signal,
   })) {
     if (event.type === 'text') {

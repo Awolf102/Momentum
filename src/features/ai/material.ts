@@ -217,3 +217,49 @@ export function jsonObject(text: string): Record<string, unknown> | null {
   }
   return null
 }
+
+/**
+ * A JSON object from a reply that was cut off part way (it ran out of
+ * room): the object closed where it stopped, keeping what came, with the
+ * last value as far as it got. Null when there's no object to close.
+ */
+export function cutOffObject(text: string): Record<string, unknown> | null {
+  const start = text.indexOf('{')
+  if (start === -1) return null
+  const open: string[] = []
+  let inString = false
+  let end = text.length
+  for (let at = start; at < text.length; at++) {
+    const char = text[at]
+    if (inString) {
+      if (char === '\\') at++
+      else if (char === '"') inString = false
+      continue
+    }
+    if (char === '"') inString = true
+    else if (char === '{' || char === '[') open.push(char === '{' ? '}' : ']')
+    else if (char === '}' || char === ']') {
+      open.pop()
+      if (open.length === 0) {
+        end = at + 1
+        break
+      }
+    }
+  }
+  let body = text.slice(start, end)
+  if (open.length > 0) {
+    // A dangling escape can't be closed; drop it.
+    if (inString) body = `${body.replace(/\\$/, '')}"`
+    body = body.trimEnd()
+    // A key with no value yet, or a comma before nothing.
+    body = body.replace(/,\s*("(?:[^"\\]|\\.)*"\s*)?:?\s*$/, '')
+    body = body.replace(/("(?:[^"\\]|\\.)*")\s*:\s*$/, '$1: null')
+    body += open.reverse().join('')
+  }
+  try {
+    const value: unknown = JSON.parse(body)
+    return isObject(value) ? value : null
+  } catch {
+    return null
+  }
+}

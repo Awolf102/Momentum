@@ -1,4 +1,4 @@
-import { jsonObject } from '@/features/ai/material'
+import { cutOffObject, jsonObject } from '@/features/ai/material'
 import { dayOfWeek, type DateKey } from '@/lib/date'
 import { formatMinutes } from '@/lib/duration'
 import type { WeekSummary } from './week'
@@ -155,8 +155,15 @@ const text = (value: unknown) =>
     : ''
 
 /** The write-up in a reply, or null when there isn't one. */
-export function readWriteUp(reply: string): WriteUp | null {
-  const object = jsonObject(reply)
+export function readWriteUp(
+  reply: string,
+  { cutOff = false }: { cutOff?: boolean } = {},
+): WriteUp | null {
+  // Cut off, the outer object isn't whole, and the first whole one in it
+  // would be read instead.
+  const object = cutOff
+    ? (cutOffObject(reply) ?? jsonObject(reply))
+    : jsonObject(reply)
   if (!object) return null
   const writeUp = {
     wentWell: text(object.went_well ?? object.wentWell),

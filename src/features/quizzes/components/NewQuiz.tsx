@@ -11,8 +11,11 @@ import {
   describeAiError,
   formatTokenEstimate,
   isAiError,
+  ReplyStatus,
   SendPreview,
+  startReply,
   useAiReadiness,
+  type ReplyProgress,
 } from '@/features/ai'
 import {
   estimateTokens,
@@ -123,6 +126,7 @@ export function NewQuiz({
   const [subjectChoice, setSubjectChoice] = useState<string | null>()
   const [previewing, setPreviewing] = useState(false)
   const [writing, setWriting] = useState(false)
+  const [progress, setProgress] = useState<ReplyProgress>({ since: 0 })
   const [problem, setProblem] = useState<string | null>(null)
   const controller = useRef<AbortController | null>(null)
   useEffect(() => () => controller.current?.abort(), [])
@@ -200,6 +204,7 @@ export function NewQuiz({
     setPreviewing(false)
     if (going.length === 0) return
     setWriting(true)
+    setProgress(startReply())
     setProblem(null)
     controller.current = new AbortController()
     const sent: SentSource[] = going.map((each) => ({
@@ -211,14 +216,22 @@ export function NewQuiz({
           : null,
     }))
     try {
-      const questions = await writeQuestions(
+      const { questions, cutOff } = await writeQuestions(
         going.map((each) => each.sent),
         sent,
-        { count, mix, signal: controller.current.signal },
+        {
+          count,
+          mix,
+          signal: controller.current.signal,
+          onProgress: (phase) =>
+            setProgress((current) => ({ ...current, phase })),
+        },
       )
       if (questions.length === 0) {
         setProblem(
-          'No questions came back. Try again, or with more of the text.',
+          cutOff
+            ? 'The reply was cut off at the length limit before a whole question came through. Try fewer questions, or a longer limit in Settings → AI.'
+            : 'No questions came back. Try again, or with more of the text.',
         )
         return
       }
@@ -234,7 +247,12 @@ export function NewQuiz({
         questions,
       })
       if (questions.length < count)
-        toast({ title: `${plural(questions.length, 'question')} came back` })
+        toast({
+          title: `${plural(questions.length, 'question')} came back`,
+          description: cutOff
+            ? 'The reply was cut off at the length limit.'
+            : undefined,
+        })
       navigate(paths.quiz(quiz.id), { replace: true })
     } catch (error) {
       if (!controller.current?.signal.aborted)
@@ -326,6 +344,9 @@ export function NewQuiz({
                 >
                   Stop
                 </button>
+              )}
+              {writing && (
+                <ReplyStatus since={progress.since} phase={progress.phase} />
               )}
               {!writing && going.length > 0 && (
                 <p className="text-xs text-fg-subtle first-letter:uppercase">

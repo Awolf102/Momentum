@@ -6,19 +6,23 @@ export {
   type ChatOptions,
   type ChatResult,
   type ConnectionTest,
+  type ReplyPhase,
 } from './client'
 export { AiGate } from './components/AiGate'
 export { AiSettingsPanel } from './components/AiSettingsPanel'
+export { ReplyStatus } from './components/ReplyStatus'
 export { SendPreview, type SendItem } from './components/SendPreview'
 export { AiError, describeAiError, isAiError, type AiErrorKind } from './errors'
 export { useAiReadiness } from './hooks/useAiReadiness'
 export {
   formatCost,
+  formatElapsed,
   formatMegabytes,
   formatTokenEstimate,
   formatTokens,
 } from './lib/format'
 export { aiReadiness, type AiReadiness } from './lib/readiness'
+export { startReply, type ReplyProgress } from './lib/replyProgress'
 export type { RetryInfo } from './lib/retry'
 export {
   checkLocalModel,
@@ -46,6 +50,7 @@ export type {
   AiProvider,
   AiTask,
   ChatEvent,
+  ChatFeature,
   ChatMessage,
   ChatProviderId,
   ContentPart,

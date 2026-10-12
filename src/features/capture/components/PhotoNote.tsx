@@ -14,6 +14,7 @@ import { SettingsCard } from '@/components/SettingsCard'
 import {
   describeAiError,
   isAiError,
+  ReplyStatus,
   SendPreview,
   useAiReadiness,
 } from '@/features/ai'
@@ -88,6 +89,7 @@ export function PhotoNote() {
   const [previewing, setPreviewing] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const [cutShort, setCutShort] = useState<'length' | 'stopped' | null>(null)
+  const [since, setSince] = useState(0)
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const controller = useRef<AbortController | null>(null)
@@ -239,6 +241,7 @@ export function PhotoNote() {
     setPreviewing(false)
     if (!ready) return
     setPhase('writing')
+    setSince(Date.now())
     setStreamed('')
     soFar.current = ''
     setProblem(null)
@@ -378,10 +381,12 @@ export function PhotoNote() {
             className="rounded-[28px] glass-strong p-5 sm:p-7"
           >
             <div className="flex items-center gap-3">
-              <span className="size-2 animate-pulse rounded-full bg-orange-400" />
-              <p className="flex-1 text-sm font-medium text-fg-muted">
-                Writing your note…
-              </p>
+              <ReplyStatus
+                since={since}
+                phase={streamed ? 'writing' : 'thinking'}
+                writing="Writing your note…"
+                className="flex-1 font-medium text-fg-muted"
+              />
               <button
                 type="button"
                 onClick={() => controller.current?.abort()}

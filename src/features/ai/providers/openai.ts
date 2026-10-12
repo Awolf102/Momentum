@@ -2,11 +2,13 @@ import type OpenAI from 'openai'
 import type {
   ChatCompletionChunk,
   ChatCompletionContentPart,
+  ChatCompletionCreateParamsStreaming,
   ChatCompletionMessageParam,
 } from 'openai/resources/chat/completions'
 import { abortError, AiError } from '../errors'
 import { textOf } from '../lib/content'
-import { normalizeSdkError } from '../lib/sdkErrors'
+import { normalizeSdkError, type SdkErrorClasses } from '../lib/sdkErrors'
+import { createThinkSplitter } from '../lib/thinking'
 import type {
   AiProvider,
   ChatEvent,
@@ -75,6 +77,43 @@ export function normalizeBaseUrl(input: string): string {
   }
 }
 
+/** Whether a server is OpenRouter, which has its own way to switch thinking off. */
+export function isOpenRouter(baseUrl: string | undefined): boolean {
+  try {
+    const { hostname } = new URL(normalizeBaseUrl(baseUrl ?? ''))
+    return hostname === 'openrouter.ai' || hostname.endsWith('.openrouter.ai')
+  } catch {
+    return false
+  }
+}
+
+/**
+ * How a compatible server is asked to answer without thinking first:
+ * Ollama's documented `reasoning_effort: "none"` (which other servers that
+ * follow OpenAI's reasoning models take too), or OpenRouter's `reasoning`.
+ */
+export function thinkingOff(
+  baseUrl: string | undefined,
+): Record<string, unknown> {
+  return isOpenRouter(baseUrl)
+    ? { reasoning: { effort: 'none' } }
+    : { reasoning_effort: 'none' }
+}
+
+/**
+ * Servers and models that refused the switch (an older server, or a model
+ * that always thinks), by `address|model`: it isn't sent to them again
+ * until the page is reloaded.
+ */
+const refusesThinkingSwitch = new Set<string>()
+
+/** Whether a request was turned away because of the thinking switch. */
+function refusedSwitch(error: unknown, sdk: SdkErrorClasses): boolean {
+  if (!(error instanceof sdk.APIError)) return false
+  const { status, message } = error as Error & { status?: number }
+  return (status === 400 || status === 422) && /reasoning|think/i.test(message)
+}
+
 /**
  * OpenAI, or any server that speaks its API (Ollama, LM Studio, vLLM,
  * OpenRouter…). Uses the official `openai` SDK, loaded on first use.
@@ -136,23 +175,61 @@ export function createOpenAiProvider(options: {
             ? { max_completion_tokens: request.maxTokens }
             : { max_tokens: request.maxTokens }
           : {}
-        const created = await client.chat.completions.create(
-          {
-            model: request.model,
-            messages,
-            stream: true,
-            stream_options: { include_usage: true },
-            ...lengthCap,
-          },
-          { signal: request.signal },
-        )
-        cancel = () => created.controller.abort()
+        // Only compatible servers are asked: OpenAI's own models that don't
+        // reason turn the field away, and the ones that do decide for
+        // themselves how long to.
+        const switchKey = `${normalizeBaseUrl(options.baseUrl ?? '')}|${request.model}`
+        const switchOff =
+          options.id === 'compatible' &&
+          request.thinking === false &&
+          !refusesThinkingSwitch.has(switchKey)
+        const body: ChatCompletionCreateParamsStreaming = {
+          model: request.model,
+          messages,
+          stream: true,
+          stream_options: { include_usage: true },
+          ...lengthCap,
+        }
+        const open = (withSwitch: boolean) =>
+          client.chat.completions.create(
+            withSwitch
+              ? ({
+                  ...body,
+                  ...thinkingOff(options.baseUrl),
+                } as ChatCompletionCreateParamsStreaming)
+              : body,
+            { signal: request.signal },
+          )
+        let created: Awaited<ReturnType<typeof open>>
+        try {
+          created = await open(switchOff)
+        } catch (error) {
+          if (!switchOff || !refusedSwitch(error, sdk)) throw error
+          refusesThinkingSwitch.add(switchKey)
+          created = await open(false)
+        }
+        const stream = created
+        cancel = () => stream.controller.abort()
         let stopReason: StopReason = 'other'
         let refused = false
-        for await (const chunk of created) {
+        const splitter = createThinkSplitter()
+        for await (const chunk of stream) {
           const choice = chunk.choices[0]
-          if (choice?.delta?.content)
-            yield { type: 'text', text: choice.delta.content }
+          // Ollama and OpenRouter send thinking as `reasoning`; vLLM, LM
+          // Studio and DeepSeek as `reasoning_content`.
+          const delta = choice?.delta as
+            | (ChatCompletionChunk.Choice.Delta & {
+                reasoning?: string | null
+                reasoning_content?: string | null
+              })
+            | undefined
+          if (delta?.reasoning || delta?.reasoning_content)
+            yield { type: 'thinking' }
+          if (delta?.content) {
+            const split = splitter.push(delta.content)
+            if (split.thinking) yield { type: 'thinking' }
+            if (split.text) yield { type: 'text', text: split.text }
+          }
           if (choice?.delta?.refusal) {
             refused = true
             yield { type: 'text', text: choice.delta.refusal }
@@ -169,6 +246,8 @@ export function createOpenAiProvider(options: {
         }
         // The SDK ends a cancelled stream quietly, as if the reply were done.
         if (request.signal?.aborted) throw abortError()
+        const held = splitter.flush()
+        if (held) yield { type: 'text', text: held }
         finished = true
         yield { type: 'done', stopReason: refused ? 'refusal' : stopReason }
       } catch (error) {

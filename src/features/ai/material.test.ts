@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  cutOffObject,
   fitSource,
   jsonItems,
   jsonObject,
@@ -157,5 +158,30 @@ describe('reading a reply', () => {
       mark: 'partly',
     })
     expect(jsonObject('[1, 2]')).toBeNull()
+  })
+})
+
+describe('an object cut off part way', () => {
+  it('is closed where it stopped, keeping the last value as far as it got', () => {
+    expect(cutOffObject('Sure: {"a": "one", "b": "tw')).toEqual({
+      a: 'one',
+      b: 'tw',
+    })
+    expect(cutOffObject('{"a": "one", "b": ')).toEqual({ a: 'one' })
+    expect(cutOffObject('{"a": "one", ')).toEqual({ a: 'one' })
+    expect(cutOffObject('{"a": "one", "b')).toEqual({ a: 'one' })
+    expect(cutOffObject('{"a": ')).toEqual({ a: null })
+    expect(cutOffObject('{"a": [{"x": 1}, {"x": 2')).toEqual({
+      a: [{ x: 1 }, { x: 2 }],
+    })
+    expect(cutOffObject('{"a": "a quote \\" and a slash \\')).toEqual({
+      a: 'a quote " and a slash ',
+    })
+  })
+
+  it('reads a whole object as it is, and gives up on what can’t be closed', () => {
+    expect(cutOffObject('{"a": 1} and more')).toEqual({ a: 1 })
+    expect(cutOffObject('no object here')).toBeNull()
+    expect(cutOffObject('{"a": tr')).toBeNull()
   })
 })

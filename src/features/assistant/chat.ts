@@ -121,6 +121,7 @@ async function answer(
       system,
       messages,
       maxTokens: ANSWER_TOKENS,
+      feature: 'ask',
       signal: controller.signal,
     })) {
       if (event.type === 'text') {
@@ -131,7 +132,7 @@ async function answer(
           setLive(reply.id, text)
         }, 40)
       } else if (event.type === 'usage') usage = event.usage
-      else stopReason = event.stopReason
+      else if (event.type === 'done') stopReason = event.stopReason
     }
     final = {
       ...reply,

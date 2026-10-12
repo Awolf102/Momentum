@@ -7,6 +7,8 @@ import type { WriteUp } from './lib/writeUp'
 export interface WrittenReview extends WriteUp {
   /** When it was written. */
   at: string
+  /** The reply was cut off at the length limit: this is what came. */
+  cutOff?: boolean
 }
 
 export interface ReviewData {
@@ -27,6 +29,7 @@ function parseWritten(value: unknown): WrittenReview | null {
     slipped: text(value.slipped),
     nextWeek: text(value.nextWeek),
     at: value.at,
+    ...(value.cutOff === true ? { cutOff: true } : {}),
   }
   return written.wentWell || written.slipped || written.nextWeek
     ? written
@@ -75,7 +78,7 @@ export const setReviewOnSundays = (onSundays: boolean) =>
 
 export function saveWriteUp(
   week: DateKey,
-  writeUp: WriteUp,
+  writeUp: WriteUp & { cutOff?: boolean },
   now: Date = new Date(),
 ): WrittenReview {
   const written = { ...writeUp, at: now.toISOString() }

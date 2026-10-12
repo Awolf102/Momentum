@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
 import { Link } from 'wouter'
 import { AlertIcon, LibraryIcon, NoteIcon, UndoIcon } from '@/components/icons'
-import { formatTokens } from '@/features/ai'
+import { formatTokens, ReplyStatus } from '@/features/ai'
 import { useStore } from '@/lib/store'
 import { interrupted, liveAnswersStore } from '../chat'
 import type { Message, SourceRef } from '../types'
@@ -110,13 +110,7 @@ export function MessageItem({
       {text ? (
         <Answer text={text} sources={sources} />
       ) : writing ? (
-        <p
-          className="flex items-center gap-2 text-sm text-fg-subtle"
-          role="status"
-        >
-          <span className="size-2 animate-pulse rounded-full bg-orange-400" />
-          Thinking…
-        </p>
+        <ReplyStatus since={Date.parse(message.createdAt)} />
       ) : null}
       {message.error && (
         <p className="mt-2 flex items-start gap-1.5 text-sm text-rose-300 light:text-rose-600">
@@ -128,7 +122,11 @@ export function MessageItem({
         {message.stopped && <span>Stopped.</span>}
         {cutOff && <span>The page closed before this finished.</span>}
         {message.stopReason === 'max-tokens' && (
-          <span>Cut short at the length limit.</span>
+          <span>
+            {text
+              ? 'Cut off at the length limit.'
+              : 'Cut off at the length limit while thinking: no answer came.'}
+          </span>
         )}
         {message.stopReason === 'refusal' && (
           <span>The model declined to answer.</span>

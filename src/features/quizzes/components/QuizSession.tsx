@@ -11,7 +11,10 @@ import {
   describeAiError,
   isAiError,
   PROVIDERS,
+  ReplyStatus,
+  startReply,
   useAiReadiness,
+  type ReplyProgress,
 } from '@/features/ai'
 import { MarkdownView } from '@/features/notes/view'
 import { cn } from '@/lib/cn'
@@ -64,6 +67,7 @@ export function QuizSession({
   const shown = useRef(shownId)
   const [written, setWritten] = useState('')
   const [checking, setChecking] = useState(false)
+  const [progress, setProgress] = useState<ReplyProgress>({ since: 0 })
   const [checkProblem, setCheckProblem] = useState<string | null>(null)
   const controller = useRef<AbortController | null>(null)
   // Whether a check is under way, read when a key is pressed twice quickly.
@@ -123,12 +127,17 @@ export function QuizSession({
       return
     checkingNow.current = true
     setChecking(true)
+    setProgress(startReply())
     setCheckProblem(null)
     const asking = new AbortController()
     controller.current = asking
     try {
       const grade = await checkAnswer(current, given.text, {
         signal: asking.signal,
+        onProgress: (phase) =>
+          setProgress((latest) =>
+            controller.current === asking ? { ...latest, phase } : latest,
+          ),
       })
       if (asking.signal.aborted || shown.current !== current.id) return
       update(
@@ -285,6 +294,7 @@ export function QuizSession({
                 ? {
                     provider: PROVIDERS[readiness.provider].label,
                     checking,
+                    progress,
                     problem: checkProblem,
                     onCheck: () => void check(),
                   }
@@ -423,6 +433,7 @@ function ShortAnswer({
   ai: {
     provider: string
     checking: boolean
+    progress: ReplyProgress
     problem: string | null
     onCheck: () => void
   } | null
@@ -508,10 +519,18 @@ function ShortAnswer({
                   G
                 </span>
               </button>
-              <p className="text-xs text-fg-subtle">
-                Sends the question, the model answer and your answer to{' '}
-                {ai.provider}.
-              </p>
+              {ai.checking ? (
+                <ReplyStatus
+                  since={ai.progress.since}
+                  phase={ai.progress.phase}
+                  className="text-xs"
+                />
+              ) : (
+                <p className="text-xs text-fg-subtle">
+                  Sends the question, the model answer and your answer to{' '}
+                  {ai.provider}.
+                </p>
+              )}
             </div>
           )}
           {ai?.problem && (

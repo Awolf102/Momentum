@@ -8,7 +8,14 @@ import {
 } from '@/components/icons'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { SettingsCard } from '@/components/SettingsCard'
-import { describeAiError, SendPreview, useAiReadiness } from '@/features/ai'
+import {
+  describeAiError,
+  ReplyStatus,
+  SendPreview,
+  startReply,
+  useAiReadiness,
+  type ReplyProgress,
+} from '@/features/ai'
 import {
   estimateTokens,
   fitSource,
@@ -210,6 +217,8 @@ function FromSource({
   const [count, setCount] = useState<(typeof COUNTS)[number]>(10)
   const [previewing, setPreviewing] = useState(false)
   const [asking, setAsking] = useState(false)
+  const [progress, setProgress] = useState<ReplyProgress>({ since: 0 })
+  const [cutOff, setCutOff] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const controller = useRef<AbortController | null>(null)
   useEffect(() => () => controller.current?.abort(), [])
@@ -218,15 +227,24 @@ function FromSource({
     if (!fitted) return
     setPreviewing(false)
     setAsking(true)
+    setProgress(startReply())
+    setCutOff(false)
     setProblem(null)
     controller.current = new AbortController()
     try {
-      const suggested = await suggestCards(fitted.source, {
+      const { cards: suggested, cutOff } = await suggestCards(fitted.source, {
         count,
         signal: controller.current.signal,
+        onProgress: (phase) =>
+          setProgress((current) => ({ ...current, phase })),
       })
+      setCutOff(cutOff)
       if (suggested.length === 0) {
-        setProblem('No cards came back. Try again, or with more of the text.')
+        setProblem(
+          cutOff
+            ? 'The reply was cut off at the length limit before a whole card came through. Try fewer cards, or a longer limit in Settings → AI.'
+            : 'No cards came back. Try again, or with more of the text.',
+        )
         return
       }
       setDrafts((list) => {
@@ -368,7 +386,16 @@ function FromSource({
                   Stop
                 </button>
               )}
+              {asking && (
+                <ReplyStatus since={progress.since} phase={progress.phase} />
+              )}
             </div>
+            {cutOff && !asking && !problem && (
+              <p className="text-xs text-fg-subtle">
+                The reply was cut off at the length limit, so some cards may be
+                missing: the whole ones that came through are below.
+              </p>
+            )}
             {fitted && fitted.characters === 0 && (
               <p className="text-xs text-fg-subtle">
                 There’s no text to send{document ? ' (a scanned PDF?)' : ''}.

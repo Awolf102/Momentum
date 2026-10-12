@@ -36,13 +36,17 @@ import type {
   ShortQuestion,
 } from './types'
 
-const sent = vi.hoisted(() => ({ requests: [] as unknown[], reply: '' }))
+const sent = vi.hoisted(() => ({
+  requests: [] as unknown[],
+  reply: '',
+  stopReason: 'end',
+}))
 
 vi.mock('@/features/ai', () => ({
   ai: {
     complete: async (request: unknown) => {
       sent.requests.push(request)
-      return { text: sent.reply, stopReason: 'end' }
+      return { text: sent.reply, stopReason: sent.stopReason }
     },
   },
 }))
@@ -120,14 +124,16 @@ describe('the request for a quiz', () => {
     const material: SourceText[] = [
       { kind: 'document', title: 'Lecture 5', parts: [{ page: 2, text: 'x' }] },
     ]
-    const questions = await writeQuestions(
+    const { questions, cutOff } = await writeQuestions(
       material,
       [{ kind: 'document', id: 'lecture', pages: [2] }],
       { count: 5, mix: 'choice', random: () => 0 },
     )
+    expect(cutOff).toBe(false)
     expect(sent.requests).toHaveLength(1)
     expect(sent.requests[0]).toMatchObject({
       system: QUIZ_SYSTEM,
+      feature: 'quizzes',
       messages: [
         {
           role: 'user',
@@ -144,6 +150,27 @@ describe('the request for a quiz', () => {
     expect(first.answer).not.toBe(0)
     expect(first.choices[first.answer]).toBe('NAND')
     expect(first.source).toEqual({ kind: 'document', id: 'lecture', page: 2 })
+  })
+})
+
+describe('a reply cut off at the length limit', () => {
+  it('keeps the whole questions, and says so', async () => {
+    sent.stopReason = 'max-tokens'
+    sent.reply =
+      '[{"kind":"short","question":"Why?","answer":"Because."},{"kind":"short","question":"Wh'
+    const { questions, cutOff } = await writeQuestions(
+      [{ kind: 'note', title: 'Gates', parts: [{ page: null, text: 'x' }] }],
+      [{ kind: 'note', id: 'gates', pages: null }],
+      { count: 5, mix: 'short' },
+    )
+    expect(cutOff).toBe(true)
+    expect(questions.map((question) => question.prompt)).toEqual(['Why?'])
+    // A mark cut off before it came says so, rather than "couldn’t be read".
+    sent.reply = '{"mark": "par'
+    await expect(checkAnswer(short, 'A bit')).rejects.toThrow(
+      /cut off at the length limit/,
+    )
+    sent.stopReason = 'end'
   })
 })
 

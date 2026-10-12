@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { describeAiError, isAiError, useAiReadiness } from '@/features/ai'
+import {
+  describeAiError,
+  isAiError,
+  startReply,
+  useAiReadiness,
+  type ReplyProgress,
+} from '@/features/ai'
 import { estimateTokens } from '@/features/ai/material'
 import type { DateKey } from '@/lib/date'
 import { createStore, useStore } from '@/lib/store'
@@ -36,6 +42,7 @@ export function usePlanMyDay(day: DateKey) {
   const current = useStore(planDraftStore)
   const [previewing, setPreviewing] = useState(false)
   const [drafting, setDrafting] = useState(false)
+  const [progress, setProgress] = useState<ReplyProgress>({ since: 0 })
   const [problem, setProblem] = useState<string | null>(null)
   const [retrying, setRetrying] = useState<string | null>(null)
   const controller = useRef<AbortController | null>(null)
@@ -118,12 +125,15 @@ export function usePlanMyDay(day: DateKey) {
     setPreviewing(false)
     if (!chosen) return
     setDrafting(true)
+    setProgress(startReply())
     setProblem(null)
     setRetrying(null)
     controller.current = new AbortController()
     try {
       const draft = await draftPlan(chosen, {
         signal: controller.current.signal,
+        onProgress: (phase) =>
+          setProgress((current) => ({ ...current, phase })),
         onRetry: (info) =>
           setRetrying(
             `Busy, trying again in ${Math.max(1, Math.round(info.delayMs / 1000))} s`,
@@ -131,9 +141,11 @@ export function usePlanMyDay(day: DateKey) {
       })
       if (draft.blocks.length === 0) {
         setProblem(
-          draft.note
-            ? `Nothing came back that fits: ${draft.note}`
-            : 'Nothing came back that fits. Try again, or free up some time.',
+          draft.cutOff
+            ? 'The reply was cut off at the length limit before a whole block came through. Try a longer limit in Settings → AI.'
+            : draft.note
+              ? `Nothing came back that fits: ${draft.note}`
+              : 'Nothing came back that fits. Try again, or free up some time.',
         )
         return
       }
@@ -174,6 +186,7 @@ export function usePlanMyDay(day: DateKey) {
     tokens,
     send: () => void send(),
     drafting,
+    progress,
     stop: () => controller.current?.abort(),
     problem,
     retrying,
