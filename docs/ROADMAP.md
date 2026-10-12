@@ -648,3 +648,23 @@ step-by-step checks in each PR.
   the Dock app is added from there, and Settings → AI shows the origin of
   whichever copy you're in and warns before sending anything the browser
   would refuse.
+
+### What chat on this device changed in the plan
+
+- **WebLLM, not Transformers.js.** Both have working Qwen3.5 builds now.
+  WebLLM gives each build's memory need, keeps weights in shards (so a
+  download resumes), and has Qwen's thinking switch, a length cap and
+  interrupting built in; Transformers.js would bring its Node-only parts and
+  a second ONNX Runtime. The MiniLM approach carries over: a worker over
+  `lib/rpc.ts`, Cache Storage, progress, Remove, sleeping when unused.
+- **Downloading doesn't load it.** The download stops as soon as the files
+  are here, before the weights go on the GPU, so an 8 GB Mac isn't asked to
+  hold the model until it's used.
+- **The model ids are built in,** as MiniLM's is: they're WebLLM's builds for
+  the pinned version, not a provider's list, and a test checks them
+  against WebLLM's.
+- **A longer context than WebLLM's default** (16K tokens; 8K for 4B), so
+  cards and quizzes from long material fit; a request still too long says
+  so.
+- **Text only.** These builds don't read pictures, so notes from photos
+  says to choose another provider.
